@@ -1,0 +1,292 @@
+﻿# Component Design
+
+## 1. EPON Controller (Main Component)
+
+### Responsibilities
+- Initialize all subsystems (logger, RBus, telemetry, HAL)
+- Coordinate between threads and modules
+- Main event loop and lifecycle management
+- Resource cleanup on shutdown
+
+### Initialization Sequence
+
+```
+epon_controller_init()
+  > logger_init()
+  > rbus_thread_start()
+  > telemetry_init()
+  > hal_init()
+  > hal_event_listener_start()
+  > stats_polling_thread_start()
+```
+
+### Key Functions
+- System initialization and startup
+- Thread creation and management
+- Graceful shutdown handling
+- Error recovery coordination
+
+---
+
+## 2. HAL Event Listener Thread
+
+### Responsibilities
+- Listen for events from EPON HAL event queue
+- Parse and categorize incoming events
+- Dispatch events to appropriate handlers
+- Maintain event processing statistics
+
+### Event Types Handled
+
+#### epon_onu_status Event
+- **Link UP**: Triggers interface list retrieval and WanManager update
+- **Link DOWN**: Triggers PHY status down notification
+
+#### epon_hal_alarm Event
+- Logs alarm with severity level
+- Raises telemetry event for critical alarms
+
+### Event Processing Flow
+
+```mermaid
+flowchart TD
+    A[HAL Event Queue] -->|Poll Event| B{Event Type?}
+    B -->|epon_onu_status| C{Link Status?}
+    B -->|epon_hal_alarm| D[Log Alarm]
+    
+    C -->|Link UP| E[Call epon_hal_get_interface_list]
+    C -->|Link DOWN| F[Update PHY Status DOWN]
+    
+    E --> G[Update EPON PHY Status UP]
+    G --> H[Update Virtual Interface List]
+    H --> I[Notify WanManager via RBus]
+    
+    F --> I
+    
+    D --> J{Severity Check}
+    J -->|Critical/Error| K[Raise Telemetry Event]
+    J -->|Warning/Info| L[Log Only]
+    
+    K --> M[End]
+    L --> M
+    I --> M
+```
+
+---
+
+## 3. Stats Polling Thread (Harvester)
+
+### Responsibilities
+- Periodically poll statistics from EPON HAL
+- Update internal cache with fresh data
+- Push statistics to telemetry system
+- Maintain polling schedule
+
+### Configuration
+- **Default Interval**: 15 minutes (900 seconds)
+- **Configurable**: Via configuration file
+- **Optional**: Can be disabled if not needed
+
+### Operation Flow
+
+```mermaid
+flowchart TD
+    A[Thread Start] --> B[Sleep/Wait Timer]
+    B -->|Interval elapsed| C[Poll EPON HAL Stats]
+    C --> D[Update Internal Cache]
+    D --> E[Update Telemetry]
+    E --> F{Thread Stop?}
+    F -->|No| B
+    F -->|Yes| G[Thread Exit]
+```
+
+### Statistics Collected
+- Interface statistics (TX/RX bytes, packets, errors)
+- ONU operational parameters
+- Link quality metrics
+- Performance counters
+
+---
+
+## 4. RBus/DBus Thread
+
+### Responsibilities
+- Initialize and maintain bus connection
+- Register TR-181 DML parameters
+- Handle incoming GET/SET requests
+- Publish events to other RDK components
+- Update WanManager with PHY status and interface list
+
+### TR-181 Request Handling
+
+```mermaid
+flowchart TD
+    A[RBus Request Received] --> B{Request Type?}
+    B -->|GET| C{Parameter Type?}
+    B -->|SET| D[Validate Parameter]
+    
+    C -->|Stats| E{Cache Valid?}
+    C -->|Config| F[Read from Memory]
+    
+    E -->|Yes <30s| G[Return Cached Value]
+    E -->|No >30s| H[Query HAL]
+    
+    H --> I[Update Cache]
+    I --> G
+    
+    F --> G
+    
+    D --> J[Apply to HAL]
+    J --> K[Update Internal State]
+    K --> L[Publish RBus Event]
+    L --> M[Return Success/Error]
+    
+    G --> M
+```
+
+### Key Operations
+- DML parameter registration
+- Request validation and processing
+- Cache-aware GET operations
+- Event publication
+- WanManager interface
+
+---
+
+## 5. Telemetry Module
+
+### Responsibilities
+- Register with T2 telemetry system
+- Format and report telemetry events
+- Submit periodic statistics
+- Handle telemetry markers
+
+### Integration Points
+- T2 telemetry service
+- Event formatting and submission
+- Statistics aggregation
+- Marker management
+
+### Event Types
+- **Link events**: UP/DOWN transitions
+- **Alarm events**: Critical/Error alarms
+- **Statistics events**: Periodic metrics
+- **Error events**: System errors
+
+---
+
+## 6. Logger Module
+
+### Responsibilities
+- Initialize RDK logger subsystem
+- Provide logging API wrapper
+- Support multiple log levels
+- Optional HAL logging integration
+
+### Log Levels
+
+| Level | Usage | Example |
+|-------|-------|---------|
+| **FATAL** | System-critical errors | Failed initialization |
+| **ERROR** | Component errors | HAL call failure |
+| **WARNING** | Abnormal conditions | Cache miss threshold |
+| **INFO** | Normal operations | Link status change |
+| **DEBUG** | Detailed debugging | Event queue details |
+
+### Features
+- Runtime log level configuration
+- Component-specific logging
+- HAL library integration (optional)
+- Thread-safe logging
+
+---
+
+## 7. Internal Memory Cache
+
+### Responsibilities
+- Cache statistics with TTL (Time To Live)
+- Provide thread-safe access
+- Automatic cache expiration
+- Memory management
+
+### Cache Entry Structure
+
+```c
+typedef struct {
+    char param_name[256];
+    void *value;
+    size_t value_size;
+    time_t timestamp;
+    uint32_t ttl_seconds;  // Default: 30
+} cache_entry_t;
+```
+
+### Cache Operations
+- **Set**: Store value with TTL
+- **Get**: Retrieve value if valid
+- **Invalidate**: Force cache expiration
+- **Cleanup**: Remove expired entries
+
+### Cache Policy
+- **TTL**: 30 seconds (default, configurable)
+- **Strategy**: Time-based expiration
+- **Thread Safety**: Mutex-protected
+- **Size Limit**: Configurable maximum entries
+
+---
+
+## Component Interaction
+
+```mermaid
+graph TB
+    subgraph EPON Controller
+        Init[Initialization<br/>Manager]
+        EventProc[Event<br/>Processor]
+        StateMan[State<br/>Manager]
+    end
+    
+    subgraph Supporting Components
+        RBus[RBus Interface]
+        HALIf[HAL Interface]
+        LogIf[Logger Interface]
+        TelIf[Telemetry Interface]
+        CacheIf[Cache Interface]
+    end
+    
+    Init -->|Initialize| RBus
+    Init -->|Initialize| HALIf
+    Init -->|Initialize| LogIf
+    Init -->|Initialize| TelIf
+    Init -->|Initialize| CacheIf
+    
+    EventProc -->|Process| HALIf
+    EventProc -->|Update| StateMan
+    EventProc -->|Publish| RBus
+    EventProc -->|Log| LogIf
+    
+    StateMan -->|Store| CacheIf
+    StateMan -->|Notify| RBus
+    
+    RBus -->|Queries| StateMan
+```
+
+---
+
+## Error Handling
+
+### Strategy
+- **Initialization Errors**: Retry with backoff, log and exit if persistent
+- **Runtime Errors**: Log, attempt recovery, continue operation
+- **Critical Errors**: Notify watchdog, trigger restart if needed
+
+### Recovery Mechanisms
+1. **HAL Failure**: Retry with exponential backoff (max 3 attempts)
+2. **RBus Disconnection**: Auto-reconnect with retry logic
+3. **Thread Crash**: Watchdog detection and restart
+4. **Cache Corruption**: Clear and rebuild cache
+5. **Memory Issues**: Cleanup and resource management
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** December 2, 2025
