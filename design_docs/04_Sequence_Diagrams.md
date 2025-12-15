@@ -9,8 +9,8 @@ sequenceDiagram
     participant Logger
     participant RBus as RBus Thread
     participant Telemetry
-    participant HAL
     participant EventListener
+    participant HAL
     participant StatsPoller
     
     Main->>Controller: epon_controller_init()
@@ -33,16 +33,16 @@ sequenceDiagram
     Telemetry-->>Controller: Success
     deactivate Telemetry
     
+    Controller->>EventListener: event_listener_start()
+    activate EventListener
+    EventListener->>EventListener: start_event_loop()
+    EventListener-->>Controller: Started
+    
     Controller->>HAL: hal_init()
     activate HAL
     HAL->>HAL: init_hardware()
     HAL-->>Controller: Success
     deactivate HAL
-    
-    Controller->>EventListener: event_listener_start()
-    activate EventListener
-    EventListener->>EventListener: start_event_loop()
-    EventListener-->>Controller: Started
     
     Controller->>StatsPoller: stats_poller_start()
     activate StatsPoller

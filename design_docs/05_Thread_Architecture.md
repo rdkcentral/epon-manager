@@ -142,7 +142,7 @@ while (running) {
 
 **Configuration:**
 - Default interval: 15 minutes (900 seconds)
-- Configurable via config file
+- Configurable
 - Can be disabled if not needed
 
 ---
@@ -286,7 +286,6 @@ if (stats_tid) {
 
 - Not set by default
 - Can be configured for real-time systems
-- Event Listener may benefit from dedicated core
 
 ### Memory Usage
 

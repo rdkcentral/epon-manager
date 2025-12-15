@@ -6,9 +6,11 @@
 
 ```mermaid
 graph TB
-    User[RDK Components/Users]
-    WM[WanManager]
-    T2[Telemetry System T2]
+    subgraph RDK
+        User[RDK Components/Users]
+        WM[WanManager]
+        T2[Telemetry System T2]
+    end
     
     subgraph RdkEponManager
         EPM[EPON Manager]
@@ -17,9 +19,9 @@ graph TB
     HAL[EPON HAL]
     HW[EPON ONU Hardware]
     
-    User -->|TR-181 Get/Set| EPM
-    EPM -->|PHY Status Updates| WM
-    EPM -->|Statistics/Events| T2
+    User <-->|TR-181 Get/Set| EPM
+    WM <-->|PHY Status Updates| EPM
+    T2 <-->|Statistics/Events| EPM
     EPM <-->|HAL API Calls| HAL
     HAL <-->|Hardware Control| HW
     
@@ -46,7 +48,7 @@ graph TB
         subgraph Workers["Worker Threads & Storage"]
             EventListener[HAL Event<br/>Listener Thread]
             StatsPoller[Stats Polling<br/>Thread]
-            Cache[(Internal<br/>Memory Cache)]
+            HALWrapper[HAL Wrapper<br/>with Cache]
             EventQ[Events<br/>Queue]
         end
         
@@ -66,7 +68,8 @@ graph TB
     Controller <--> EPONHAL
     EPONHAL -->|Push Events| EventQ
     EventListener -->|Poll Events| EventQ
-    StatsPoller --> StatsAPI
+    StatsPoller -->|Query Stats| HALWrapper
+    HALWrapper -->|HAL Calls| StatsAPI
     EPONHAL <--> HW
     RBus -.->|Updates via RBus| WanMgr
     
@@ -76,7 +79,7 @@ graph TB
     style EPONHAL fill:#E8F5E9,stroke:#388E3C
     style Controller fill:#4A90E2,stroke:#2E5C8A,color:#fff
     style HW fill:#FFEBEE,stroke:#C62828
-    style Cache fill:#FFD700,stroke:#B8860B
+    style HALWrapper fill:#FFD700,stroke:#B8860B
 ```
 
 ## C4 Model Diagrams
@@ -113,43 +116,54 @@ graph TB
 
 ```mermaid
 graph TB
+    subgraph RDK
+        User[RDK Components]
+        WanMgr[WanManager]
+        T2[T2 System]
+    end
+    HAL[EPON HAL]
+    
     subgraph RdkEponManager Process
-        Controller[EPON Controller<br/>Main Thread<br/>C Application]
-        RBusThread[RBus Thread<br/>TR-181 Handler<br/>C Thread]
-        EventListener[Event Listener<br/>HAL Event Handler<br/>C Thread]
-        StatsPoller[Stats Poller<br/>Harvester<br/>C Thread]
-        Logger[Logger Module<br/>RDK Logger Wrapper<br/>C Library]
-        Telemetry[Telemetry Module<br/>T2 Wrapper<br/>C Library]
-        Cache[Memory Cache<br/>Stats Cache<br/>In-Memory]
+        RBusThread[RBus Thread<br/>TR-181 Handler]
+        Logger[Logger Module<br/>RDK Logger Wrapper]
+        Controller[EPON Controller<br/>Main Thread]
+        EventListener[Event Listener<br/>HAL Event Handler]
+        StatsPoller[Stats Poller<br/>Harvester]
+        Telemetry[Telemetry Module<br/>T2 Wrapper]
+        HALWrapper[HAL Wrapper + Cache]
     end
     
-    User[RDK Components] -->|RBus Messages| RBusThread
+    User -->|RBus Messages| RBusThread
     RBusThread -->|Get/Set Requests| Controller
-    RBusThread -->|Read Cache| Cache
+    RBusThread -->|Read Cache| HALWrapper
+    WanMgr <-->|Notify| RBusThread
     
     Controller -->|Init/Control| EventListener
     Controller -->|Init/Control| StatsPoller
-    Controller -->|HAL Calls| HAL[EPON HAL]
+    Controller -->|HAL Calls| HAL
     
     EventListener -->|Receive Events| HAL
     EventListener -->|Update Status| RBusThread
     
-    StatsPoller -->|Poll Stats| HAL
-    StatsPoller -->|Update| Cache
-    StatsPoller -->|Report| Telemetry
+    StatsPoller -->|Poll Stats| HALWrapper
+    Telemetry -->|Report| StatsPoller
     
-    Controller -->|Log| Logger
-    EventListener -->|Log| Logger
-    StatsPoller -->|Log| Logger
-    RBusThread -->|Log| Logger
+    T2 -->|Send Events| Telemetry
     
-    RBusThread -->|Notify| WanMgr[WanManager]
-    Telemetry -->|Send Events| T2[T2 System]
+    HALWrapper -->|Forward Calls| HAL
+    
+    Controller -.->|Log| Logger
+    RBusThread -.->|Log| Logger
+    EventListener -.->|Log| Logger
+    StatsPoller -.->|Log| Logger
     
     style Controller fill:#1168bd,stroke:#0b4884,color:#ffffff
     style RBusThread fill:#438dd5,stroke:#2e6295,color:#ffffff
     style EventListener fill:#438dd5,stroke:#2e6295,color:#ffffff
     style StatsPoller fill:#438dd5,stroke:#2e6295,color:#ffffff
+    style HALWrapper fill:#FFD700,stroke:#B8860B,color:#000000
+    style Telemetry fill:#438dd5,stroke:#2e6295,color:#ffffff
+    style Logger fill:#F5F5F5,stroke:#999999,stroke-dasharray: 1 1
 ```
 
 ## Controller State Machine
@@ -168,31 +182,8 @@ stateDiagram-v2
 ```
 
 ## TR-181 Data Model
+#TODO
 
-```
-Device.Ethernet.Link.{i}.
- Enable
- Status
- Name
- MACAddress
- Stats.
-    BytesSent
-    BytesReceived
-    PacketsSent
-    PacketsReceived
-    ErrorsSent
-    ErrorsReceived
-
-Device.EPON.
- ONU.{i}.
-   Enable
-   Status
-   LLID
-   MACAddress
- Link.{i}.
-    Status
-    InterfaceList
-```
 
 ## System Layers
 

@@ -15,8 +15,9 @@ epon_controller_init()
   > logger_init()
   > rbus_thread_start()
   > telemetry_init()
-  > hal_init()
+  > epon_data_init()
   > hal_event_listener_start()
+  > hal_init()
   > stats_polling_thread_start()
 ```
 
@@ -58,7 +59,7 @@ flowchart TD
     C -->|Link DOWN| F[Update PHY Status DOWN]
     
     E --> G[Update EPON PHY Status UP]
-    G --> H[Update Virtual Interface List]
+    G --> H[Update Virtual Interface List in WanManager]
     H --> I[Notify WanManager via RBus]
     
     F --> I
@@ -84,7 +85,7 @@ flowchart TD
 
 ### Configuration
 - **Default Interval**: 15 minutes (900 seconds)
-- **Configurable**: Via configuration file
+- **Configurable**: Via rbus 
 - **Optional**: Can be disabled if not needed
 
 ### Operation Flow
@@ -92,12 +93,16 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Thread Start] --> B[Sleep/Wait Timer]
-    B -->|Interval elapsed| C[Poll EPON HAL Stats]
-    C --> D[Update Internal Cache]
-    D --> E[Update Telemetry]
-    E --> F{Thread Stop?}
-    F -->|No| B
-    F -->|Yes| G[Thread Exit]
+    B -->|Interval elapsed| C[Call epon_hal_get_stats]
+    C --> D{Cache Valid?}
+    D -->|Yes| E[Get Cached Value]
+    D -->|No| F[HAL Wrapper Calls HAL API]
+    F --> G[Update Cache]
+    E --> H[Update Telemetry with Stats]
+    G --> H
+    H --> I{Thread Stop?}
+    I -->|No| B
+    I -->|Yes| J[Thread Exit]
 ```
 
 ### Statistics Collected
@@ -125,23 +130,24 @@ flowchart TD
     B -->|GET| C{Parameter Type?}
     B -->|SET| D[Validate Parameter]
     
-    C -->|Stats| E{Cache Valid?}
+    C -->|Stats| E[Call epon_hal_get_stats]
     C -->|Config| F[Read from Memory]
     
-    E -->|Yes <30s| G[Return Cached Value]
-    E -->|No >30s| H[Query HAL]
+    E --> G{Cache Valid?}
+    G -->|Yes TTL < 30s| H[Return Cached Value]
+    G -->|No TTL > 30s| I[HAL Wrapper Calls HAL]
+    I --> J[Update Cache]
+    J --> H
     
-    H --> I[Update Cache]
-    I --> G
+    F --> H
     
-    F --> G
+    D --> K[Apply to HAL]
+    K --> L[Invalidate Relevant Cache Entries]
+    L --> M[Update Internal State]
+    M --> N[Publish RBus Event]
+    N --> O[Return Success/Error]
     
-    D --> J[Apply to HAL]
-    J --> K[Update Internal State]
-    K --> L[Publish RBus Event]
-    L --> M[Return Success/Error]
-    
-    G --> M
+    H --> O
 ```
 
 ### Key Operations
@@ -201,76 +207,45 @@ flowchart TD
 
 ---
 
-## 7. Internal Memory Cache
+## 7. HAL Wrapper with Cache
 
 ### Responsibilities
+- Provide abstraction layer for HAL calls
 - Cache statistics with TTL (Time To Live)
-- Provide thread-safe access
-- Automatic cache expiration
-- Memory management
+- Check cache validity before making HAL calls
+- Thread-safe access with automatic expiration
+- Forward calls to HAL only when cache miss occurs
+- Memory management for cached data
 
-### Cache Entry Structure
+### Architecture
 
-```c
-typedef struct {
-    char param_name[256];
-    void *value;
-    size_t value_size;
-    time_t timestamp;
-    uint32_t ttl_seconds;  // Default: 30
-} cache_entry_t;
+```mermaid
+flowchart TD
+    A[Request from Worker Thread] --> B{Cache Valid?}
+    B -->|Yes TTL < 30s| C[Return Cached Value]
+    B -->|No TTL > 30s| D[Call HAL API]
+    D --> E[Update Cache Entry]
+    E --> F[Return Value]
+    C --> F
+    F --> G[Return to Caller]
 ```
 
+
+
 ### Cache Operations
-- **Set**: Store value with TTL
-- **Get**: Retrieve value if valid
+- **Get**: Retrieve value with cache validity check
+- **Set**: Store value and invalidate if needed
 - **Invalidate**: Force cache expiration
 - **Cleanup**: Remove expired entries
 
 ### Cache Policy
 - **TTL**: 30 seconds (default, configurable)
-- **Strategy**: Time-based expiration
-- **Thread Safety**: Mutex-protected
-- **Size Limit**: Configurable maximum entries
+- **Strategy**: Time-based expiration with lazy cleanup
+- **Thread Safety**: Mutex-protected (RW lock recommended)
+- **Bypass**: Controller can bypass cache for direct HAL calls
 
 ---
 
-## Component Interaction
-
-```mermaid
-graph TB
-    subgraph EPON Controller
-        Init[Initialization<br/>Manager]
-        EventProc[Event<br/>Processor]
-        StateMan[State<br/>Manager]
-    end
-    
-    subgraph Supporting Components
-        RBus[RBus Interface]
-        HALIf[HAL Interface]
-        LogIf[Logger Interface]
-        TelIf[Telemetry Interface]
-        CacheIf[Cache Interface]
-    end
-    
-    Init -->|Initialize| RBus
-    Init -->|Initialize| HALIf
-    Init -->|Initialize| LogIf
-    Init -->|Initialize| TelIf
-    Init -->|Initialize| CacheIf
-    
-    EventProc -->|Process| HALIf
-    EventProc -->|Update| StateMan
-    EventProc -->|Publish| RBus
-    EventProc -->|Log| LogIf
-    
-    StateMan -->|Store| CacheIf
-    StateMan -->|Notify| RBus
-    
-    RBus -->|Queries| StateMan
-```
-
----
 
 ## Error Handling
 
