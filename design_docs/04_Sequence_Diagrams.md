@@ -38,9 +38,12 @@ sequenceDiagram
     EventListener->>EventListener: start_event_loop()
     EventListener-->>Controller: Started
     
-    Controller->>HAL: hal_init()
+    Controller->>HAL: hal_init(callbacks)
     activate HAL
     HAL->>HAL: init_hardware()
+    HAL->>HAL: register_onu_status_callback()
+    HAL->>HAL: register_interface_status_callback()
+    HAL->>HAL: register_alarm_callback()
     HAL-->>Controller: Success
     deactivate HAL
     
@@ -57,12 +60,56 @@ sequenceDiagram
 
 ---
 
-## 2. Link UP Event Sequence
+## 2. ONU Registration Event Sequence (Internal State Only)
 
 ```mermaid
 sequenceDiagram
+    participant HW as EPON ONU Hardware
     participant HAL as EPON HAL
-    participant EventQ as Event Queue
+    participant EventL as Event Listener
+    participant Controller
+    participant Cache
+    participant Logger
+    participant Telem as Telemetry
+    
+    HW->>HAL: ONU Registration Complete
+    
+    HAL->>EventL: onu_status_callback(REGISTRATION)
+    activate EventL
+    
+    EventL->>Controller: processONUStatus(REGISTRATION)
+    activate Controller
+    
+    Controller->>Cache: update_internal_onu_status(UP)
+    activate Cache
+    Cache-->>Controller: OK
+    deactivate Cache
+    
+    Controller->>Logger: log(INFO, "ONU Registered")
+    activate Logger
+    Logger-->>Controller: OK
+    deactivate Logger
+    
+    Controller->>Telem: report_event(ONU_REGISTERED)
+    activate Telem
+    Telem-->>Controller: OK
+    deactivate Telem
+    
+    Controller-->>EventL: Processed
+    deactivate Controller
+    deactivate EventL
+    
+    Note over HW,Telem: No WanManager update - waiting for interface callbacks
+```
+
+---
+
+## 3. Interface Link UP Event Sequence
+
+```mermaid
+sequenceDiagram
+    participant HW as EPON ONU Hardware
+    participant HAL as EPON HAL
     participant EventL as Event Listener
     participant Controller
     participant Cache
@@ -70,44 +117,41 @@ sequenceDiagram
     participant WanMgr as WanManager
     participant Telem as Telemetry
     
-    HAL->>EventQ: push(ONU_STATUS_UP)
-    activate EventQ
-    EventQ-->>HAL: OK
-    deactivate EventQ
+    HW->>HAL: Interface veip0 Link UP
     
-    EventL->>EventQ: pop()
+    HAL->>EventL: interface_status_callback(veip0, LINK_UP)
     activate EventL
-    EventQ-->>EventL: ONU_STATUS_UP event
     
-    EventL->>Controller: processEvent(ONU_STATUS_UP)
+    EventL->>Controller: processInterfaceStatus(veip0, LINK_UP)
     activate Controller
     
-    Controller->>HAL: epon_hal_get_interface_list()
-    activate HAL
-    HAL-->>Controller: interface_list[]
-    deactivate HAL
-    
-    Controller->>Cache: update_interface_list(list)
+    Controller->>Cache: update_interface_status(veip0, UP)
     activate Cache
+    Cache->>Cache: add_to_interface_list(veip0)
     Cache-->>Controller: OK
     deactivate Cache
     
-    Controller->>RBus: publish_status_event(PHY_UP)
-    activate RBus
-    RBus->>WanMgr: update_virtual_interface_list(list)
-    activate WanMgr
-    WanMgr-->>RBus: ACK
-    deactivate WanMgr
-    RBus->>WanMgr: notify(EPON_PHY_STATUS_UP)
-    activate WanMgr
-    WanMgr-->>RBus: ACK
-    deactivate WanMgr
+    Controller->>Controller: Check if first interface UP
     
-
+    Controller->>RBus: publish_interface_event(veip0, UP)
+    activate RBus
+    
+    alt First Interface Coming UP
+        RBus->>WanMgr: notify(EPON_PHY_STATUS_UP)
+        activate WanMgr
+        WanMgr-->>RBus: ACK
+        deactivate WanMgr
+        Note over RBus,WanMgr: PHY goes UP when any interface is UP
+    end
+    
+    RBus->>WanMgr: update_virtual_interface(veip0, AVAILABLE)
+    activate WanMgr
+    WanMgr-->>RBus: ACK
+    deactivate WanMgr
     RBus-->>Controller: OK
     deactivate RBus
     
-    Controller->>Telem: report_event(LINK_UP)
+    Controller->>Telem: report_event(INTERFACE_UP, veip0)
     activate Telem
     Telem-->>Controller: OK
     deactivate Telem
@@ -119,33 +163,63 @@ sequenceDiagram
 
 ---
 
-## 3. Link DOWN Event Sequence
+## 4. Interface Link DOWN Event Sequence
 
 ```mermaid
 sequenceDiagram
+    participant HW as EPON ONU Hardware
     participant HAL as EPON HAL
     participant EventL as Event Listener
     participant Controller
+    participant Cache
     participant RBus
     participant WanMgr as WanManager
+    participant Telem as Telemetry
     participant Logger
     
-    HAL->>EventL: epon_onu_status(DOWN)
+    HW->>HAL: Interface veip0 Link DOWN
+    
+    HAL->>EventL: interface_status_callback(veip0, LINK_DOWN)
     activate EventL
     
-    EventL->>Controller: processEvent(ONU_STATUS_DOWN)
+    EventL->>Controller: processInterfaceStatus(veip0, LINK_DOWN)
     activate Controller
     
-    Controller->>Logger: log(INFO, "Link DOWN detected")
+    Controller->>Logger: log(WARNING, "Interface veip0 DOWN")
+    activate Logger
+    Logger-->>Controller: OK
+    deactivate Logger
     
-    Controller->>RBus: publish_status_event(PHY_DOWN)
+    Controller->>Cache: update_interface_status(veip0, DOWN)
+    activate Cache
+    Cache->>Cache: remove_from_interface_list(veip0)
+    Cache-->>Controller: OK
+    deactivate Cache
+    
+    Controller->>Controller: Check if all interfaces DOWN
+    
+    Controller->>RBus: publish_interface_event(veip0, DOWN)
     activate RBus
-    RBus->>WanMgr: notify(EPON_PHY_STATUS_DOWN)
+    RBus->>WanMgr: update_virtual_interface(veip0, UNAVAILABLE)
     activate WanMgr
     WanMgr-->>RBus: ACK
     deactivate WanMgr
+    
+    alt All Interfaces Now DOWN
+        RBus->>WanMgr: notify(EPON_PHY_STATUS_DOWN)
+        activate WanMgr
+        WanMgr-->>RBus: ACK
+        deactivate WanMgr
+        Note over RBus,WanMgr: PHY goes DOWN only when all interfaces are DOWN
+    end
+    
     RBus-->>Controller: OK
     deactivate RBus
+    
+    Controller->>Telem: report_event(INTERFACE_DOWN, veip0)
+    activate Telem
+    Telem-->>Controller: OK
+    deactivate Telem
     
     Controller-->>EventL: Processed
     deactivate Controller
@@ -154,7 +228,51 @@ sequenceDiagram
 
 ---
 
-## 4. TR-181 GET Request with Cache
+## 5. ONU Deregistration Event Sequence (Internal State Only)
+
+```mermaid
+sequenceDiagram
+    participant HW as EPON ONU Hardware
+    participant HAL as EPON HAL
+    participant EventL as Event Listener
+    participant Controller
+    participant Cache
+    participant Logger
+    participant Telem as Telemetry
+    
+    HW->>HAL: ONU Deregistration / LOS
+    
+    HAL->>EventL: onu_status_callback(DEREGISTRATION)
+    activate EventL
+    
+    EventL->>Controller: processONUStatus(DEREGISTRATION)
+    activate Controller
+    
+    Controller->>Logger: log(WARNING, "ONU Deregistered")
+    activate Logger
+    Logger-->>Controller: OK
+    deactivate Logger
+    
+    Controller->>Cache: update_internal_onu_status(DOWN)
+    activate Cache
+    Cache-->>Controller: OK
+    deactivate Cache
+    
+    Controller->>Telem: report_event(ONU_DEREGISTERED)
+    activate Telem
+    Telem-->>Controller: OK
+    deactivate Telem
+    
+    Controller-->>EventL: Processed
+    deactivate Controller
+    deactivate EventL
+    
+    Note over HW,Telem: No WanManager update - interface callbacks handle that
+```
+
+---
+
+## 6. TR-181 GET Request with Cache
 
 ```mermaid
 sequenceDiagram
@@ -201,7 +319,7 @@ sequenceDiagram
 
 ---
 
-## 5. TR-181 SET Request
+## 7. TR-181 SET Request
 
 ```mermaid
 sequenceDiagram
@@ -249,7 +367,7 @@ sequenceDiagram
 
 ---
 
-## 6. Stats Harvesting Sequence
+## 8. Stats Harvesting Sequence
 
 ```mermaid
 sequenceDiagram
@@ -293,7 +411,7 @@ sequenceDiagram
 
 ---
 
-## 7. Alarm Event Sequence
+## 9. Alarm Event Sequence
 
 ```mermaid
 sequenceDiagram
@@ -333,7 +451,7 @@ sequenceDiagram
 
 ---
 
-## 8. Error Recovery Sequence
+## 10. Error Recovery Sequence
 
 ```mermaid
 sequenceDiagram

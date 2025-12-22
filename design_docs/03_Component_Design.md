@@ -18,6 +18,9 @@ epon_controller_init()
   > epon_data_init()
   > hal_event_listener_start()
   > hal_init()
+      - Register onu_status_callback
+      - Register interface_status_callback
+      - Register alarm_callback
   > stats_polling_thread_start()
 ```
 
@@ -32,45 +35,85 @@ epon_controller_init()
 ## 2. HAL Event Listener Thread
 
 ### Responsibilities
-- Listen for events from EPON HAL event queue
-- Parse and categorize incoming events
+- Receive events from EPON HAL via registered callbacks
+- Parse and categorize incoming events (ONU status and interface status)
 - Dispatch events to appropriate handlers
 - Maintain event processing statistics
 
 ### Event Types Handled
 
-#### epon_onu_status Event
-- **Link UP**: Triggers interface list retrieval and WanManager update
-- **Link DOWN**: Triggers PHY status down notification
+#### ONU Status Callback Events (epon_onu_status_t)
+Simplified overall ONU status. **These events are for internal state tracking and logging only—they do NOT trigger WanManager updates.**
 
-#### epon_hal_alarm Event
-- Logs alarm with severity level
-- Raises telemetry event for critical alarms
+**Respective `epon_onu_interface_status_t` should be updated by the HAL in case of ONU status changes.**
+
+- **EPON_ONU_STATUS_LOS** (Loss of Signal):
+  - Update internal EPON ONU status to DOWN
+  - Log event with WARNING severity
+  - Raise telemetry event
+
+- **EPON_ONU_STATUS_DOWNSTREAM_SIGNAL_DETECTED**:
+  - Update internal EPON ONU status to Initializing
+  - Log transition state
+
+- **EPON_ONU_STATUS_REGISTRATION**:
+  - Update internal EPON ONU status to UP
+  - Log successful registration
+  - Raise telemetry event
+
+- **EPON_ONU_STATUS_DEREGISTRATION**:
+  - Update internal EPON ONU status to DOWN
+  - Log deregistration event
+  - Raise telemetry event
+
+#### Interface Status Callback Events (epon_onu_interface_status_t)
+**PRIMARY EVENT**: Per-interface status changes for virtual interfaces (veip0, veip1, etc.). **These events trigger WanManager updates.**
+
+- **Interface LINK_UP** (e.g., veip0):
+  - Update interface status in internal cache
+  - Add interface to active interface list
+  - **Notify WanManager of interface availability via RBus** (primary action)
+        - If any of the interfaces go UP, WanManager should be notified that EPON PHY is UP
+        - Update WanManager virtual interface list with interface name and status
+  - Raise telemetry event for interface UP
+  
+- **Interface LINK_DOWN** (e.g., veip0):
+  - Update interface status in internal cache  
+  - Remove interface from active interface list
+  - **Notify WanManager of interface down via RBus** (primary action)
+        - If all of the interfaces go DOWN, WanManager should be notified that EPON PHY is DOWN
+        - Update WanManager virtual interface list with interface name and status
+  - Raise telemetry event for interface DOWN
 
 ### Event Processing Flow
 
 ```mermaid
 flowchart TD
-    A[HAL Event Queue] -->|Poll Event| B{Event Type?}
-    B -->|epon_onu_status| C{Link Status?}
-    B -->|epon_hal_alarm| D[Log Alarm]
+    A[HAL Callbacks] -->|Invoke| B{Callback Type?}
+    B -->|ONU Status| C{Status?}
+    B -->|Interface Status| D{Link Status?}
     
-    C -->|Link UP| E[Call epon_hal_get_interface_list]
-    C -->|Link DOWN| F[Update PHY Status DOWN]
+    C -->|REGISTRATION| E[Update Internal ONU Status UP]
+    C -->|DEREGISTRATION| F[Update Internal ONU Status DOWN]
+    C -->|LOS| F
+    C -->|DOWNSTREAM_SIGNAL_DETECTED| G[Update Internal ONU Status Initializing]
     
-    E --> G[Update EPON PHY Status UP]
-    G --> H[Update Virtual Interface List in WanManager]
-    H --> I[Notify WanManager via RBus]
+    D -->|LINK_UP veip0/veip1| H[Update Interface Status UP]
+    D -->|LINK_DOWN veip0/veip1| I[Update Interface Status DOWN]
     
-    F --> I
+    E --> J[Log & Raise Telemetry]
+    F --> J
+    G --> J
     
-    D --> J{Severity Check}
-    J -->|Critical/Error| K[Raise Telemetry Event]
-    J -->|Warning/Info| L[Log Only]
+    H --> L[Update Interface List Cache]
+    L --> M[PRIMARY: Notify WanManager Interface Available with Name]
     
-    K --> M[End]
-    L --> M
-    I --> M
+    I --> N[Update Interface List Cache]
+    N --> O[PRIMARY: Notify WanManager Interface Down with Name]
+    
+    J --> P[End - No WanManager Update]
+    M --> Q[End]
+    O --> Q
 ```
 
 ---

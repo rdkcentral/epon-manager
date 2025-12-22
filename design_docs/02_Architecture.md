@@ -58,15 +58,18 @@ graph TB
     
     subgraph EPONHAL["EPON HAL"]
         StatsAPI[Stats<br/>API]
+        CallbackReg[Callback<br/>Registration]
         InterfaceAPI[Interface<br/>List API]
-        AlarmAPI[Alarms<br/>API]
     end
     
     HW[Hardware<br/>EPON ONU]
     WanMgr[WanManager<br/>EPON PHY Status<br/>Virtual Interface List]
     
     Controller <--> EPONHAL
-    EPONHAL -->|Push Events| EventQ
+    Controller -->|Register Callbacks| CallbackReg
+    CallbackReg -->|ONU Status Events| EventQ
+    CallbackReg -->|Interface Status Events| EventQ
+    CallbackReg -->|Interface Alarm Events| EventQ
     EventListener -->|Poll Events| EventQ
     StatsPoller -->|Query Stats| HALWrapper
     HALWrapper -->|HAL Calls| StatsAPI
@@ -142,7 +145,7 @@ graph TB
     Controller -->|Init/Control| StatsPoller
     Controller -->|HAL Calls| HAL
     
-    EventListener -->|Receive Events| HAL
+    EventListener <-->|Receive Events| HAL
     EventListener -->|Update Status| RBusThread
     
     StatsPoller -->|Poll Stats| HALWrapper
@@ -182,8 +185,14 @@ stateDiagram-v2
 ```
 
 ## TR-181 Data Model
-#TODO
 
+The EPON Manager implements TR-181 Device.Optical.Interface data model parameters via RBus/DBus. See the HAL Proposal document for detailed parameter mappings.
+
+**Key Objects:**
+- `Device.Optical.Interface.{i}.Status` - Mapped from ONU status callback
+- `Device.Optical.Interface.{i}.Name` - Mapped from interface status callback  
+- `Device.Optical.Interface.{i}.Stats` - Queried via HAL stats APIs
+- `Device.Optical.Interface.{i}.X_RDK_*` - Extended EPON-specific parameters
 
 ## System Layers
 

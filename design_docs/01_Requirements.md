@@ -14,6 +14,9 @@ The EPON Controller is the main component responsible for system initialization 
 - **FR1.4**: Initialize internal memory and caching
 - **FR1.5**: Initialize and start Stats Polling thread
 - **FR1.6**: Initialize EPON HAL library
+  - Register ONU status callback for link state events
+  - Register interface status callback for per-interface state tracking
+  - Register Alarm event callback for alarm notifications
 - **FR1.7**: Create and manage queue listener for HAL events
 - **FR1.8**: Process HAL events and update other RDK components
 - **FR1.9**: (Optional) Implement cache mechanism for Stats DML queries
@@ -44,8 +47,8 @@ Handles all bus communication and TR-181 DML operations.
 - **FR3.3**: Register RBus events for system notifications
 - **FR3.4**: Handle incoming TR-181 GET requests
 - **FR3.5**: Handle incoming TR-181 SET requests
-- **FR3.6**: Provide API to update WanManager with PHY status
-- **FR3.7**: Provide API to update WanManager with interface list
+- **FR3.6**: Provide API to update WanManager with PHY status (interface status)
+- **FR3.7**: Provide API to update WanManager with virtual interface table
 
 ### FR4: Telemetry Module
 
@@ -77,15 +80,32 @@ Comprehensive logging support for debugging and monitoring.
 
 Handle events from EPON HAL.
 
-- **FR6.1**: Process `epon_onu_status` events
-  - **FR6.1.1**: On Link UP:
-    - Call `epon_hal_get_interface_list()` to get OLT-configured interfaces
-    - Update EPON PHY status to UP
-    - Update virtual interface list
-    - Notify WanManager via RBus
-  - **FR6.1.2**: On Link DOWN:
-    - Update EPON PHY status to DOWN
-    - Notify WanManager via RBus
+- **FR6.1**: Process `epon_onu_status` callback events (Internal State Tracking)
+  - Simplified 4-state model: LOS, DOWNSTREAM_SIGNAL_DETECTED, REGISTRATION, DEREGISTRATION
+  - **FR6.1.1**: On REGISTRATION:
+    - Update internal EPON ONU status to UP
+    - Log successful registration
+    - Raise telemetry event
+  - **FR6.1.2**: On DEREGISTRATION or LOS:
+    - Update internal EPON ONU status to DOWN
+    - Log deregistration/LOS event
+    - Raise telemetry event
+  - **FR6.1.3**: On DOWNSTREAM_SIGNAL_DETECTED:
+    - Update internal EPON ONU status to Initializing
+    - Log status transition
+  - **Note**: ONU status events do NOT trigger WanManager notifications
+- **FR6.2**: Process `interface_status` callback events (PRIMARY - WanManager Updates)
+  - **FR6.2.1**: On Interface LINK_UP (veip0, veip1, etc.):
+    - Update interface list with interface name if not present
+    - Update interface status to UP in cache
+    - **Notify WanManager of interface availability via RBus with interface name**
+        - If any of the interfaces go UP, WanManager should be notified that EPON PHY is UP
+    - Raise telemetry event
+  - **FR6.2.2**: On Interface LINK_DOWN:
+    - Update interface status to DOWN in cache
+    - **Notify WanManager of interface down via RBus with interface name**
+        - If all of the interfaces go DOWN, WanManager should be notified that EPON PHY is DOWN
+    - Raise telemetry event
 - **FR6.2**: Process `epon_hal_alarm` events
   - Log alarm with appropriate severity
   - Raise telemetry event for critical/error alarms
