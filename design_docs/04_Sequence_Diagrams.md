@@ -7,10 +7,10 @@ sequenceDiagram
     participant Main
     participant Controller as EPON Controller
     participant Logger
-    participant RBus as RBus Thread
-    participant Telemetry
     participant EventListener
     participant HAL
+    participant RBus as RBus Thread
+    participant Telemetry
     participant StatsPoller
     
     Main->>Controller: epon_controller_init()
@@ -20,18 +20,6 @@ sequenceDiagram
     activate Logger
     Logger-->>Controller: Success
     deactivate Logger
-    
-    Controller->>RBus: rbus_thread_start()
-    activate RBus
-    RBus->>RBus: init_bus()
-    RBus->>RBus: register_dml_params()
-    RBus-->>Controller: Started
-    
-    Controller->>Telemetry: telemetry_init()
-    activate Telemetry
-    Telemetry->>Telemetry: register_with_t2()
-    Telemetry-->>Controller: Success
-    deactivate Telemetry
     
     Controller->>EventListener: event_listener_start()
     activate EventListener
@@ -46,6 +34,18 @@ sequenceDiagram
     HAL->>HAL: register_alarm_callback()
     HAL-->>Controller: Success
     deactivate HAL
+    
+    Controller->>RBus: rbus_thread_start()
+    activate RBus
+    RBus->>RBus: init_bus()
+    RBus->>RBus: register_dml_params()
+    RBus-->>Controller: Started
+    
+    Controller->>Telemetry: telemetry_init()
+    activate Telemetry
+    Telemetry->>Telemetry: register_with_t2()
+    Telemetry-->>Controller: Success
+    deactivate Telemetry
     
     Controller->>StatsPoller: stats_poller_start()
     activate StatsPoller

@@ -9,7 +9,7 @@ graph TB
     subgraph RDK
         User[RDK Components/Users]
         WM[WanManager]
-        T2[Telemetry System T2]
+        T2[Telemetry System ]
     end
     
     subgraph RdkEponManager
