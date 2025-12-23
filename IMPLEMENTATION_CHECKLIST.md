@@ -4,58 +4,74 @@ Track progress through each phase of development.
 
 ## Phase 1: Logger Wrapper (Week 1)
 
-- [ ] Create `src/logger/` directory structure
-- [ ] Implement logger with console output
-- [ ] Implement logger with file output
-- [ ] Add log level filtering
-- [ ] Add thread-safe mutex protection
-- [ ] Create unit tests
-- [ ] Test on Linux
-- [ ] Verify no memory leaks (valgrind)
-- [ ] Update documentation
+- [x] Create `src/logger/` directory structure
+- [x] Implement logger with console output
+- [x] Implement logger with file output
+- [x] Add log level filtering
+- [x] ~~Add thread-safe mutex protection~~ (Cancelled - keeping simple, no mutex)
+- [x] Create unit tests
+- [x] Test on Linux
+- [x] ~~Verify no memory leaks (valgrind)~~ (Pending - will do in Phase 9)
+- [x] Update documentation
 
-**Status:** Not Started
+**Status:** ✅ Completed (Commit: c980246)
 
 ---
 
 ## Phase 2: HAL Interface & Mock (Weeks 2-3)
 
 - [x] Copy epon_hal.h to include/ directory
-- [ ] Create `tests/hal_mock/` directory structure
-- [ ] Implement all HAL initialization APIs
-- [ ] Implement all HAL statistics APIs
-- [ ] Implement all HAL information query APIs
-- [ ] Implement callback registration
-- [ ] Implement mock event trigger functions
-- [ ] Create unit tests for mock
-- [ ] Build as libepon_hal_mock.so
-- [ ] Test all callbacks
-- [ ] Verify thread safety
-- [ ] Verify no memory leaks
+- [x] Create `tests/hal_mock/` directory structure
+- [x] Implement all HAL initialization APIs
+- [x] Implement all HAL statistics APIs
+- [x] Implement all HAL information query APIs
+- [x] Implement callback registration
+- [x] Implement mock event trigger functions
+- [x] Create unit tests for mock (3 test programs)
+- [x] Build as libepon_hal_mock.so
+- [x] Test all callbacks (status, alarm, interface)
+- [ ] ~~Verify thread safety~~ (N/A - mock is single-threaded)
+- [ ] ~~Verify no memory leaks~~ (Pending - will do in Phase 9)
 
-**Status:** In Progress (epon_hal.h copied)
+**Status:** ✅ Completed (Commit: 7424d25)
 
 ---
 
 ## Phase 3: Core Infrastructure (Weeks 4-5)
 
 ### Configuration Management
-- [ ] Create `src/core/config/` directory
-- [ ] Implement INI file parser
-- [ ] Add environment variable support
-- [ ] Add configuration validation
-- [ ] Create unit tests
-- [ ] Test on Linux
+- [x] Create `src/core/config/` directory
+- [x] Implement INI file parser
+- [x] Add environment variable support
+- [x] Add configuration validation
+- [x] Add thread-safe mutex protection
+- [x] Create unit tests (7 tests)
+- [x] Test on Linux
 
-### Data Structures
-- [ ] Create `src/core/data_structures/` directory
-- [ ] Implement simple timestamp cache
-- [ ] Implement thread-safe queue
-- [ ] Create unit tests
-- [ ] Test concurrent access
-- [ ] Verify no memory leaks
+### Data Structures - Cache
+- [x] Create `src/core/data_structures/` directory
+- [x] Implement cache with two strategies:
+  - [x] Statistics: TTL-based with timestamps
+  - [x] Info: Validity flag only (no TTL)
+- [x] Add thread-safe mutex protection
+- [x] Implement cache invalidation (per-entry and global)
+- [x] Create unit tests (7 tests including TTL expiration)
+- [x] Test on Linux
 
-**Status:** Not Started
+### Data Structures - Queue
+- [x] Implement event queue (circular buffer FIFO)
+- [x] Add thread-safe mutex protection
+- [x] Create unit tests (9 tests)
+- [x] Test on Linux
+- [ ] ~~Verify no memory leaks~~ (Pending - will do in Phase 9)
+
+### Refactoring
+- [x] Rename all `epon_` prefix to `eponMgr_` (except HAL interface)
+- [x] Update all function names, types, and macros
+- [x] Update all file names and includes
+- [x] Update Makefiles and build scripts
+
+**Status:** ✅ Completed (23 tests passing, thread-safe with mutex)
 
 ---
 
@@ -203,9 +219,9 @@ Track progress through each phase of development.
 
 ## Overall Progress
 
-**Completed Phases:** 0 / 10
-**Current Phase:** Phase 1 - Logger Wrapper
-**Overall Status:** 5% (epon_hal.h copied)
+**Completed Phases:** 2 / 10
+**Current Phase:** Phase 3 - Core Infrastructure
+**Overall Status:** 20% (Logger + HAL Mock complete)
 
 ---
 

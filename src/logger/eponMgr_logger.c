@@ -1,9 +1,9 @@
 /**
- * @file epon_logger.c
+ * @file eponMgr_logger.c
  * @brief Simple logger implementation for EPON Manager
  */
 
-#include "epon_logger.h"
+#include "eponMgr_logger.h"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -36,7 +36,7 @@ static void get_timestamp(char *buf, size_t size) {
 /**
  * Initialize logger
  */
-int epon_logger_init(const char *log_dir, epon_log_level_t log_level) {
+int eponMgr_logger_init(const char *log_dir, epon_log_level_t log_level) {
     if (!log_dir) {
         fprintf(stderr, "Logger init failed: NULL log directory\n");
         return -1;
@@ -76,7 +76,7 @@ int epon_logger_init(const char *log_dir, epon_log_level_t log_level) {
 /**
  * Close logger
  */
-void epon_logger_close(void) {
+void eponMgr_logger_close(void) {
     if (g_log_file) {
         fprintf(g_log_file, "=== EPON Manager Logger Closed ===\n\n");
         fclose(g_log_file);
@@ -87,7 +87,7 @@ void epon_logger_close(void) {
 /**
  * Write log message
  */
-void epon_logger_write(epon_log_level_t level, const char *file, int line,
+void eponMgr_logger_write(epon_log_level_t level, const char *file, int line,
                        const char *func, const char *format, ...) {
     /* Check log level */
     if (level > g_log_level) {

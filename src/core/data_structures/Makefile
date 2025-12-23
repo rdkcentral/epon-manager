@@ -1,12 +1,12 @@
-# Makefile for EPON Logger
+# Makefile for EPON Data Structures
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -I. -fPIC
+CFLAGS = -Wall -Wextra -O2 -I. -I../../../include -fPIC
 LDFLAGS = 
 
 # Output
-TARGET = libeponMgr_logger.a
-OBJS = eponMgr_logger.o
+TARGET = libeponMgr_datastructures.a
+OBJS = eponMgr_cache.o eponMgr_queue.o
 
 # Build targets
 all: $(TARGET)
@@ -20,6 +20,6 @@ $(TARGET): $(OBJS)
 
 clean:
 	rm -f $(OBJS) $(TARGET)
-	@echo "Cleaned logger build"
+	@echo "Cleaned data structures build"
 
 .PHONY: all clean

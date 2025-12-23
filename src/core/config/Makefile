@@ -1,12 +1,12 @@
-# Makefile for EPON Logger
+# Makefile for EPON Config
 
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -I. -fPIC
 LDFLAGS = 
 
 # Output
-TARGET = libeponMgr_logger.a
-OBJS = eponMgr_logger.o
+TARGET = libeponMgr_config.a
+OBJS = eponMgr_config.o
 
 # Build targets
 all: $(TARGET)
@@ -20,6 +20,6 @@ $(TARGET): $(OBJS)
 
 clean:
 	rm -f $(OBJS) $(TARGET)
-	@echo "Cleaned logger build"
+	@echo "Cleaned config build"
 
 .PHONY: all clean

@@ -1,23 +1,48 @@
 # Makefile for EPON Manager Unit Tests
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -I../../src/logger
-LDFLAGS = -L../../src/logger -lepon_logger
+CFLAGS = -Wall -Wextra -O2 -I../../src/logger -I../../src/core/config -I../../src/core/data_structures -I../../include
+LDFLAGS_LOGGER = -L../../src/logger -leponMgr_logger
+LDFLAGS_CONFIG = -L../../src/core/config -leponMgr_config -lpthread
+LDFLAGS_DATA = -L../../src/core/data_structures -leponMgr_datastructures -lpthread
 
 # Targets
 TEST_LOGGER = test_logger
+TEST_CONFIG = test_config
+TEST_CACHE = test_cache
+TEST_QUEUE = test_queue
 
-all: $(TEST_LOGGER)
+TESTS = $(TEST_LOGGER) $(TEST_CONFIG) $(TEST_CACHE) $(TEST_QUEUE)
 
-$(TEST_LOGGER): test_logger.c ../../src/logger/libepon_logger.a
-	$(CC) $(CFLAGS) test_logger.c -o $(TEST_LOGGER) $(LDFLAGS)
+all: $(TESTS)
+
+$(TEST_LOGGER): test_logger.c ../../src/logger/libeponMgr_logger.a
+	$(CC) $(CFLAGS) test_logger.c -o $(TEST_LOGGER) $(LDFLAGS_LOGGER)
 	@echo "Built: $(TEST_LOGGER)"
 
-test: $(TEST_LOGGER)
-	./$(TEST_LOGGER)
+$(TEST_CONFIG): test_config.c ../../src/core/config/libeponMgr_config.a
+	$(CC) $(CFLAGS) test_config.c -o $(TEST_CONFIG) $(LDFLAGS_CONFIG)
+	@echo "Built: $(TEST_CONFIG)"
+
+$(TEST_CACHE): test_cache.c ../../src/core/data_structures/libeponMgr_datastructures.a
+	$(CC) $(CFLAGS) test_cache.c -o $(TEST_CACHE) $(LDFLAGS_DATA)
+	@echo "Built: $(TEST_CACHE)"
+
+$(TEST_QUEUE): test_queue.c ../../src/core/data_structures/libeponMgr_datastructures.a
+	$(CC) $(CFLAGS) test_queue.c -o $(TEST_QUEUE) $(LDFLAGS_DATA)
+	@echo "Built: $(TEST_QUEUE)"
+
+test: $(TESTS)
+	@echo "=== Running Unit Tests ==="
+	@echo ""
+	./$(TEST_LOGGER) && echo "" || exit 1
+	./$(TEST_CONFIG) && echo "" || exit 1
+	./$(TEST_CACHE) && echo "" || exit 1
+	./$(TEST_QUEUE) && echo "" || exit 1
+	@echo "=== All Unit Tests Passed ==="
 
 clean:
-	rm -f $(TEST_LOGGER)
+	rm -f $(TESTS)
 	@echo "Cleaned unit tests"
 
 .PHONY: all test clean
