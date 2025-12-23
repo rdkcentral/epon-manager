@@ -1,0 +1,135 @@
+# Build outputs
+*.o
+*.a
+*.so
+*.so.*
+*.la
+*.lo
+*.obj
+*.exe
+
+# Build directories
+build/
+obj/
+bin/
+lib/
+.libs/
+.deps/
+
+# Executables
+epon-manager
+test_logger
+test_hal_init
+test_hal_callbacks
+test_hal_stats
+test_hal_events
+test_config
+test_cache
+test_queue
+test_hal_wrapper
+test_event_listener
+test_event_flow
+test_multi_interface
+test_cache_timing
+test_alarm_handling
+test_startup
+test_shutdown
+test_wanmanager_integration
+test_rbus
+test_telemetry
+
+# Log files and directories
+*.log
+logs/
+*.log.*
+
+# Core dumps and debug files
+core
+core.*
+vgcore.*
+*.dSYM/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile.cmake
+*.cmake
+
+# Autotools
+.deps/
+.libs/
+*.m4
+aclocal.m4
+autom4te.cache/
+compile
+config.guess
+config.h
+config.h.in
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+stamp-h1
+Makefile.in
+
+# Backup files
+*.backup
+*.orig
+*.rej
+
+# Package files
+*.deb
+*.rpm
+*.ipk
+*.tar.gz
+*.tgz
+*.zip
+
+# Test coverage
+*.gcov
+*.gcda
+*.gcno
+coverage/
+htmlcov/
+
+# Profiling
+gmon.out
+callgrind.out.*
+perf.data
+perf.data.old
+
+# Documentation generated
+html/
+latex/
+man/
+Doxyfile.bak
+
+# Tags and cscope
+tags
+TAGS
+cscope.*
+.ccls-cache/
+compile_commands.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+.cache/
