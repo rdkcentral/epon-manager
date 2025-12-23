@@ -11,8 +11,9 @@ TEST_LOGGER = test_logger
 TEST_CONFIG = test_config
 TEST_CACHE = test_cache
 TEST_QUEUE = test_queue
+TEST_DATASTRUCTURES = test_datastructures
 
-TESTS = $(TEST_LOGGER) $(TEST_CONFIG) $(TEST_CACHE) $(TEST_QUEUE)
+TESTS = $(TEST_LOGGER) $(TEST_CONFIG) $(TEST_CACHE) $(TEST_QUEUE) $(TEST_DATASTRUCTURES)
 
 all: $(TESTS)
 
@@ -32,6 +33,14 @@ $(TEST_QUEUE): test_queue.c ../../src/core/data_structures/libeponMgr_datastruct
 	$(CC) $(CFLAGS) test_queue.c -o $(TEST_QUEUE) $(LDFLAGS_DATA)
 	@echo "Built: $(TEST_QUEUE)"
 
+$(TEST_DATASTRUCTURES): test_datastructures.c ../../src/core/data_structures/libeponMgr_datastructures.a
+	$(CC) $(CFLAGS) test_datastructures.c -o $(TEST_DATASTRUCTURES) $(LDFLAGS_DATA)
+	@echo "Built: $(TEST_DATASTRUCTURES)"
+
+$(TEST_DATASTRUCTURES): test_datastructures.c ../../src/core/data_structures/libeponMgr_datastructures.a
+	$(CC) $(CFLAGS) test_datastructures.c -o $(TEST_DATASTRUCTURES) $(LDFLAGS_DATA)
+	@echo "Built: $(TEST_DATASTRUCTURES)"
+
 test: $(TESTS)
 	@echo "=== Running Unit Tests ==="
 	@echo ""
@@ -39,6 +48,7 @@ test: $(TESTS)
 	./$(TEST_CONFIG) && echo "" || exit 1
 	./$(TEST_CACHE) && echo "" || exit 1
 	./$(TEST_QUEUE) && echo "" || exit 1
+	./$(TEST_DATASTRUCTURES) && echo "" || exit 1
 	@echo "=== All Unit Tests Passed ==="
 
 clean:

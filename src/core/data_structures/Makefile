@@ -2,11 +2,11 @@
 
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -I. -I../../../include -fPIC
-LDFLAGS = 
+LDFLAGS = -lpthread
 
 # Output
 TARGET = libeponMgr_datastructures.a
-OBJS = eponMgr_cache.o eponMgr_queue.o
+OBJS = eponMgr_cache.o eponMgr_queue.o eponMgr_interface_list.o eponMgr_llid_list.o eponMgr_cpe_list.o eponMgr_onu_state.o
 
 # Build targets
 all: $(TARGET)
