@@ -1,0 +1,41 @@
+# Makefile for HAL Mock Tests
+
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -I. -I../../include
+LDFLAGS = -L../../lib -lepon_hal_mock -Wl,-rpath,../../lib
+
+# Test executables
+TEST_INIT = test_hal_init
+TEST_CALLBACKS = test_hal_callbacks
+TEST_STATS = test_hal_stats
+
+TESTS = $(TEST_INIT) $(TEST_CALLBACKS) $(TEST_STATS)
+
+all: $(TESTS)
+
+$(TEST_INIT): test_hal_init.c ../../lib/libepon_hal_mock.so
+	$(CC) $(CFLAGS) test_hal_init.c -o $(TEST_INIT) $(LDFLAGS)
+	@echo "Built: $(TEST_INIT)"
+
+$(TEST_CALLBACKS): test_hal_callbacks.c ../../lib/libepon_hal_mock.so
+	$(CC) $(CFLAGS) test_hal_callbacks.c -o $(TEST_CALLBACKS) $(LDFLAGS)
+	@echo "Built: $(TEST_CALLBACKS)"
+
+$(TEST_STATS): test_hal_stats.c ../../lib/libepon_hal_mock.so
+	$(CC) $(CFLAGS) test_hal_stats.c -o $(TEST_STATS) $(LDFLAGS)
+	@echo "Built: $(TEST_STATS)"
+
+# Run all tests
+test: $(TESTS)
+	@echo "=== Running HAL Mock Tests ==="
+	@echo ""
+	./$(TEST_INIT) && echo "" || exit 1
+	./$(TEST_CALLBACKS) && echo "" || exit 1
+	./$(TEST_STATS) && echo "" || exit 1
+	@echo "=== All HAL Mock Tests Passed ==="
+
+clean:
+	rm -f $(TESTS)
+	@echo "Cleaned HAL mock tests"
+
+.PHONY: all test clean
