@@ -111,23 +111,35 @@ Track progress through each phase of development.
 - [x] Build and test - all 40 tests passing
 
 ### HAL Wrapper
-- [ ] Create `src/core/hal_wrapper/` directory
-- [ ] Implement HAL wrapper for stats APIs
-- [ ] Implement simple caching logic (30s TTL)
-- [ ] Add cache invalidation
-- [ ] Create unit tests with mock HAL
+- [x] Create `src/core/hal_wrapper/` directory
+- [x] Implement HAL wrapper for all available HAL APIs (10 APIs)
+- [x] Implement dual caching strategy:
+  - [x] Statistics: TTL-based (30s default, 2s for testing)
+  - [x] Info: Validity flags (no TTL)
+- [x] Add cache invalidation (manual and automatic)
+- [x] Integrate with data structures (interface, LLID, CPE, ONU state)
+- [x] Add thread-safe mutex protection
+- [x] Simplify API (15 functions, removed unnecessary wrappers)
+- [x] Create comprehensive unit tests (15 tests)
+- [x] Test with mock HAL - all tests passing ✓
+- [x] Build as libeponMgr_hal_wrapper.a (11KB)
 
 ### Controller
 - [ ] Create `src/core/controller/` directory
 - [ ] Implement initialization sequence
-- [ ] Implement signal handling
+- [ ] Implement signal handling (SIGINT, SIGTERM)
+- [ ] Implement main event loop
 - [ ] Implement shutdown logic
 - [ ] Register HAL callbacks
+- [ ] Integrate with HAL wrapper
 - [ ] Create integration test with mock
 
-**Status:** ⚙️ In Progress - Data Structures Complete (40 tests passing)
+**Status:** ⚙️ In Progress - HAL Wrapper Complete, Controller Next
 
-**Progress:** Data structures for interface list, LLID list, CPE list, and ONU state implemented with full thread safety. All unit tests passing.
+**Progress:** 
+- Data structures: ✅ Complete (17 tests passing)
+- HAL wrapper: ✅ Complete (15 tests passing)
+- Controller: ⏳ Not started
 
 ---
 
@@ -256,14 +268,15 @@ Track progress through each phase of development.
 
 **Completed Phases:** 3 / 10
 **Current Phase:** Phase 4 - HAL Wrapper & Controller
-**Overall Status:** 35% (Logger, HAL Mock, Core Infrastructure complete; Phase 4 data structures complete)
+**Overall Status:** 40% (Logger, HAL Mock, Core Infrastructure, HAL Wrapper complete)
 
-**Test Summary:** 40 unit tests passing
+**Test Summary:** 57 unit tests passing
 - Phase 1 (Logger): 6 tests
 - Phase 3 (Config): 7 tests
 - Phase 3 (Cache): 7 tests
 - Phase 3 (Queue): 9 tests
 - Phase 4 (Data Structures): 17 tests
+- Phase 4 (HAL Wrapper): 15 tests
 - Phase 2 (HAL Mock): 18 tests (separate test suite)
 
 ---
@@ -276,4 +289,4 @@ Track progress through each phase of development.
 
 ---
 
-**Last Updated:** December 23, 2025
+**Last Updated:** December 24, 2025
