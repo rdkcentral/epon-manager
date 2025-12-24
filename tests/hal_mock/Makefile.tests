@@ -1,17 +1,22 @@
 # Makefile for HAL Mock Tests
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -I. -I../../include
+CFLAGS = -Wall -Wextra -O2 -I. -I../../include -I../../src/core/data_structures -I../../src/core/hal_wrapper
 LDFLAGS = -L../../lib -lepon_hal_mock -Wl,-rpath,../../lib
+LDFLAGS_WRAPPER = -L../../lib -L../../src/core/hal_wrapper -L../../src/core/data_structures \
+                  -lepon_hal_mock -leponMgr_hal_wrapper -leponMgr_datastructures -lpthread \
+                  -Wl,-rpath,../../lib
 
 # Test executables
 TEST_INIT = test_hal_init
 TEST_CALLBACKS = test_hal_callbacks
 TEST_STATS = test_hal_stats
+TEST_WRAPPER = test_hal_wrapper
 
 TESTS = $(TEST_INIT) $(TEST_CALLBACKS) $(TEST_STATS)
+ALL_TESTS = $(TESTS) $(TEST_WRAPPER)
 
-all: $(TESTS)
+all: $(ALL_TESTS)
 
 $(TEST_INIT): test_hal_init.c ../../lib/libepon_hal_mock.so
 	$(CC) $(CFLAGS) test_hal_init.c -o $(TEST_INIT) $(LDFLAGS)
@@ -25,17 +30,29 @@ $(TEST_STATS): test_hal_stats.c ../../lib/libepon_hal_mock.so
 	$(CC) $(CFLAGS) test_hal_stats.c -o $(TEST_STATS) $(LDFLAGS)
 	@echo "Built: $(TEST_STATS)"
 
+$(TEST_WRAPPER): test_hal_wrapper.c ../../lib/libepon_hal_mock.so \
+                 ../../src/core/hal_wrapper/libeponMgr_hal_wrapper.a \
+                 ../../src/core/data_structures/libeponMgr_datastructures.a
+	$(CC) $(CFLAGS) test_hal_wrapper.c \
+		../../src/core/hal_wrapper/libeponMgr_hal_wrapper.a \
+		../../src/core/data_structures/libeponMgr_datastructures.a \
+		-o $(TEST_WRAPPER) $(LDFLAGS) -lpthread
+	@echo "Built: $(TEST_WRAPPER)"
+
 # Run all tests
-test: $(TESTS)
+test: $(ALL_TESTS)
 	@echo "=== Running HAL Mock Tests ==="
 	@echo ""
 	./$(TEST_INIT) && echo "" || exit 1
 	./$(TEST_CALLBACKS) && echo "" || exit 1
 	./$(TEST_STATS) && echo "" || exit 1
-	@echo "=== All HAL Mock Tests Passed ==="
+	@echo "=== Running HAL Wrapper Tests ==="
+	@echo ""
+	./$(TEST_WRAPPER) && echo "" || exit 1
+	@echo "=== All Tests Passed ==="
 
 clean:
-	rm -f $(TESTS)
+	rm -f $(ALL_TESTS)
 	@echo "Cleaned HAL mock tests"
 
 .PHONY: all test clean
