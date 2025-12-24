@@ -37,6 +37,7 @@ test_shutdown
 test_wanmanager_integration
 test_rbus
 test_telemetry
+test_datastructures
 
 # Log files and directories
 *.log
