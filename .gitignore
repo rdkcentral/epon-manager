@@ -19,8 +19,16 @@ lib/
 # Executables
 epon-manager
 epon_manager
-test_*
 test_controller_with_mock
+
+# Test executables (but not source files)
+tests/unit/test_logger
+tests/unit/test_config
+tests/unit/test_cache
+tests/unit/test_queue
+tests/unit/test_datastructures
+tests/integration/test_event_processing
+tests/hal_mock/test_hal_*
 
 # Log files and directories
 *.log
