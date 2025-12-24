@@ -18,31 +18,16 @@ lib/
 
 # Executables
 epon-manager
-test_logger
-test_hal_init
-test_hal_callbacks
-test_hal_stats
-test_hal_events
-test_config
-test_cache
-test_queue
-test_hal_wrapper
-test_event_listener
-test_event_flow
-test_multi_interface
-test_cache_timing
-test_alarm_handling
-test_startup
-test_shutdown
-test_wanmanager_integration
-test_rbus
-test_telemetry
-test_datastructures
+epon_manager
+test_*
+test_controller_with_mock
 
 # Log files and directories
 *.log
 logs/
 *.log.*
+.lastlogin
+.bash_history
 
 # Core dumps and debug files
 core.*
