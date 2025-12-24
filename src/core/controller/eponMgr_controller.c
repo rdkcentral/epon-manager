@@ -9,6 +9,7 @@
 #include "eponMgr_config.h"
 #include "eponMgr_hal_wrapper.h"
 #include "eponMgr_onu_state.h"
+#include "eponMgr_queue.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +27,13 @@ struct eponMgr_controller_context {
     
     // HAL wrapper with all data structures
     eponMgr_hal_wrapper_t *hal_wrapper;
+    
+    // Event queue for HAL callbacks
+    eponMgr_queue_t *event_queue;
+    
+    // Event notification
+    pthread_cond_t event_cond;  /**< Condition variable for event notification */
+    pthread_mutex_t event_mutex; /**< Mutex for condition variable */
     
     // Runtime state
     volatile bool running;
@@ -51,42 +59,178 @@ static void signal_handler(int signum) {
 
 /**
  * @brief HAL status callback - called when ONU status changes
+ * Enqueues event and returns immediately
  */
 static void hal_status_callback(epon_onu_status_t status) {
-    if (!g_controller || !g_controller->hal_wrapper) return;
+    if (!g_controller || !g_controller->event_queue) return;
     
-    EPONMGR_LOG_INFO("HAL Status Callback: status=%d", status);
+    // Create event
+    eponMgr_event_t event;
+    event.type = EPONMGR_EVENT_TYPE_ONU_STATUS;
+    event.data.onu_status.status = status;
     
-    // Update ONU state
-    eponMgr_onu_state_t *onu_state = g_controller->hal_wrapper->onu_state;
-    if (onu_state) {
-        eponMgr_onu_state_update_status(onu_state, status);
-        
-        // Invalidate cache on status change
-        eponMgr_hal_wrapper_invalidate_cache(g_controller->hal_wrapper);
+    // Enqueue event and return immediately
+    if (eponMgr_queue_push(g_controller->event_queue, &event) == 0) {
+        // Signal event processor to wake up
+        pthread_cond_signal(&g_controller->event_cond);
+    } else {
+        EPONMGR_LOG_ERROR("Failed to enqueue ONU status event");
     }
 }
 
 /**
  * @brief HAL alarm callback - called when alarms are raised/cleared
+ * Enqueues event and returns immediately
  */
 static void hal_alarm_callback(epon_hal_alarm_t alarm, bool is_active) {
-    EPONMGR_LOG_INFO("HAL Alarm Callback: alarm=%d, active=%d", alarm, is_active);
+    if (!g_controller || !g_controller->event_queue) return;
     
-    // TODO: Implement alarm handling in Phase 5 (Event Listener)
-    // For now, just log it
+    // Create event
+    eponMgr_event_t event;
+    event.type = EPONMGR_EVENT_TYPE_ALARM;
+    event.data.alarm.alarm = alarm;
+    event.data.alarm.is_active = is_active;
+    
+    // Enqueue event and return immediately
+    if (eponMgr_queue_push(g_controller->event_queue, &event) == 0) {
+        // Signal event processor to wake up
+        pthread_cond_signal(&g_controller->event_cond);
+    } else {
+        EPONMGR_LOG_ERROR("Failed to enqueue alarm event");
+    }
 }
 
 /**
  * @brief HAL interface status callback - called when interface status changes
+ * Enqueues event and returns immediately
  */
 static void hal_interface_status_callback(epon_onu_interface_info_t status) {
-    EPONMGR_LOG_INFO("HAL Interface Callback: interface=%s, admin_status=%d", 
-                  status.name, status.status);
+    if (!g_controller || !g_controller->event_queue) return;
     
-    // TODO: Implement interface tracking in Phase 5 (Event Listener)
-    // This is where we'll update WanManager
-    // For now, just log it
+    // Create event
+    eponMgr_event_t event;
+    event.type = EPONMGR_EVENT_TYPE_INTERFACE_STATUS;
+    event.data.interface_status.info = status;
+    
+    // Enqueue event and return immediately
+    if (eponMgr_queue_push(g_controller->event_queue, &event) == 0) {
+        // Signal event processor to wake up
+        pthread_cond_signal(&g_controller->event_cond);
+    } else {
+        EPONMGR_LOG_ERROR("Failed to enqueue interface status event");
+    }
+}
+
+/**
+ * @brief Process ONU status event
+ */
+static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status_t status) {
+    EPONMGR_LOG_INFO("Processing ONU Status Event: status=%d", status);
+    
+    if (!ctrl || !ctrl->hal_wrapper) return;
+    
+    // Update ONU state
+    eponMgr_onu_state_t *onu_state = ctrl->hal_wrapper->onu_state;
+    if (onu_state) {
+        eponMgr_onu_state_update_status(onu_state, status);
+        
+        // Invalidate cache on status change
+        eponMgr_hal_wrapper_invalidate_cache(ctrl->hal_wrapper);
+        EPONMGR_LOG_INFO("Cache invalidated due to ONU status change");
+    }
+    
+    // TODO: Phase 7 - Report telemetry event for ONU status change
+}
+
+/**
+ * @brief Process interface status event
+ */
+static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_interface_info_t *info) {
+    EPONMGR_LOG_INFO("Processing Interface Status Event: interface=%s, status=%d", 
+                     info->name, info->status);
+    
+    if (!ctrl || !ctrl->hal_wrapper) return;
+    
+    // Update interface list in data structures
+    eponMgr_interface_list_t *iface_list = ctrl->hal_wrapper->interface_list;
+    if (iface_list) {
+        if (info->status == EPON_ONU_INTF_STATUS_LINK_UP) {
+            eponMgr_interface_list_update(iface_list, info);
+            EPONMGR_LOG_INFO("Interface %s added/updated as UP", info->name);
+        } else {
+            // Update status to down but keep in list for tracking
+            eponMgr_interface_list_update(iface_list, info);
+            EPONMGR_LOG_INFO("Interface %s updated as DOWN", info->name);
+        }
+    }
+    
+    // TODO: Phase 6/7 - Update WanManager via RBus
+    //   - If any interface is UP: Notify WanManager EPON_PHY_STATUS_UP
+    //   - If all interfaces are DOWN: Notify WanManager EPON_PHY_STATUS_DOWN
+    //   - Update virtual interface table with interface name and status
+    
+    // TODO: Phase 7 - Report telemetry event for interface status change
+}
+
+/**
+ * @brief Process alarm event
+ */
+static void process_alarm_event(eponMgr_controller_t *ctrl, epon_hal_alarm_t alarm, bool is_active) {
+    const char *alarm_str = (alarm == EPON_HAL_ALARM_LOS) ? "LOS" :
+                           (alarm == EPON_HAL_ALARM_DYING_GASP) ? "DYING_GASP" :
+                           (alarm == EPON_HAL_ALARM_EQUIPMENT_FAILURE) ? "EQUIPMENT_FAILURE" :
+                           (alarm == EPON_HAL_ALARM_POWER_LOW) ? "POWER_LOW" :
+                           (alarm == EPON_HAL_ALARM_POWER_HIGH) ? "POWER_HIGH" :
+                           (alarm == EPON_HAL_ALARM_TEMPERATURE) ? "TEMPERATURE" : "UNKNOWN";
+    
+    if (is_active) {
+        EPONMGR_LOG_WARN("Alarm RAISED: %s (%d)", alarm_str, alarm);
+    } else {
+        EPONMGR_LOG_INFO("Alarm CLEARED: %s (%d)", alarm_str, alarm);
+    }
+    
+    // TODO: Phase 7 - Report telemetry event for alarm
+    //   - Use T2 telemetry API to report critical/error alarms
+    //   - Format: "EPONMGR_ALARM_<TYPE>_<ACTIVE|CLEARED>"
+    
+    (void)ctrl; // Suppress unused warning for now
+}
+
+/**
+ * @brief Process one event from the queue
+ * @return 0 if event processed, -1 if queue empty or error
+ */
+static int process_one_event(eponMgr_controller_t *ctrl) {
+    if (!ctrl || !ctrl->event_queue) return -1;
+    
+    eponMgr_event_t event;
+    int ret = eponMgr_queue_pop(ctrl->event_queue, &event);
+    
+    if (ret != 0) {
+        // Queue is empty or error
+        return -1;
+    }
+    
+    // Process event based on type
+    switch (event.type) {
+        case EPONMGR_EVENT_TYPE_ONU_STATUS:
+            process_onu_status_event(ctrl, event.data.onu_status.status);
+            break;
+            
+        case EPONMGR_EVENT_TYPE_INTERFACE_STATUS:
+            process_interface_status_event(ctrl, &event.data.interface_status.info);
+            break;
+            
+        case EPONMGR_EVENT_TYPE_ALARM:
+            process_alarm_event(ctrl, event.data.alarm.alarm, event.data.alarm.is_active);
+            break;
+            
+        default:
+            EPONMGR_LOG_ERROR("Unknown event type: %d", event.type);
+            break;
+    }
+    
+    return 0;
 }
 
 eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t *config) {
@@ -105,6 +249,22 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     // Initialize mutex
     if (pthread_mutex_init(&ctrl->mutex, NULL) != 0) {
         fprintf(stderr, "ERROR: Failed to initialize controller mutex\n");
+        free(ctrl);
+        return NULL;
+    }
+    
+    // Initialize event condition variable and mutex
+    if (pthread_mutex_init(&ctrl->event_mutex, NULL) != 0) {
+        fprintf(stderr, "ERROR: Failed to initialize event mutex\n");
+        pthread_mutex_destroy(&ctrl->mutex);
+        free(ctrl);
+        return NULL;
+    }
+    
+    if (pthread_cond_init(&ctrl->event_cond, NULL) != 0) {
+        fprintf(stderr, "ERROR: Failed to initialize event condition variable\n");
+        pthread_mutex_destroy(&ctrl->event_mutex);
+        pthread_mutex_destroy(&ctrl->mutex);
         free(ctrl);
         return NULL;
     }
@@ -139,7 +299,19 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
         EPONMGR_LOG_INFO("Configuration loaded");
     }
     
-    // Step 3: Initialize HAL wrapper with data structures
+    // Step 3: Initialize event queue
+    ctrl->event_queue = (eponMgr_queue_t *)malloc(sizeof(eponMgr_queue_t));
+    if (!ctrl->event_queue) {
+        EPONMGR_LOG_ERROR("Failed to allocate event queue");
+        goto error;
+    }
+    if (eponMgr_queue_init(ctrl->event_queue, 100) != 0) {
+        EPONMGR_LOG_ERROR("Failed to initialize event queue");
+        goto error;
+    }
+    EPONMGR_LOG_INFO("Event queue initialized (capacity: 100)");
+    
+    // Step 4: Initialize HAL wrapper with data structures
     ctrl->hal_wrapper = (eponMgr_hal_wrapper_t *)malloc(sizeof(eponMgr_hal_wrapper_t));
     if (!ctrl->hal_wrapper) {
         EPONMGR_LOG_ERROR("Failed to allocate HAL wrapper");
@@ -160,7 +332,7 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     }
     EPONMGR_LOG_INFO("HAL wrapper initialized with %us cache TTL", cache_ttl);
     
-    // Step 4: Initialize HAL
+    // Step 5: Initialize HAL
     int ret = eponMgr_hal_wrapper_hal_init(ctrl->hal_wrapper);
     if (ret != EPON_HAL_SUCCESS) {
         EPONMGR_LOG_ERROR("Failed to initialize EPON HAL: %d", ret);
@@ -218,14 +390,33 @@ int eponMgr_controller_run(eponMgr_controller_t *controller) {
     EPONMGR_LOG_INFO("EPON Manager Controller started");
     EPONMGR_LOG_INFO("Entering main event loop (Ctrl+C to stop)...");
     
-    // Main event loop
+    // Main event loop - Process events from queue
     while (!controller->shutdown_requested) {
-        // Sleep for 1 second
-        sleep(1);
+        // Process all pending events in the queue
+        int processed = 0;
+        while (process_one_event(controller) == 0) {
+            processed++;
+            // Limit processing to avoid starvation
+            if (processed >= 50) {
+                EPONMGR_LOG_DEBUG("Processed %d events, yielding", processed);
+                break;
+            }
+        }
         
-        // TODO: In Phase 5, this will be replaced with actual event processing
-        // For now, just a simple heartbeat
-        // EPONMGR_LOG_DEBUG("Controller heartbeat");
+        // Wait for event notification or timeout (500ms)
+        // This is much more efficient than polling
+        struct timespec timeout;
+        clock_gettime(CLOCK_REALTIME, &timeout);
+        timeout.tv_sec += 0;
+        timeout.tv_nsec += 500000000; // 500ms
+        if (timeout.tv_nsec >= 1000000000) {
+            timeout.tv_sec += 1;
+            timeout.tv_nsec -= 1000000000;
+        }
+        
+        pthread_mutex_lock(&controller->event_mutex);
+        pthread_cond_timedwait(&controller->event_cond, &controller->event_mutex, &timeout);
+        pthread_mutex_unlock(&controller->event_mutex);
     }
     
     EPONMGR_LOG_INFO("Controller event loop exited");
@@ -248,6 +439,9 @@ void eponMgr_controller_shutdown(eponMgr_controller_t *controller) {
     controller->shutdown_requested = true;
     pthread_mutex_unlock(&controller->mutex);
     
+    // Wake up event loop if it's waiting
+    pthread_cond_signal(&controller->event_cond);
+    
     EPONMGR_LOG_INFO("Shutdown requested");
 }
 
@@ -269,6 +463,14 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
         controller->hal_wrapper = NULL;
     }
     
+    // Destroy event queue
+    if (controller->event_queue) {
+        EPONMGR_LOG_INFO("Destroying event queue...");
+        eponMgr_queue_destroy(controller->event_queue);
+        free(controller->event_queue);
+        controller->event_queue = NULL;
+    }
+    
     // Destroy configuration
     if (controller->config) {
         EPONMGR_LOG_INFO("Destroying configuration...");
@@ -284,7 +486,9 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
         controller->logger_initialized = false;
     }
     
-    // Destroy mutex
+    // Destroy synchronization primitives
+    pthread_cond_destroy(&controller->event_cond);
+    pthread_mutex_destroy(&controller->event_mutex);
     pthread_mutex_destroy(&controller->mutex);
     
     // Free controller
