@@ -127,3 +127,4 @@ temp/
 *.tmp
 .cache/
 tests/unit/test_rbus_basic
+tests/unit/test_telemetry

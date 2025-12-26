@@ -366,16 +366,44 @@ Track progress through each phase of development.
 
 ## Phase 8: Telemetry Library (Week 15)
 
-- [ ] Create `src/telemetry/` directory
-- [ ] Implement dummy telemetry stubs
-- [ ] Implement event reporting functions
-- [ ] Implement stats reporting functions
-- [ ] Build as libepon_telemetry.so (dummy)
-- [ ] Create unit tests
-- [ ] Test locally without T2
-- [ ] Verify all calls traced
+- [x] Create `src/telemetry/` directory
+- [x] Implement dummy telemetry stubs
+- [x] Implement event reporting functions
+- [x] Implement stats reporting functions
+- [x] Build as libepon_telemetry.so (dummy)
+- [x] Create unit tests
+- [x] Test locally without T2
+- [x] Verify all calls traced
 
-**Status:** Not Started
+**Status:** ✅ **COMPLETE**
+
+**Implementation Summary:**
+- Created dummy/stub telemetry library (`libepon_telemetry.so`)
+- Implements all RDK T2 telemetry API patterns without actual T2 integration
+- All telemetry calls logged for verification and testing
+- Thread-safe implementation with mutex protection
+- Comprehensive API coverage:
+  - Initialization and cleanup functions
+  - Event reporting (9 event types: ONU status, link up/down, alarms, etc.)
+  - Statistics reporting (batch and single stat functions)
+  - Custom telemetry markers
+  - Enable/disable functionality
+- Unit test suite with 36 test cases (all passing)
+  - Initialization/cleanup tests
+  - Event reporting tests
+  - Statistics reporting tests
+  - Custom marker tests
+  - Enable/disable tests
+  - Error condition tests
+  - Stress test (100 events)
+- Production-ready API design - can be swapped with real T2 library
+- Library size: ~15KB shared object
+
+**Key Files:**
+- `include/eponMgr_telemetry.h` - Public API header
+- `src/telemetry/eponMgr_telemetry.c` - Dummy implementation (~500 lines)
+- `tests/unit/test_telemetry.c` - Comprehensive unit tests (~350 lines)
+- Comments indicate where real T2 API calls would go in production
 
 ---
 

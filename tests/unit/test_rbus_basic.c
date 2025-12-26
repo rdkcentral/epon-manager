@@ -23,7 +23,7 @@ int main(void) {
     
     /* Initialize HAL wrapper components */
     eponMgr_onu_state_t onu_state;
-    eponMgr_onu_state_init(&onu_state);
+    eponMgr_onu_state_init(&onu_state, true);  // Enable DPoE support
     hal_wrapper.onu_state = &onu_state;
     
     eponMgr_llid_list_t llid_list;

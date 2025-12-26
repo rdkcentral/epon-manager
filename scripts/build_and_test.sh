@@ -236,6 +236,17 @@ build_libraries() {
         print_success "RBUS integration built"
     fi
     
+    # Build telemetry library
+    if [ -f "$SRC_DIR/telemetry/Makefile" ]; then
+        print_info "Building telemetry library (dummy/stub)..."
+        if [ "$VERBOSE" = true ]; then
+            make -C "$SRC_DIR/telemetry"
+        else
+            make -C "$SRC_DIR/telemetry" > /dev/null 2>&1
+        fi
+        print_success "Telemetry library built"
+    fi
+    
     echo ""
 }
 
@@ -317,7 +328,7 @@ run_unit_tests() {
     cd "$TESTS_DIR/unit"
     
     # Get list of test executables
-    local test_executables=(test_logger test_config test_cache test_queue test_datastructures test_rbus_basic)
+    local test_executables=(test_logger test_config test_cache test_queue test_datastructures test_rbus_basic test_telemetry)
     
     for test in "${test_executables[@]}"; do
         if [ -f "$test" ]; then
