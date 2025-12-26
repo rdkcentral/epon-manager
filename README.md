@@ -3,9 +3,30 @@ The Rdk Epon Manager is an RDK application responsible for controlling and confi
 
 ## Quick Start
 
-### Building and Testing
+### Building with Autotools (Recommended)
 
-The project includes a comprehensive build and test script:
+```bash
+# 1. Generate configure script (first time only)
+./autogen.sh
+
+# 2. Configure
+./configure
+
+# 3. Build
+make
+
+# 4. Run tests
+make check
+
+# 5. Install (optional)
+sudo make install
+```
+
+See [BUILDING.md](BUILDING.md) for detailed autotools documentation.
+
+### Alternative: Legacy Build Script
+
+The project still includes the original build script:
 
 ```bash
 # Build everything and run all tests
@@ -16,26 +37,28 @@ The project includes a comprehensive build and test script:
 
 # Run only unit tests
 ./scripts/build_and_test.sh --unit-only
-
-# Build without running tests
-./scripts/build_and_test.sh --no-tests
 ```
 
 See [scripts/BUILD_AND_TEST_GUIDE.md](scripts/BUILD_AND_TEST_GUIDE.md) for detailed documentation.
 
-### Manual Build
+## Build System
 
-If you prefer manual building:
+EPON Manager uses GNU Autotools for building:
+- **configure.ac** - Autoconf configuration
+- **Makefile.am** - Automake makefiles
+- **autogen.sh** - Bootstrap script
+
+### Configure Options
 
 ```bash
-# Build core application
-cd src/core
-make
+# Standard installation paths
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
 
-# Build and run unit tests
-cd tests/unit
-make
-make test
+# Feature options
+./configure --enable-debug        # Debug build
+./configure --disable-rbus        # Disable RBUS support
+./configure --disable-telemetry   # Disable telemetry
+./configure --disable-tests       # Don't build tests
 ```
 
 ## Project Structure

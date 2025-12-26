@@ -1,0 +1,20 @@
+# Makefile.am for data_structures library
+
+noinst_LIBRARIES = libeponMgr_datastructures.a
+
+libeponMgr_datastructures_a_SOURCES = \
+    eponMgr_cache.c \
+    eponMgr_cache.h \
+    eponMgr_queue.c \
+    eponMgr_queue.h \
+    eponMgr_onu_state.c \
+    eponMgr_onu_state.h \
+    eponMgr_llid_list.c \
+    eponMgr_llid_list.h \
+    eponMgr_cpe_list.c \
+    eponMgr_cpe_list.h
+
+libeponMgr_datastructures_a_CFLAGS = \
+    -I$(top_srcdir)/include \
+    -I$(top_srcdir)/src/logger \
+    $(AM_CFLAGS)
