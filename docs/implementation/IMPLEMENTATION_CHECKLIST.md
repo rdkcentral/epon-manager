@@ -294,25 +294,41 @@ Track progress through each phase of development.
 ### TR-181 Implementation
 - [x] Create `src/rbus/tr181/` directory
 - [x] Map TR-181 parameters to HAL wrapper (PHASE7_TR181_MAPPING.md)
-- [x] Implement TR-181 parameter registration (50 base parameters)
+- [x] Replace dummy implementations with real HAL wrapper API calls
+- [x] Implement TR-181 parameter registration (57 total: 50 base + 7 dynamic)
 - [x] Implement GET handlers for all parameter categories:
-  - [x] Base parameters (Enable, Status, Alias, Name, etc.) - 7 params
-  - [x] Optical parameters (power levels, thresholds) - 6 params
-  - [x] Standard stats (bytes, packets, errors) - 15 params
-  - [x] X_RDK stats (FEC, BER, ranging, MAC resets) - 5 params
-  - [x] Transceiver (temperature, voltage, current) - 3 params
-  - [x] EPON specific (mode, encryption, DPoE) - 5 params
-  - [x] Manufacturer info (vendor data) - 6 params
-  - [x] OLT info (OLT MAC, OUI) - 3 params
+  - [x] Base parameters (Enable, Status, Alias, Name, etc.) - 7 params → HAL wrapper + config
+  - [x] Optical parameters (power levels, thresholds) - 6 params → eponMgr_hal_wrapper_get_transceiver_stats()
+  - [x] Standard stats (bytes, packets, errors) - 15 params → eponMgr_hal_wrapper_get_link_stats()
+  - [x] X_RDK stats (FEC, BER, ranging, MAC resets) - 5 params → eponMgr_hal_wrapper_get_link_stats()
+  - [x] Transceiver (temperature, voltage, current) - 3 params → eponMgr_hal_wrapper_get_transceiver_stats()
+  - [x] EPON specific (mode, encryption, DPoE) - 5 params → eponMgr_hal_wrapper_get_link_info()
+  - [x] Manufacturer info (vendor data) - 6 params → eponMgr_hal_wrapper_get_onu_manufacturer_info()
+  - [x] OLT info (OLT MAC, OUI) - 3 params → eponMgr_hal_wrapper_get_olt_info()
 - [x] Implement SET handlers:
-  - [x] Enable parameter (boolean)
-  - [x] Alias parameter (string)
+  - [x] Enable parameter (boolean) → eponMgr_config_set()
+  - [x] Alias parameter (string) → eponMgr_config_set()
+- [x] Implement LLID dynamic table (Phase 7.1):
+  - [x] LLIDNumberOfEntries (count)
+  - [x] LLID.{i}.LLID (LLID value)
+  - [x] LLID.{i}.Status (state string)
+  - [x] LLID.{i}.MACAddress (local MAC)
+  - [x] LLID.{i}.Mode (Unicast/Broadcast)
+  - [x] LLID.{i}.EncryptionEnabled (bool)
+  - [x] LLID.{i}.ForwardingState (Enabled/Disabled/Learning)
+- [x] Implement DPoE/CPE dynamic table (Phase 7.2):
+  - [x] DPoE.MaxCPECount (max supported)
+  - [x] DPoE.StaticCPECount (static count)
+  - [x] DPoE.DynamicCPECount (dynamic count)
+  - [x] DPoE.CPENumberOfEntries (total count)
+  - [x] DPoE.CPE.{i}.MACAddress (CPE MAC)
+  - [x] DPoE.CPE.{i}.AddedTime (timestamp)
+  - [x] DPoE.CPE.{i}.Type (Static/Dynamic)
 - [x] Integrate TR-181 handlers with RBUS init/cleanup
 - [x] Extend dummy RBUS with property/value APIs
+- [x] Add config get/set functions for runtime configuration
 - [x] All tests passing (7/7)
 - [ ] Create TR-181 unit tests (GET/SET validation)
-- [ ] Implement LLID table (dynamic multi-instance)
-- [ ] Implement DPoE/CPE table (dynamic multi-instance)
 
 ### WanManager Integration
 - [x] WanManager PHY notification (Phase 6 complete)
@@ -321,24 +337,30 @@ Track progress through each phase of development.
 - [ ] Test multi-interface scenarios
 - [ ] Verify correct PHY status changes
 
-**Status:** ✅ Phase 7 - Base Implementation Complete! (50 TR-181 parameters working)
+**Status:** ✅ Phase 7 - Complete! (57 TR-181 parameters with HAL integration)
 
 **Progress:**
-- ✅ 50 base TR-181 parameters registered and working
-- ✅ 7 GET handler categories implemented (dummy mode)
-- ✅ 2 SET handlers implemented (Enable, Alias)
-- ✅ Full integration with RBUS
-- ⏳ Awaiting LLID/CPE dynamic tables (Phase 7.1)
-- ⏳ Awaiting real HAL wrapper integration (Phase 10)
+- ✅ 57 TR-181 parameters registered (50 base + 7 dynamic tables)
+- ✅ All GET handlers call real HAL wrapper APIs (with caching)
+- ✅ 2 SET handlers update config file
+- ✅ LLID dynamic table implemented (Phase 7.1)
+- ✅ DPoE/CPE dynamic table implemented (Phase 7.2)
+- ✅ Full integration with RBUS and HAL wrapper
+- ✅ All tests passing (7/7)
 
-**Deferred to Phase 7.1:**
-- LLID.{i} table (dynamic, 6 params × LLIDs)
-- DPOE.CPE.{i} table (dynamic, 3 params × CPEs)
+**Key Implementation Details:**
+- Base parameters read from config + ONU state (current_status)
+- Optical parameters from transceiver stats (30s cache)
+- Statistics from link stats (30s cache)
+- LLID table accesses llid_list from HAL wrapper
+- CPE table accesses cpe_list from HAL wrapper
+- SET handlers update config key-value store
+- All handlers use proper mutex locking for thread safety
 
-**Deferred to Phase 10:**
-- Replace dummy implementations with real HAL wrapper calls
-- Cache integration for statistics (30s TTL)
-- Config file integration for Enable/Alias SET handlers
+**Deferred to Phase 7.3:**
+- Controller integration (event loop triggering)
+- Multi-interface testing
+- TR-181 unit tests (comprehensive GET/SET validation)
 
 ---
 
