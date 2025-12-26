@@ -197,5 +197,21 @@ rbusError_t rbus_set(
 #endif
 
 #endif /* USE_DUMMY_RBUS */
+/* Property and value manipulation functions */
+const char* rbusProperty_GetName(rbusProperty_t property);
+void rbusProperty_SetValue(rbusProperty_t property, rbusValue_t value);
+rbusValue_t rbusProperty_GetValue(rbusProperty_t property);
 
+void rbusValue_Init(rbusValue_t* value);
+void rbusValue_Release(rbusValue_t value);
+void rbusValue_SetString(rbusValue_t value, const char* str);
+const char* rbusValue_GetString(rbusValue_t value, int* length);
+void rbusValue_SetBoolean(rbusValue_t value, bool b);
+bool rbusValue_GetBoolean(rbusValue_t value);
+void rbusValue_SetInt32(rbusValue_t value, int32_t i);
+int32_t rbusValue_GetInt32(rbusValue_t value);
+void rbusValue_SetUInt32(rbusValue_t value, uint32_t u);
+uint32_t rbusValue_GetUInt32(rbusValue_t value);
+void rbusValue_SetUInt64(rbusValue_t value, uint64_t u);
+uint64_t rbusValue_GetUInt64(rbusValue_t value);
 #endif /* EPON_MGR_RBUS_DUMMY_H */

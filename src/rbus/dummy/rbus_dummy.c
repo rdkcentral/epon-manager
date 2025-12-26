@@ -133,4 +133,117 @@ rbusError_t rbus_set(
     return RBUS_ERROR_SUCCESS;
 }
 
+/* ============================================================================
+ * Property and Value Manipulation Functions
+ * ============================================================================ */
+
+struct _rbusProperty {
+    char name[256];
+    rbusValue_t value;
+};
+
+struct _rbusValue {
+    enum { TYPE_STRING, TYPE_BOOLEAN, TYPE_INT32, TYPE_UINT32, TYPE_UINT64 } type;
+    union {
+        char str[256];
+        bool b;
+        int32_t i32;
+        uint32_t u32;
+        uint64_t u64;
+    } data;
+};
+
+const char* rbusProperty_GetName(rbusProperty_t property) {
+    if (!property) return "";
+    return ((struct _rbusProperty*)property)->name;
+}
+
+void rbusProperty_SetValue(rbusProperty_t property, rbusValue_t value) {
+    if (!property || !value) return;
+    ((struct _rbusProperty*)property)->value = value;
+}
+
+rbusValue_t rbusProperty_GetValue(rbusProperty_t property) {
+    if (!property) return NULL;
+    return ((struct _rbusProperty*)property)->value;
+}
+
+void rbusValue_Init(rbusValue_t* value) {
+    *value = (rbusValue_t)malloc(sizeof(struct _rbusValue));
+    memset(*value, 0, sizeof(struct _rbusValue));
+}
+
+void rbusValue_Release(rbusValue_t value) {
+    if (value) {
+        free(value);
+    }
+}
+
+void rbusValue_SetString(rbusValue_t value, const char* str) {
+    if (!value || !str) return;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    v->type = TYPE_STRING;
+    strncpy(v->data.str, str, sizeof(v->data.str) - 1);
+    v->data.str[sizeof(v->data.str) - 1] = '\0';
+}
+
+const char* rbusValue_GetString(rbusValue_t value, int* length) {
+    if (!value) return "";
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    if (length) *length = strlen(v->data.str);
+    return v->data.str;
+}
+
+void rbusValue_SetBoolean(rbusValue_t value, bool b) {
+    if (!value) return;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    v->type = TYPE_BOOLEAN;
+    v->data.b = b;
+}
+
+bool rbusValue_GetBoolean(rbusValue_t value) {
+    if (!value) return false;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    return v->data.b;
+}
+
+void rbusValue_SetInt32(rbusValue_t value, int32_t i) {
+    if (!value) return;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    v->type = TYPE_INT32;
+    v->data.i32 = i;
+}
+
+int32_t rbusValue_GetInt32(rbusValue_t value) {
+    if (!value) return 0;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    return v->data.i32;
+}
+
+void rbusValue_SetUInt32(rbusValue_t value, uint32_t u) {
+    if (!value) return;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    v->type = TYPE_UINT32;
+    v->data.u32 = u;
+}
+
+uint32_t rbusValue_GetUInt32(rbusValue_t value) {
+    if (!value) return 0;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    return v->data.u32;
+}
+
+void rbusValue_SetUInt64(rbusValue_t value, uint64_t u) {
+    if (!value) return;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    v->type = TYPE_UINT64;
+    v->data.u64 = u;
+}
+
+uint64_t rbusValue_GetUInt64(rbusValue_t value) {
+    if (!value) return 0;
+    struct _rbusValue* v = (struct _rbusValue*)value;
+    return v->data.u64;
+}
+
 #endif /* USE_DUMMY_RBUS */

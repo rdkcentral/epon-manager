@@ -226,3 +226,67 @@ void eponMgr_config_print(const eponMgr_config_t *config) {
     printf("Event Queue Size: %u\n", config->event_queue_size);
     printf("==================================\n");
 }
+
+/* Simple in-memory key-value store for runtime config */
+#define MAX_CONFIG_ENTRIES 100
+static struct {
+    char key[128];
+    char value[256];
+} g_config_store[MAX_CONFIG_ENTRIES];
+static int g_config_count = 0;
+static pthread_mutex_t g_config_store_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int eponMgr_config_get(const char *key, char *value, size_t value_size) {
+    if (!key || !value || value_size == 0) {
+        return -1;
+    }
+    
+    pthread_mutex_lock(&g_config_store_mutex);
+    
+    for (int i = 0; i < g_config_count; i++) {
+        if (strcmp(g_config_store[i].key, key) == 0) {
+            strncpy(value, g_config_store[i].value, value_size - 1);
+            value[value_size - 1] = '\0';
+            pthread_mutex_unlock(&g_config_store_mutex);
+            return 0;
+        }
+    }
+    
+    pthread_mutex_unlock(&g_config_store_mutex);
+    return -1;  /* Key not found */
+}
+
+int eponMgr_config_set(const char *key, const char *value) {
+    if (!key || !value) {
+        return -1;
+    }
+    
+    pthread_mutex_lock(&g_config_store_mutex);
+    
+    /* Check if key already exists */
+    for (int i = 0; i < g_config_count; i++) {
+        if (strcmp(g_config_store[i].key, key) == 0) {
+            /* Update existing entry */
+            strncpy(g_config_store[i].value, value, sizeof(g_config_store[i].value) - 1);
+            g_config_store[i].value[sizeof(g_config_store[i].value) - 1] = '\0';
+            pthread_mutex_unlock(&g_config_store_mutex);
+            return 0;
+        }
+    }
+    
+    /* Add new entry if space available */
+    if (g_config_count < MAX_CONFIG_ENTRIES) {
+        strncpy(g_config_store[g_config_count].key, key, sizeof(g_config_store[g_config_count].key) - 1);
+        g_config_store[g_config_count].key[sizeof(g_config_store[g_config_count].key) - 1] = '\0';
+        
+        strncpy(g_config_store[g_config_count].value, value, sizeof(g_config_store[g_config_count].value) - 1);
+        g_config_store[g_config_count].value[sizeof(g_config_store[g_config_count].value) - 1] = '\0';
+        
+        g_config_count++;
+        pthread_mutex_unlock(&g_config_store_mutex);
+        return 0;
+    }
+    
+    pthread_mutex_unlock(&g_config_store_mutex);
+    return -1;  /* No space available */
+}

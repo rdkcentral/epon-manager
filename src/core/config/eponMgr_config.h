@@ -89,4 +89,21 @@ int eponMgr_config_validate(const eponMgr_config_t *config);
  */
 void eponMgr_config_print(const eponMgr_config_t *config);
 
+/**
+ * @brief Get configuration value by key (simple key-value store)
+ * @param key Configuration key (e.g., "epon.interface.enable")
+ * @param value Buffer to store the value
+ * @param value_size Size of the value buffer
+ * @return 0 on success, -1 if key not found
+ */
+int eponMgr_config_get(const char *key, char *value, size_t value_size);
+
+/**
+ * @brief Set configuration value by key (simple key-value store)
+ * @param key Configuration key (e.g., "epon.interface.enable")
+ * @param value Value to set
+ * @return 0 on success, -1 on error
+ */
+int eponMgr_config_set(const char *key, const char *value);
+
 #endif /* EPONMGR_CONFIG_H */
