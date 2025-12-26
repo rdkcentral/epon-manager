@@ -5,6 +5,7 @@ CFLAGS = -Wall -Wextra -O2 -I../../src/logger -I../../src/core/config -I../../sr
 LDFLAGS_LOGGER = -L../../src/logger -leponMgr_logger
 LDFLAGS_CONFIG = -L../../src/core/config -leponMgr_config -lpthread
 LDFLAGS_DATA = -L../../src/core/data_structures -leponMgr_datastructures -lpthread
+LDFLAGS_RBUS = -L../../src/rbus -leponMgr_rbus -L../../src/logger -leponMgr_logger -lpthread
 
 # Targets
 TEST_LOGGER = test_logger
@@ -12,8 +13,9 @@ TEST_CONFIG = test_config
 TEST_CACHE = test_cache
 TEST_QUEUE = test_queue
 TEST_DATASTRUCTURES = test_datastructures
+TEST_RBUS = test_rbus_basic
 
-TESTS = $(TEST_LOGGER) $(TEST_CONFIG) $(TEST_CACHE) $(TEST_QUEUE) $(TEST_DATASTRUCTURES)
+TESTS = $(TEST_LOGGER) $(TEST_CONFIG) $(TEST_CACHE) $(TEST_QUEUE) $(TEST_DATASTRUCTURES) $(TEST_RBUS)
 
 all: $(TESTS)
 
@@ -41,10 +43,15 @@ $(TEST_DATASTRUCTURES): test_datastructures.c ../../src/core/data_structures/lib
 	$(CC) $(CFLAGS) test_datastructures.c -o $(TEST_DATASTRUCTURES) $(LDFLAGS_DATA)
 	@echo "Built: $(TEST_DATASTRUCTURES)"
 
+$(TEST_RBUS): test_rbus_basic.c ../../src/rbus/libeponMgr_rbus.a ../../src/logger/libeponMgr_logger.a
+	$(CC) $(CFLAGS) test_rbus_basic.c -o $(TEST_RBUS) $(LDFLAGS_RBUS)
+	@echo "Built: $(TEST_RBUS)"
+
 test: $(TESTS)
 	@echo "=== Running Unit Tests ==="
 	@echo ""
 	./$(TEST_LOGGER) && echo "" || exit 1
+	./$(TEST_RBUS) && echo "" || exit 1
 	./$(TEST_CONFIG) && echo "" || exit 1
 	./$(TEST_CACHE) && echo "" || exit 1
 	./$(TEST_QUEUE) && echo "" || exit 1

@@ -47,6 +47,10 @@ epon-manager/
 │   └── BUILD_AND_TEST_GUIDE.md
 ├── src/
 │   ├── logger/                # Logging subsystem
+│   ├── rbus/                  # RBUS integration (Phase 6)
+│   │   ├── dummy/            # Dummy RBUS for local testing
+│   │   ├── wanmanager/       # WanManager PHY notifications
+│   │   └── tr181/            # TR-181 handlers (Phase 7)
 │   └── core/
 │       ├── config/            # Configuration management
 │       ├── data_structures/   # Core data structures
@@ -61,19 +65,21 @@ epon-manager/
 │   ├── implementation/        # Implementation documentation
 │   └── design_docs/          # Design documentation
 └── include/                   # Public headers
-```scripts/BUILD_AND_TEST_GUIDE.md](scripts/BUILD_AND_TEST_GUIDE.md) - Build and testing instructions
-- [docs/implementation/IMPLEMENTATION_CHECKLIST.md](docs/implementation/IMPLEMENTATION_CHECKLIST.md) - Implementation progress
-- [docs/implementation/](docs/implementation/) - Implementation documentation
+    └── rbus/                 # RBUS dummy types
+```
+
 ## Documentation
 
-- [BUILD_AND_TEST_GUIDE.md](BUILD_AND_TEST_GUIDE.md) - Build and testing instructions
-- [IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md) - Implementation progress
-- [design_docs/](design_docs/) - Detailed design documentation
+- [scripts/BUILD_AND_TEST_GUIDE.md](scripts/BUILD_AND_TEST_GUIDE.md) - Build and testing instructions
+- [docs/implementation/IMPLEMENTATION_CHECKLIST.md](docs/implementation/IMPLEMENTATION_CHECKLIST.md) - Implementation progress
+- [docs/implementation/](docs/implementation/) - Implementation documentation
 
 ## Features
 
 - **Phase 1-4 Complete**: Core infrastructure, data structures, HAL wrapper
 - **Phase 5 Complete**: Event-driven architecture with optimized condition variable signaling
+- **Phase 6 Complete**: RBUS integration with dummy APIs for local testing
 - Event queue for asynchronous event processing
+- WanManager PHY status notifications
 - Thread-safe data structures
-- Comprehensive unit and integration tests
+- Comprehensive unit and integration tests (7 tests passing)

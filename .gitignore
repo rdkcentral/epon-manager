@@ -126,3 +126,4 @@ tmp/
 temp/
 *.tmp
 .cache/
+tests/unit/test_rbus_basic

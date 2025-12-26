@@ -225,6 +225,17 @@ build_libraries() {
         print_success "Controller built"
     fi
     
+    # Build RBUS integration
+    if [ -f "$SRC_DIR/rbus/Makefile" ]; then
+        print_info "Building RBUS integration..."
+        if [ "$VERBOSE" = true ]; then
+            make -C "$SRC_DIR/rbus"
+        else
+            make -C "$SRC_DIR/rbus" > /dev/null 2>&1
+        fi
+        print_success "RBUS integration built"
+    fi
+    
     echo ""
 }
 
@@ -306,7 +317,7 @@ run_unit_tests() {
     cd "$TESTS_DIR/unit"
     
     # Get list of test executables
-    local test_executables=(test_logger test_config test_cache test_queue test_datastructures)
+    local test_executables=(test_logger test_config test_cache test_queue test_datastructures test_rbus_basic)
     
     for test in "${test_executables[@]}"; do
         if [ -f "$test" ]; then
