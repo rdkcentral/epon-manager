@@ -12,7 +12,9 @@ libeponMgr_datastructures_a_SOURCES = \
     eponMgr_llid_list.c \
     eponMgr_llid_list.h \
     eponMgr_cpe_list.c \
-    eponMgr_cpe_list.h
+    eponMgr_cpe_list.h \
+    eponMgr_interface_list.c \
+    eponMgr_interface_list.h
 
 libeponMgr_datastructures_a_CFLAGS = \
     -I$(top_srcdir)/include \

@@ -1,6 +1,6 @@
 # Makefile.am for src directory
 
-SUBDIRS = logger core rbus
+SUBDIRS = logger rbus core
 
 if ENABLE_TELEMETRY
 SUBDIRS += telemetry

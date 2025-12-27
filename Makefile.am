@@ -3,10 +3,10 @@
 ACLOCAL_AMFLAGS = -I m4
 
 # Subdirectories to build
-SUBDIRS = include src
-
 if ENABLE_TESTS
-SUBDIRS += tests
+SUBDIRS = include tests src
+else
+SUBDIRS = include src
 endif
 
 # Extra files to include in distribution

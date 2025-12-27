@@ -50,6 +50,15 @@ AC_ARG_ENABLE([rbus],
     AS_HELP_STRING([--enable-rbus], [Enable RBUS support (default=yes)]),
     [enable_rbus=$enableval],
     [enable_rbus=yes])
+
+if test "x$enable_rbus" = "xyes"; then
+    # RBUS_CFLAGS can be set externally via environment or will use default
+    AC_ARG_VAR([RBUS_CFLAGS], [C compiler flags for RBUS])
+    if test "x$RBUS_CFLAGS" = "x"; then
+        RBUS_CFLAGS=""
+    fi
+fi
+
 AM_CONDITIONAL([ENABLE_RBUS], [test "x$enable_rbus" = "xyes"])
 
 # Option to enable/disable telemetry

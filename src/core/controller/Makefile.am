@@ -9,6 +9,7 @@ libeponMgr_controller_a_SOURCES = \
 libeponMgr_controller_a_CFLAGS = \
     -I$(top_srcdir)/include \
     -I$(top_srcdir)/src/logger \
+    -I$(top_srcdir)/src/core/config \
     -I$(top_srcdir)/src/core/data_structures \
     -I$(top_srcdir)/src/core/hal_wrapper \
     $(AM_CFLAGS)

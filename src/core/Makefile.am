@@ -25,5 +25,9 @@ if ENABLE_RBUS
 epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a
 endif
 
+if ENABLE_TESTS
+epon_manager_LDADD += $(top_builddir)/tests/hal_mock/libepon_hal_mock.la
+endif
+
 epon_manager_LDFLAGS = \
     -Wl,-rpath,$(libdir)
