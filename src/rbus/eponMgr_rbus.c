@@ -11,15 +11,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../include/eponMgr_rbus.h"
-#include "../../include/eponMgr_tr181.h"
+#include "eponMgr_rbus.h"
+#include "eponMgr_tr181.h"
 #include "eponMgr_logger.h"
-#include "../../src/core/hal_wrapper/eponMgr_hal_wrapper.h"
+#include "eponMgr_hal_wrapper.h"
 
 #ifdef USE_DUMMY_RBUS
-#include "../../include/rbus/eponMgr_rbus_dummy.h"
+#include "rbus/eponMgr_rbus_dummy.h"
 #else
-#include <rbus.h>
+#include <rbus/rbus.h>
 #endif
 
 /* Global RBUS handle */

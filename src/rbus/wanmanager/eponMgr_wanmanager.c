@@ -18,7 +18,7 @@
 #ifdef USE_DUMMY_RBUS
 #include "../../../include/rbus/eponMgr_rbus_dummy.h"
 #else
-#include <rbus.h>
+#include <rbus/rbus.h>
 #endif
 
 /* WanManager TR-181 parameters */
