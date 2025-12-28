@@ -32,12 +32,10 @@ clean-local:
 # Installation hooks
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(sysconfdir)/epon
-	$(MKDIR_P) $(DESTDIR)$(localstatedir)/log
 
 # Uninstall hooks
 uninstall-local:
 	-rmdir $(DESTDIR)$(sysconfdir)/epon
-	-rmdir $(DESTDIR)$(localstatedir)/log
 
 .PHONY: test
 test:
