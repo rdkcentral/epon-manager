@@ -10,6 +10,8 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -139,6 +141,72 @@ static void process_command(const char *cmd) {
             info.name[EPON_HAL_INTERFACE_NAME_LEN - 1] = '\0';
             info.status = (epon_interface_link_status_t)status;
             g_config.interface_status_callback(info);
+        }
+    }
+    else if (strcmp(type, "LINKSTATS") == 0) {
+        char *field = strtok_r(NULL, ":", &saveptr);
+        char *value = strtok_r(NULL, ":", &saveptr);
+        if (!field || !value) return;
+        
+        printf("EPON HAL Mock: Processing LINKSTATS command: %s=%s\n", field, value);
+        
+        if (strcmp(field, "packets_sent") == 0) {
+            g_link_stats.packets_sent = strtoull(value, NULL, 10);
+        } else if (strcmp(field, "packets_received") == 0) {
+            g_link_stats.packets_received = strtoull(value, NULL, 10);
+        } else if (strcmp(field, "bytes_sent") == 0) {
+            g_link_stats.bytes_sent = strtoull(value, NULL, 10);
+        } else if (strcmp(field, "bytes_received") == 0) {
+            g_link_stats.bytes_received = strtoull(value, NULL, 10);
+        } else if (strcmp(field, "errors_sent") == 0) {
+            g_link_stats.errors_sent = strtoull(value, NULL, 10);
+        } else if (strcmp(field, "errors_received") == 0) {
+            g_link_stats.errors_received = strtoull(value, NULL, 10);
+        } else if (strcmp(field, "fec_corrected") == 0) {
+            g_link_stats.fec_corrected = strtoull(value, NULL, 10);
+        } else if (strcmp(field, "fec_uncorrectable") == 0) {
+            g_link_stats.fec_uncorrectable = strtoull(value, NULL, 10);
+        }
+    }
+    else if (strcmp(type, "TRANSCVRSTATS") == 0) {
+        char *field = strtok_r(NULL, ":", &saveptr);
+        char *value = strtok_r(NULL, ":", &saveptr);
+        if (!field || !value) return;
+        
+        printf("EPON HAL Mock: Processing TRANSCVRSTATS command: %s=%s\n", field, value);
+        
+        if (strcmp(field, "tx_power") == 0) {
+            g_transceiver_stats.transmit_optical_level = atof(value);
+        } else if (strcmp(field, "rx_power") == 0) {
+            g_transceiver_stats.optical_signal_level = atof(value);
+        } else if (strcmp(field, "temperature") == 0) {
+            g_transceiver_stats.temperature = atof(value);
+        } else if (strcmp(field, "bias_current") == 0) {
+            g_transceiver_stats.bias_current = atof(value);
+        } else if (strcmp(field, "voltage") == 0) {
+            g_transceiver_stats.supply_voltage = atof(value);
+        }
+    }
+    else if (strcmp(type, "INCREMENT") == 0) {
+        char *field = strtok_r(NULL, ":", &saveptr);
+        char *value = strtok_r(NULL, ":", &saveptr);
+        if (!field || !value) return;
+        
+        uint64_t inc = strtoull(value, NULL, 10);
+        printf("EPON HAL Mock: Processing INCREMENT command: %s+=%llu\n", field, (unsigned long long)inc);
+        
+        if (strcmp(field, "packets_sent") == 0) {
+            g_link_stats.packets_sent += inc;
+        } else if (strcmp(field, "packets_received") == 0) {
+            g_link_stats.packets_received += inc;
+        } else if (strcmp(field, "bytes_sent") == 0) {
+            g_link_stats.bytes_sent += inc;
+        } else if (strcmp(field, "bytes_received") == 0) {
+            g_link_stats.bytes_received += inc;
+        } else if (strcmp(field, "errors_sent") == 0) {
+            g_link_stats.errors_sent += inc;
+        } else if (strcmp(field, "errors_received") == 0) {
+            g_link_stats.errors_received += inc;
         }
     }
 }

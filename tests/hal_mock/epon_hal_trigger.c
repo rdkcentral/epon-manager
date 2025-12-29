@@ -32,6 +32,16 @@ static void print_usage(const char *prog_name) {
     printf("  -c, --clear <type>        Clear alarm (use with -a)\n");
     printf("  -i, --interface <name>    Trigger interface status callback\n");
     printf("                            Format: <name>:<up|down> (e.g., veip0:up)\n");
+    printf("  -L, --linkstats <field>=<value>  Set link statistics field\n");
+    printf("                            Fields: packets_sent, packets_received, bytes_sent,\n");
+    printf("                                    bytes_received, errors_sent, errors_received,\n");
+    printf("                                    fec_corrected, fec_uncorrectable\n");
+    printf("  -T, --transcvrstats <field>=<value>  Set transceiver statistics field\n");
+    printf("                            Fields: tx_power, rx_power, temperature,\n");
+    printf("                                    bias_current, voltage\n");
+    printf("  -I, --increment <field>=<value>  Increment link statistics field\n");
+    printf("                            Fields: packets_sent, packets_received, bytes_sent,\n");
+    printf("                                    bytes_received, errors_sent, errors_received\n");
     printf("  -l, --list                List all available events\n");
     printf("  -r, --repeat <count>      Repeat event N times (default: 1)\n");
     printf("  -d, --delay <ms>          Delay between repeats in milliseconds (default: 1000)\n");
@@ -42,6 +52,9 @@ static void print_usage(const char *prog_name) {
     printf("  %s -a los -c                # Clear LOS alarm\n", prog_name);
     printf("  %s -i veip0:up              # Trigger veip0 link up\n", prog_name);
     printf("  %s -s los -r 5 -d 500       # Trigger LOS status 5 times, 500ms apart\n", prog_name);
+    printf("  %s -L packets_sent=1000000  # Set packets sent to 1 million\n", prog_name);
+    printf("  %s -T tx_power=-2.5         # Set TX power to -2.5 dBm\n", prog_name);
+    printf("  %s -I packets_received=5000 # Increment packets received by 5000\n", prog_name);
     printf("\n");
 }
 
@@ -179,6 +192,9 @@ int main(int argc, char *argv[]) {
     char *status_str = NULL;
     char *alarm_str = NULL;
     char *interface_str = NULL;
+    char *linkstats_str = NULL;
+    char *transcvrstats_str = NULL;
+    char *increment_str = NULL;
     bool alarm_clear = false;
     int repeat_count = 1;
     int delay_ms = 1000;
@@ -188,6 +204,9 @@ int main(int argc, char *argv[]) {
         {"alarm",     required_argument, 0, 'a'},
         {"clear",     no_argument,       0, 'c'},
         {"interface", required_argument, 0, 'i'},
+        {"linkstats", required_argument, 0, 'L'},
+        {"transcvrstats", required_argument, 0, 'T'},
+        {"increment", required_argument, 0, 'I'},
         {"list",      no_argument,       0, 'l'},
         {"repeat",    required_argument, 0, 'r'},
         {"delay",     required_argument, 0, 'd'},
@@ -200,7 +219,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
     
-    while ((opt = getopt_long(argc, argv, "s:a:ci:lr:d:h", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "s:a:ci:L:T:I:lr:d:h", long_options, NULL)) != -1) {
         switch (opt) {
             case 's':
                 status_str = optarg;
@@ -213,6 +232,15 @@ int main(int argc, char *argv[]) {
                 break;
             case 'i':
                 interface_str = optarg;
+                break;
+            case 'L':
+                linkstats_str = optarg;
+                break;
+            case 'T':
+                transcvrstats_str = optarg;
+                break;
+            case 'I':
+                increment_str = optarg;
                 break;
             case 'l':
                 list_events();
@@ -328,9 +356,96 @@ int main(int argc, char *argv[]) {
         printf("✓ Interface callback triggered successfully\n\n");
     }
     
-    if (!status_str && !alarm_str && !interface_str) {
-        fprintf(stderr, "Error: No event specified\n");
-        fprintf(stderr, "Use -s, -a, or -i to trigger events\n");
+    /* Set link statistics */
+    if (linkstats_str) {
+        char *equals = strchr(linkstats_str, '=');
+        if (!equals) {
+            fprintf(stderr, "Error: Invalid linkstats format '%s'\n", linkstats_str);
+            fprintf(stderr, "Format: <field>=<value> (e.g., packets_sent=1000000)\n");
+            return 1;
+        }
+        
+        *equals = '\0';
+        char *field = linkstats_str;
+        char *value = equals + 1;
+        
+        for (int i = 0; i < repeat_count; i++) {
+            printf("[%d/%d] Setting link statistics: %s = %s\n", i+1, repeat_count, field, value);
+            
+            char cmd[256];
+            snprintf(cmd, sizeof(cmd), "LINKSTATS:%s:%s", field, value);
+            if (send_command(cmd) < 0) {
+                return 1;
+            }
+            
+            if (i < repeat_count - 1 && delay_ms > 0) {
+                usleep(delay_ms * 1000);
+            }
+        }
+        printf("✓ Link statistics updated successfully\n\n");
+    }
+    
+    /* Set transceiver statistics */
+    if (transcvrstats_str) {
+        char *equals = strchr(transcvrstats_str, '=');
+        if (!equals) {
+            fprintf(stderr, "Error: Invalid transcvrstats format '%s'\n", transcvrstats_str);
+            fprintf(stderr, "Format: <field>=<value> (e.g., tx_power=-2.5)\n");
+            return 1;
+        }
+        
+        *equals = '\0';
+        char *field = transcvrstats_str;
+        char *value = equals + 1;
+        
+        for (int i = 0; i < repeat_count; i++) {
+            printf("[%d/%d] Setting transceiver statistics: %s = %s\n", i+1, repeat_count, field, value);
+            
+            char cmd[256];
+            snprintf(cmd, sizeof(cmd), "TRANSCVRSTATS:%s:%s", field, value);
+            if (send_command(cmd) < 0) {
+                return 1;
+            }
+            
+            if (i < repeat_count - 1 && delay_ms > 0) {
+                usleep(delay_ms * 1000);
+            }
+        }
+        printf("✓ Transceiver statistics updated successfully\n\n");
+    }
+    
+    /* Increment link statistics */
+    if (increment_str) {
+        char *equals = strchr(increment_str, '=');
+        if (!equals) {
+            fprintf(stderr, "Error: Invalid increment format '%s'\n", increment_str);
+            fprintf(stderr, "Format: <field>=<value> (e.g., packets_received=5000)\n");
+            return 1;
+        }
+        
+        *equals = '\0';
+        char *field = increment_str;
+        char *value = equals + 1;
+        
+        for (int i = 0; i < repeat_count; i++) {
+            printf("[%d/%d] Incrementing link statistics: %s += %s\n", i+1, repeat_count, field, value);
+            
+            char cmd[256];
+            snprintf(cmd, sizeof(cmd), "INCREMENT:%s:%s", field, value);
+            if (send_command(cmd) < 0) {
+                return 1;
+            }
+            
+            if (i < repeat_count - 1 && delay_ms > 0) {
+                usleep(delay_ms * 1000);
+            }
+        }
+        printf("✓ Link statistics incremented successfully\n\n");
+    }
+    
+    if (!status_str && !alarm_str && !interface_str && !linkstats_str && !transcvrstats_str && !increment_str) {
+        fprintf(stderr, "Error: No event or statistics update specified\n");
+        fprintf(stderr, "Use -s, -a, -i, -L, -T, or -I to trigger events or update statistics\n");
         fprintf(stderr, "Use -h for help or -l to list available events\n");
         return 1;
     }

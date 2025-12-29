@@ -72,6 +72,28 @@ epon_hal_trigger --interface veip0:up
 epon_hal_trigger --interface veip0:down
 ```
 
+### Statistics Manipulation
+
+```bash
+# Set absolute statistics values
+epon_hal_trigger --linkstats packets_sent=1000000
+epon_hal_trigger --linkstats bytes_received=52428800
+
+# Set transceiver optical stats
+epon_hal_trigger --transcvrstats tx_power=-2.5
+epon_hal_trigger --transcvrstats rx_power=-15.3
+epon_hal_trigger --transcvrstats temperature=45.2
+
+# Increment statistics (simulate traffic)
+epon_hal_trigger --increment packets_sent=5000
+epon_hal_trigger --increment bytes_received=32768
+
+# Multiple stats updates in sequence
+epon_hal_trigger --linkstats fec_corrected=100
+epon_hal_trigger --linkstats fec_uncorrectable=5
+epon_hal_trigger --linkstats errors_received=10
+```
+
 ### Advanced Usage
 
 ```bash
@@ -164,6 +186,48 @@ epon_hal_trigger -i veip0:up
 echo "Link recovered"
 ```
 
+#### 4. Statistics Validation
+```bash
+#!/bin/bash
+# Simulate active traffic and verify TR-181 reads updated values
+
+echo "Setting baseline statistics..."
+epon_hal_trigger -L packets_sent=1000000
+epon_hal_trigger -L packets_received=950000
+epon_hal_trigger -L bytes_sent=1024000000
+epon_hal_trigger -L bytes_received=972800000
+
+sleep 2
+
+echo "Querying TR-181 parameters via RBUS..."
+rbus-cli get "Device.Ethernet.Link.1.Stats.PacketsSent"
+rbus-cli get "Device.Ethernet.Link.1.Stats.PacketsReceived"
+rbus-cli get "Device.Ethernet.Link.1.Stats.BytesSent"
+rbus-cli get "Device.Ethernet.Link.1.Stats.BytesReceived"
+
+echo "Simulating traffic..."
+for i in {1..10}; do
+    epon_hal_trigger -I packets_sent=10000
+    epon_hal_trigger -I packets_received=9800
+    epon_hal_trigger -I bytes_sent=15360000
+    epon_hal_trigger -I bytes_received=15052800
+    sleep 1
+done
+
+echo "Querying updated statistics..."
+rbus-cli get "Device.Ethernet.Link.1.Stats.PacketsSent"  # Should be ~1100000
+rbus-cli get "Device.Ethernet.Link.1.Stats.PacketsReceived"  # Should be ~1048000
+
+echo "Testing optical transceiver stats..."
+epon_hal_trigger -T tx_power=-3.5
+epon_hal_trigger -T rx_power=-18.2
+epon_hal_trigger -T temperature=52.3
+sleep 1
+rbus-cli get "Device.Optical.Interface.1.TransmitPower"
+rbus-cli get "Device.Optical.Interface.1.ReceivePower"
+rbus-cli get "Device.Optical.Interface.1.Temperature"
+```
+
 ## Integration with EPON Manager
 
 The HAL mock library integrates with EPON Manager's callback system via **Unix Domain Socket IPC**:
@@ -183,6 +247,9 @@ The HAL mock library integrates with EPON Manager's callback system via **Unix D
 - `STATUS:<onu_status_value>` - Triggers status_callback()
 - `ALARM:<alarm_type>:<1|0>` - Triggers alarm_callback() (1=raised, 0=cleared)
 - `INTERFACE:<name>:<link_status>` - Triggers interface_status_callback()
+- `LINKSTATS:<field>:<value>` - Updates link statistics field (absolute set)
+- `TRANSCVRSTATS:<field>:<value>` - Updates transceiver statistics field
+- `INCREMENT:<field>:<value>` - Increments link statistics field (relative change)
 
 This allows you to test:
 - TR-181 data model updates (via RBUS)
@@ -190,6 +257,8 @@ This allows you to test:
 - RDK Logger output
 - Telemetry event generation
 - State machine transitions
+- **Dynamic statistics updates and queries**
+- **Transceiver optical parameter monitoring**
 
 **Process Isolation:**
 The trigger utility runs as a separate process from EPON Manager, ensuring:
