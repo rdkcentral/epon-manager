@@ -68,9 +68,9 @@ AC_ARG_ENABLE([telemetry],
     [enable_telemetry=yes])
 AM_CONDITIONAL([ENABLE_TELEMETRY], [test "x$enable_telemetry" = "xyes"])
 
-# Option to enable/disable tests
+# Option to enable/disable HAL mock library
 AC_ARG_ENABLE([tests],
-    AS_HELP_STRING([--enable-tests], [Build unit tests (default=yes)]),
+    AS_HELP_STRING([--enable-tests], [Build HAL mock library for integration testing (default=yes)]),
     [enable_tests=$enableval],
     [enable_tests=yes])
 AM_CONDITIONAL([ENABLE_TESTS], [test "x$enable_tests" = "xyes"])
@@ -102,7 +102,7 @@ AC_MSG_RESULT([
     Features:
     RBUS support:       $enable_rbus
     Telemetry:          $enable_telemetry
-    Build tests:        $enable_tests
+    HAL mock library:   $enable_tests
     Debug build:        $enable_debug
 ])
 
