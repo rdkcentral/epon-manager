@@ -360,7 +360,6 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     
     ctrl->running = false;
     ctrl->shutdown_requested = false;
-    ctrl->rbus_initialized = false;
     
     EPONMGR_LOG_INFO("EPON Manager Controller initialized successfully");
     return ctrl;
@@ -401,7 +400,7 @@ int eponMgr_controller_run(eponMgr_controller_t *controller) {
     pthread_mutex_unlock(&controller->mutex);
     
     EPONMGR_LOG_INFO("EPON Manager Controller started");
-    EPONMGR_LOG_INFO("Entering main event loop (Ctrl+C to stop)...");
+    EPONMGR_LOG_INFO("Entering main event loop (send SIGTERM to stop gracefully)...");
     
     // Main event loop - Process events from queue
     while (!controller->shutdown_requested) {
