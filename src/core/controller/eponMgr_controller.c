@@ -274,9 +274,7 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     }
     
     // Step 1: Initialize logger
-    const char *log_dir = config->enable_file_log ? "/tmp" : NULL;
-    
-    if (eponMgr_logger_init(log_dir, LOG_LEVEL_INFO) != 0) {
+    if (eponMgr_logger_init() != 0) {
         fprintf(stderr, "ERROR: Failed to initialize logger\n");
         pthread_mutex_destroy(&ctrl->mutex);
         free(ctrl);

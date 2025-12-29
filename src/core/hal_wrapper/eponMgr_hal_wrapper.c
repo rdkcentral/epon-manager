@@ -3,6 +3,9 @@
  * Wraps all EPON HAL APIs with cache management
  */
 
+/* Include logger FIRST to enable HAL logging via HAL_LOG_FUNCTION */
+#include "eponMgr_logger.h"
+
 #include "eponMgr_hal_wrapper.h"
 #include <string.h>
 #include <stdlib.h>
