@@ -1,4 +1,8 @@
-# Building EPON Manager with Autotools
+# Building EPON Manager for RDK
+
+## Overview
+
+EPON Manager is built as part of the RDK build system using BitBake/Yocto. This document describes local development builds using autotools.
 
 ## Prerequisites
 
@@ -10,9 +14,6 @@ sudo yum install autoconf automake libtool gcc make
 
 # On Debian/Ubuntu
 sudo apt-get install autoconf automake libtool gcc make
-
-# On macOS
-brew install autoconf automake libtool
 ```
 
 ## Quick Start
@@ -27,10 +28,7 @@ brew install autoconf automake libtool
 # 3. Build
 make
 
-# 4. Run tests (optional)
-make check
-
-# 5. Install (optional, requires root)
+# 4. Install (optional, requires root)
 sudo make install
 ```
 
@@ -91,22 +89,6 @@ make clean
 make distclean
 ```
 
-## Testing
-
-```bash
-# Run all tests
-make check
-
-# Run tests with verbose output
-make check VERBOSE=1
-
-# Run specific test
-tests/unit/test_logger
-
-# Run tests in specific directory
-make -C tests/unit check
-```
-
 ## Installation
 
 ```bash
@@ -123,10 +105,25 @@ make install DESTDIR=/tmp/staging
 ### Installed Files
 
 - **Binaries**: `$(prefix)/bin/epon_manager`
-- **Libraries**: `$(libdir)/libepon_telemetry.so`, `$(libdir)/libeponMgr_logger.so`
+- **Libraries**: `$(libdir)/libepon_telemetry.so`, HAL mock: `$(libdir)/libepon_hal_mock.so`
 - **Headers**: `$(includedir)/epon-manager/*.h`
 - **Config**: `$(sysconfdir)/epon/`
-- **Logs**: `$(localstatedir)/log/`
+
+## RDK Build Integration
+
+In the RDK build environment, the component is built using BitBake:
+
+```bash
+# Clean and rebuild
+bitbake -c cleanall rdkeponmanager
+bitbake rdkeponmanager
+
+# Deploy to target
+# Output: /usr/bin/epon_manager
+#         /usr/lib/libepon_hal_mock.so*
+```
+
+The BitBake recipe is at: `meta-rdk-wan/recipes-ccsp/ccsp/rdkeponmanager.bb`
 
 ## Distribution
 
@@ -150,86 +147,6 @@ make distclean
 make maintainer-clean
 ```
 
-## Cross-Compilation
-
-```bash
-# For ARM target
-./configure --host=arm-linux-gnueabihf \
-    CC=arm-linux-gnueabihf-gcc \
-    --prefix=/usr
-
-# For 32-bit on 64-bit system
-./configure CFLAGS="-m32" LDFLAGS="-m32"
-```
-
-## Parallel Builds
-
-```bash
-# Build with 4 parallel jobs
-make -j4
-
-# Use all available CPU cores
-make -j$(nproc)
-```
-
-## Development Workflow
-
-```bash
-# After modifying configure.ac or Makefile.am
-./autogen.sh
-./configure [your options]
-make
-
-# After modifying source code only
-make
-
-# After git pull
-make clean
-./autogen.sh
-./configure [your options]
-make
-```
-
-## Troubleshooting
-
-### "configure: command not found"
-
-Run `./autogen.sh` first to generate the configure script.
-
-### "aclocal: command not found"
-
-Install autotools: `sudo yum install autoconf automake libtool`
-
-### "libtool library used but 'LIBTOOL' is undefined"
-
-Run `./autogen.sh` to regenerate build files.
-
-### Build fails with "No rule to make target"
-
-```bash
-make distclean
-./autogen.sh
-./configure
-make
-```
-
-### Tests fail to run
-
-Make sure you configured with `--enable-tests` (default is yes):
-```bash
-./configure --enable-tests
-make check
-```
-
-## Comparison with Old Build System
-
-| Old Makefile | Autotools Equivalent |
-|--------------|---------------------|
-| `make` | `./autogen.sh && ./configure && make` |
-| `./scripts/build_and_test.sh` | `make check` |
-| `make clean` | `make clean` |
-| Manual installation | `make install` |
-
 ## Configuration Variables
 
 View all configuration variables:
@@ -241,7 +158,6 @@ Common variables:
 - `CC` - C compiler
 - `CFLAGS` - C compiler flags
 - `LDFLAGS` - Linker flags
-- `PKG_CONFIG_PATH` - Path to .pc files
 
 Example:
 ```bash
@@ -250,11 +166,3 @@ Example:
     CFLAGS="-O3 -march=native" \
     LDFLAGS="-Wl,-rpath,/opt/lib"
 ```
-
-## Support
-
-For build issues, check:
-1. All dependencies are installed
-2. `./autogen.sh` completed without errors
-3. `./configure` completed successfully
-4. Check `config.log` for detailed error messages

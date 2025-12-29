@@ -1,4 +1,5 @@
 # Makefile.am for HAL mock library
+# Provides mock EPON HAL implementation for RDK integration testing
 
 if ENABLE_TESTS
 

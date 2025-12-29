@@ -1,9 +1,22 @@
 # epon-manager
-The Rdk Epon Manager is an RDK application responsible for controlling and configuring EPON lower layers. It serves as a middleware between the EPON HAL and other RDK components.
 
-## Quick Start
+The RDK EPON Manager is an RDK application responsible for controlling and configuring EPON lower layers. It serves as middleware between the EPON HAL and other RDK components.
 
-### Building with Autotools (Recommended)
+## Building
+
+### RDK Build (Production)
+
+```bash
+# Clean and rebuild
+bitbake -c cleanall rdkeponmanager
+bitbake rdkeponmanager
+
+# Output:
+#   /usr/bin/epon_manager
+#   /usr/lib/libepon_hal_mock.so*
+```
+
+### Local Development Build
 
 ```bash
 # 1. Generate configure script (first time only)
@@ -15,38 +28,11 @@ The Rdk Epon Manager is an RDK application responsible for controlling and confi
 # 3. Build
 make
 
-# 4. Run tests
-make check
-
-# 5. Install (optional)
+# 4. Install (optional)
 sudo make install
 ```
 
-See [BUILDING.md](BUILDING.md) for detailed autotools documentation.
-
-### Alternative: Legacy Build Script
-
-The project still includes the original build script:
-
-```bash
-# Build everything and run all tests
-./scripts/build_and_test.sh
-
-# Clean build
-./scripts/build_and_test.sh --clean
-
-# Run only unit tests
-./scripts/build_and_test.sh --unit-only
-```
-
-See [scripts/BUILD_AND_TEST_GUIDE.md](scripts/BUILD_AND_TEST_GUIDE.md) for detailed documentation.
-
-## Build System
-
-EPON Manager uses GNU Autotools for building:
-- **configure.ac** - Autoconf configuration
-- **Makefile.am** - Automake makefiles
-- **autogen.sh** - Bootstrap script
+See [BUILDING.md](BUILDING.md) for detailed build documentation.
 
 ### Configure Options
 
@@ -58,22 +44,19 @@ EPON Manager uses GNU Autotools for building:
 ./configure --enable-debug        # Debug build
 ./configure --disable-rbus        # Disable RBUS support
 ./configure --disable-telemetry   # Disable telemetry
-./configure --disable-tests       # Don't build tests
+./configure --disable-tests       # Don't build HAL mock
 ```
 
 ## Project Structure
 
 ```
 epon-manager/
-├── scripts/                   # Build and utility scripts
-│   ├── build_and_test.sh     # Automated build and test script
-│   └── BUILD_AND_TEST_GUIDE.md
 ├── src/
-│   ├── logger/                # Logging subsystem
-│   ├── rbus/                  # RBUS integration (Phase 6)
-│   │   ├── dummy/            # Dummy RBUS for local testing
+│   ├── logger/                # RDK Logger integration (header-only)
+│   ├── rbus/                  # RBUS integration
 │   │   ├── wanmanager/       # WanManager PHY notifications
-│   │   └── tr181/            # TR-181 handlers (Phase 7)
+│   │   └── tr181/            # TR-181 data model handlers
+│   ├── telemetry/             # Telemetry subsystem
 │   └── core/
 │       ├── config/            # Configuration management
 │       ├── data_structures/   # Core data structures
@@ -81,28 +64,16 @@ epon-manager/
 │       ├── controller/        # Main controller logic
 │       └── epon_manager_main.c
 ├── tests/
-│   ├── hal_mock/              # Mock HAL for testing
-│   ├── unit/                  # Unit tests
-│   └── integration/           # Integration tests
-├── docs/
-│   ├── implementation/        # Implementation documentation
-│   └── design_docs/          # Design documentation
-└── include/                   # Public headers
-    └── rbus/                 # RBUS dummy types
+│   └── hal_mock/              # Mock EPON HAL for integration testing
+├── include/                   # Public headers (epon_hal.h)
+└── docs/                      # Documentation
 ```
-
-## Documentation
-
-- [scripts/BUILD_AND_TEST_GUIDE.md](scripts/BUILD_AND_TEST_GUIDE.md) - Build and testing instructions
-- [docs/implementation/IMPLEMENTATION_CHECKLIST.md](docs/implementation/IMPLEMENTATION_CHECKLIST.md) - Implementation progress
-- [docs/implementation/](docs/implementation/) - Implementation documentation
 
 ## Features
 
-- **Phase 1-4 Complete**: Core infrastructure, data structures, HAL wrapper
-- **Phase 5 Complete**: Event-driven architecture with optimized condition variable signaling
-- **Phase 6 Complete**: RBUS integration with dummy APIs for local testing
-- Event queue for asynchronous event processing
-- WanManager PHY status notifications
-- Thread-safe data structures
-- Comprehensive unit and integration tests (7 tests passing)
+- **RBUS Integration**: TR-181 data model support (Device.Optical.Interface)
+- **WanManager Integration**: PHY status notifications
+- **RDK Logger**: Integrated logging with RDK_LOG macros
+- **Telemetry**: Event reporting and statistics collection
+- **HAL Abstraction**: Clean separation between manager and HAL
+- **Thread-Safe**: Event-driven architecture with condition variables

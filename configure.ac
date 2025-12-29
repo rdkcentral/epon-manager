@@ -120,8 +120,6 @@ AC_CONFIG_FILES([
     src/telemetry/Makefile
     tests/Makefile
     tests/hal_mock/Makefile
-    tests/unit/Makefile
-    tests/integration/Makefile
 ])
 
 AC_OUTPUT
