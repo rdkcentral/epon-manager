@@ -73,14 +73,14 @@ static const char* event_type_to_string(eponMgr_telemetry_event_type_t type) {
  */
 int eponMgr_telemetry_init(const char *component_name) {
     if (!component_name) {
-        EPONMGR_LOG_ERROR("Telemetry init: NULL component name");
+        EPONMGR_LOG_ERROR("Telemetry init: NULL component name\n");
         return -1;
     }
 
     pthread_mutex_lock(&g_telem_state.mutex);
 
     if (g_telem_state.initialized) {
-        EPONMGR_LOG_WARN("Telemetry already initialized");
+        EPONMGR_LOG_WARN("Telemetry already initialized\n");
         pthread_mutex_unlock(&g_telem_state.mutex);
         return 0;
     }
@@ -97,9 +97,9 @@ int eponMgr_telemetry_init(const char *component_name) {
 
     pthread_mutex_unlock(&g_telem_state.mutex);
 
-    EPONMGR_LOG_INFO("Telemetry initialized (DUMMY MODE) for component: %s", 
+    EPONMGR_LOG_INFO("Telemetry initialized (DUMMY MODE) for component: %s\n", 
                      component_name);
-    EPONMGR_LOG_INFO("Telemetry: Using stub implementation - no actual T2 integration");
+    EPONMGR_LOG_INFO("Telemetry: Using stub implementation - no actual T2 integration\n");
 
     return 0;
 }
@@ -115,10 +115,10 @@ int eponMgr_telemetry_cleanup(void) {
         return 0;
     }
 
-    EPONMGR_LOG_INFO("Telemetry cleanup - Statistics:");
-    EPONMGR_LOG_INFO("  Total events reported: %lu", g_telem_state.event_count);
-    EPONMGR_LOG_INFO("  Total stats reported: %lu", g_telem_state.stat_count);
-    EPONMGR_LOG_INFO("  Total markers sent: %lu", g_telem_state.marker_count);
+    EPONMGR_LOG_INFO("Telemetry cleanup - Statistics:\n");
+    EPONMGR_LOG_INFO("  Total events reported: %lu\n", g_telem_state.event_count);
+    EPONMGR_LOG_INFO("  Total stats reported: %lu\n", g_telem_state.stat_count);
+    EPONMGR_LOG_INFO("  Total markers sent: %lu\n", g_telem_state.marker_count);
 
     g_telem_state.initialized = false;
     g_telem_state.enabled = false;
@@ -126,7 +126,7 @@ int eponMgr_telemetry_cleanup(void) {
 
     pthread_mutex_unlock(&g_telem_state.mutex);
 
-    EPONMGR_LOG_INFO("Telemetry cleanup complete");
+    EPONMGR_LOG_INFO("Telemetry cleanup complete\n");
     return 0;
 }
 
@@ -139,14 +139,14 @@ int eponMgr_telemetry_report_event(
     const char *event_data)
 {
     if (!event_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_event: NULL event name");
+        EPONMGR_LOG_ERROR("Telemetry report_event: NULL event name\n");
         return -1;
     }
 
     pthread_mutex_lock(&g_telem_state.mutex);
 
     if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized");
+        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
         pthread_mutex_unlock(&g_telem_state.mutex);
         return -1;
     }
@@ -162,13 +162,13 @@ int eponMgr_telemetry_report_event(
 
     // Log the telemetry event (dummy implementation)
     if (event_data) {
-        EPONMGR_LOG_INFO("TELEMETRY_EVENT[%lu]: Type=%s, Name=%s, Data=%s",
+        EPONMGR_LOG_INFO("TELEMETRY_EVENT[%lu]: Type=%s, Name=%s, Data=%s\n",
                         g_telem_state.event_count,
                         event_type_to_string(event_type),
                         event_name,
                         event_data);
     } else {
-        EPONMGR_LOG_INFO("TELEMETRY_EVENT[%lu]: Type=%s, Name=%s",
+        EPONMGR_LOG_INFO("TELEMETRY_EVENT[%lu]: Type=%s, Name=%s\n",
                         g_telem_state.event_count,
                         event_type_to_string(event_type),
                         event_name);
@@ -196,7 +196,7 @@ int eponMgr_telemetry_report_onu_status_change(
     char event_data[256];
     
     if (!interface_name || !old_status || !new_status) {
-        EPONMGR_LOG_ERROR("Telemetry report_onu_status_change: NULL parameter");
+        EPONMGR_LOG_ERROR("Telemetry report_onu_status_change: NULL parameter\n");
         return -1;
     }
 
@@ -218,7 +218,7 @@ int eponMgr_telemetry_report_link_up(const char *interface_name) {
     char event_data[128];
     
     if (!interface_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_link_up: NULL interface name");
+        EPONMGR_LOG_ERROR("Telemetry report_link_up: NULL interface name\n");
         return -1;
     }
 
@@ -238,7 +238,7 @@ int eponMgr_telemetry_report_link_down(const char *interface_name) {
     char event_data[128];
     
     if (!interface_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_link_down: NULL interface name");
+        EPONMGR_LOG_ERROR("Telemetry report_link_down: NULL interface name\n");
         return -1;
     }
 
@@ -294,14 +294,14 @@ int eponMgr_telemetry_report_stats(
     size_t count)
 {
     if (!stats || count == 0) {
-        EPONMGR_LOG_ERROR("Telemetry report_stats: Invalid parameters");
+        EPONMGR_LOG_ERROR("Telemetry report_stats: Invalid parameters\n");
         return -1;
     }
 
     pthread_mutex_lock(&g_telem_state.mutex);
 
     if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized");
+        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
         pthread_mutex_unlock(&g_telem_state.mutex);
         return -1;
     }
@@ -316,10 +316,10 @@ int eponMgr_telemetry_report_stats(
     pthread_mutex_unlock(&g_telem_state.mutex);
 
     // Log statistics batch (dummy implementation)
-    EPONMGR_LOG_INFO("TELEMETRY_STATS: Reporting %zu statistics", count);
+    EPONMGR_LOG_INFO("TELEMETRY_STATS: Reporting %zu statistics\n", count);
     
     for (size_t i = 0; i < count; i++) {
-        EPONMGR_LOG_DEBUG("  [%zu] %s = %lu (timestamp: %ld)",
+        EPONMGR_LOG_DEBUG("  [%zu] %s = %lu (timestamp: %ld)\n",
                          i,
                          stats[i].stat_name,
                          stats[i].value,
@@ -347,7 +347,7 @@ int eponMgr_telemetry_report_single_stat(
     eponMgr_telemetry_stat_t stat;
     
     if (!stat_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_single_stat: NULL stat name");
+        EPONMGR_LOG_ERROR("Telemetry report_single_stat: NULL stat name\n");
         return -1;
     }
 
@@ -364,14 +364,14 @@ int eponMgr_telemetry_report_single_stat(
  */
 int eponMgr_telemetry_send_marker(const eponMgr_telemetry_marker_t *marker) {
     if (!marker) {
-        EPONMGR_LOG_ERROR("Telemetry send_marker: NULL marker");
+        EPONMGR_LOG_ERROR("Telemetry send_marker: NULL marker\n");
         return -1;
     }
 
     pthread_mutex_lock(&g_telem_state.mutex);
 
     if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized");
+        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
         pthread_mutex_unlock(&g_telem_state.mutex);
         return -1;
     }
@@ -386,7 +386,7 @@ int eponMgr_telemetry_send_marker(const eponMgr_telemetry_marker_t *marker) {
     pthread_mutex_unlock(&g_telem_state.mutex);
 
     // Log the marker (dummy implementation)
-    EPONMGR_LOG_INFO("TELEMETRY_MARKER[%lu]: Name=%s, Value=%s, Time=%ld",
+    EPONMGR_LOG_INFO("TELEMETRY_MARKER[%lu]: Name=%s, Value=%s, Time=%ld\n",
                     g_telem_state.marker_count,
                     marker->marker_name,
                     marker->value,
@@ -419,7 +419,7 @@ int eponMgr_telemetry_set_enabled(bool enabled) {
     pthread_mutex_lock(&g_telem_state.mutex);
 
     if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized");
+        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
         pthread_mutex_unlock(&g_telem_state.mutex);
         return -1;
     }
@@ -428,7 +428,7 @@ int eponMgr_telemetry_set_enabled(bool enabled) {
 
     pthread_mutex_unlock(&g_telem_state.mutex);
 
-    EPONMGR_LOG_INFO("Telemetry %s", enabled ? "enabled" : "disabled");
+    EPONMGR_LOG_INFO("Telemetry %s\n", enabled ? "enabled" : "disabled");
 
     return 0;
 }

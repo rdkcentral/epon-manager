@@ -135,7 +135,7 @@ static rbusDataElement_t g_tr181_params[] = {
  */
 int eponMgr_tr181_init(rbusHandle_t handle, eponMgr_hal_wrapper_t *hal_wrapper) {
     if (!handle || !hal_wrapper) {
-        EPONMGR_LOG_ERROR("Invalid parameters: handle=%p, hal_wrapper=%p", handle, hal_wrapper);
+        EPONMGR_LOG_ERROR("Invalid parameters: handle=%p, hal_wrapper=%p\n", handle, hal_wrapper);
         return -1;
     }
 
@@ -143,15 +143,15 @@ int eponMgr_tr181_init(rbusHandle_t handle, eponMgr_hal_wrapper_t *hal_wrapper) 
     g_hal_wrapper = hal_wrapper;
     g_param_count = sizeof(g_tr181_params) / sizeof(rbusDataElement_t);
 
-    EPONMGR_LOG_INFO("Registering %d TR-181 parameters with RBUS (including dynamic tables)", g_param_count);
+    EPONMGR_LOG_INFO("Registering %d TR-181 parameters with RBUS (including dynamic tables)\n", g_param_count);
 
     rbusError_t rc = rbus_regDataElements(handle, g_param_count, g_tr181_params);
     if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to register TR-181 parameters: %d", rc);
+        EPONMGR_LOG_ERROR("Failed to register TR-181 parameters: %d\n", rc);
         return -1;
     }
 
-    EPONMGR_LOG_INFO("TR-181 parameter registration complete: %d parameters", g_param_count);
+    EPONMGR_LOG_INFO("TR-181 parameter registration complete: %d parameters\n", g_param_count);
     return 0;
 }
 
@@ -163,14 +163,14 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle) {
         return;
     }
 
-    EPONMGR_LOG_INFO("Unregistering %d TR-181 parameters from RBUS", g_param_count);
+    EPONMGR_LOG_INFO("Unregistering %d TR-181 parameters from RBUS\n", g_param_count);
     rbus_unregDataElements(handle, g_param_count, g_tr181_params);
 
     g_rbus_handle = NULL;
     g_hal_wrapper = NULL;
     g_param_count = 0;
 
-    EPONMGR_LOG_INFO("TR-181 parameter cleanup complete");
+    EPONMGR_LOG_INFO("TR-181 parameter cleanup complete\n");
 }
 
 /**
@@ -245,7 +245,7 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     if (strstr(param_name, ".Enable")) {
         // Read from config file
@@ -327,18 +327,18 @@ static rbusError_t base_param_set_handler(rbusHandle_t handle, rbusProperty_t pr
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value = rbusProperty_GetValue(property);
 
-    EPONMGR_LOG_DEBUG("TR-181 SET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 SET: %s\n", param_name);
 
     if (strstr(param_name, ".Enable")) {
         bool enable = rbusValue_GetBoolean(value);
         
         // Update config file
         if (eponMgr_config_set("epon.interface.enable", enable ? "true" : "false") == 0) {
-            EPONMGR_LOG_INFO("Interface %s via TR-181", enable ? "enabled" : "disabled");
+            EPONMGR_LOG_INFO("Interface %s via TR-181\n", enable ? "enabled" : "disabled");
             // TODO: Trigger controller state machine event
             return RBUS_ERROR_SUCCESS;
         } else {
-            EPONMGR_LOG_ERROR("Failed to update Enable config");
+            EPONMGR_LOG_ERROR("Failed to update Enable config\n");
             return RBUS_ERROR_BUS_ERROR;
         }
     }
@@ -347,10 +347,10 @@ static rbusError_t base_param_set_handler(rbusHandle_t handle, rbusProperty_t pr
         
         // Update config file
         if (eponMgr_config_set("epon.interface.alias", alias) == 0) {
-            EPONMGR_LOG_INFO("Interface alias set to '%s' via TR-181", alias);
+            EPONMGR_LOG_INFO("Interface alias set to '%s' via TR-181\n", alias);
             return RBUS_ERROR_SUCCESS;
         } else {
-            EPONMGR_LOG_ERROR("Failed to update Alias config");
+            EPONMGR_LOG_ERROR("Failed to update Alias config\n");
             return RBUS_ERROR_BUS_ERROR;
         }
     }
@@ -375,7 +375,7 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get transceiver stats from HAL wrapper (with caching)
     epon_hal_transceiver_stats_t trans_stats;
@@ -383,7 +383,7 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
     
     int ret = eponMgr_hal_wrapper_get_transceiver_stats(g_hal_wrapper, &trans_stats);
     if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d", ret);
+        EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d\n", ret);
         rbusValue_Release(value);
         return RBUS_ERROR_BUS_ERROR;
     }
@@ -436,7 +436,7 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get link stats from HAL wrapper (with 30s caching)
     epon_hal_link_stats_t link_stats;
@@ -444,7 +444,7 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     
     int ret = eponMgr_hal_wrapper_get_link_stats(g_hal_wrapper, &link_stats);
     if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get link stats: %d", ret);
+        EPONMGR_LOG_ERROR("Failed to get link stats: %d\n", ret);
         rbusValue_Release(value);
         return RBUS_ERROR_BUS_ERROR;
     }
@@ -543,7 +543,7 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get transceiver stats from HAL wrapper
     epon_hal_transceiver_stats_t trans_stats;
@@ -551,7 +551,7 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
     
     int ret = eponMgr_hal_wrapper_get_transceiver_stats(g_hal_wrapper, &trans_stats);
     if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d", ret);
+        EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d\n", ret);
         rbusValue_Release(value);
         return RBUS_ERROR_BUS_ERROR;
     }
@@ -591,7 +591,7 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     if (strstr(param_name, "OperationalMode")) {
         // Get link info from HAL wrapper
@@ -660,7 +660,7 @@ static rbusError_t manufacturer_get_handler(rbusHandle_t handle, rbusProperty_t 
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get manufacturer info from HAL wrapper
     epon_onu_manufacturer_info_t mfr_info;
@@ -668,7 +668,7 @@ static rbusError_t manufacturer_get_handler(rbusHandle_t handle, rbusProperty_t 
     
     int ret = eponMgr_hal_wrapper_get_onu_manufacturer_info(g_hal_wrapper, &mfr_info);
     if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get manufacturer info: %d", ret);
+        EPONMGR_LOG_ERROR("Failed to get manufacturer info: %d\n", ret);
         rbusValue_Release(value);
         return RBUS_ERROR_BUS_ERROR;
     }
@@ -717,7 +717,7 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get OLT info from HAL wrapper
     epon_olt_info_t olt_info;
@@ -725,7 +725,7 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
     
     int ret = eponMgr_hal_wrapper_get_olt_info(g_hal_wrapper, &olt_info);
     if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get OLT info: %d", ret);
+        EPONMGR_LOG_ERROR("Failed to get OLT info: %d\n", ret);
         rbusValue_Release(value);
         return RBUS_ERROR_BUS_ERROR;
     }
@@ -773,7 +773,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Handle count parameter
     if (strstr(param_name, "LLIDNumberOfEntries")) {
@@ -798,7 +798,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     sscanf(instance_start, "%u", &instance);
 
     if (instance == 0 || instance > 32) {
-        EPONMGR_LOG_ERROR("Invalid LLID instance: %u", instance);
+        EPONMGR_LOG_ERROR("Invalid LLID instance: %u\n", instance);
         rbusValue_Release(value);
         return RBUS_ERROR_INVALID_INPUT;
     }
@@ -807,7 +807,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     epon_llid_info_t llid_info;
     int ret = eponMgr_llid_list_get_at(g_hal_wrapper->llid_list, instance - 1, &llid_info);
     if (ret != 0) {
-        EPONMGR_LOG_ERROR("LLID instance %u not found", instance);
+        EPONMGR_LOG_ERROR("LLID instance %u not found\n", instance);
         rbusValue_Release(value);
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
@@ -873,7 +873,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Handle DPoE statistics
     if (strstr(param_name, "MaxCPECount")) {
@@ -924,7 +924,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     sscanf(instance_start, "%u", &instance);
 
     if (instance == 0 || instance > 256) {
-        EPONMGR_LOG_ERROR("Invalid CPE instance: %u", instance);
+        EPONMGR_LOG_ERROR("Invalid CPE instance: %u\n", instance);
         rbusValue_Release(value);
         return RBUS_ERROR_INVALID_INPUT;
     }
@@ -933,7 +933,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     dpoe_cpe_mac_entry_t cpe_entry;
     int ret = eponMgr_cpe_list_get_at(g_hal_wrapper->cpe_list, instance - 1, &cpe_entry);
     if (ret != 0) {
-        EPONMGR_LOG_ERROR("CPE instance %u not found", instance);
+        EPONMGR_LOG_ERROR("CPE instance %u not found\n", instance);
         rbusValue_Release(value);
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }

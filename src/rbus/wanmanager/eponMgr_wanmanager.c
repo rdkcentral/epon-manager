@@ -38,7 +38,7 @@
  * @return 0 on success, -1 on failure
  */
 int eponMgr_rbus_notify_wanmanager_phy_status(bool phy_up) {
-    EPONMGR_LOG_INFO("PHY Status Change: %s → Notifying WanManager", 
+    EPONMGR_LOG_INFO("PHY Status Change: %s → Notifying WanManager\n", 
              phy_up ? "UP" : "DOWN");
     
     #ifdef USE_DUMMY_RBUS
@@ -52,7 +52,7 @@ int eponMgr_rbus_notify_wanmanager_phy_status(bool phy_up) {
     /* Real RBUS implementation */
     rbusHandle_t handle = (rbusHandle_t)eponMgr_rbus_get_handle();
     if (!handle) {
-        EPONMGR_LOG_ERROR("RBUS handle not available");
+        EPONMGR_LOG_ERROR("RBUS handle not available\n");
         return -1;
     }
     
@@ -60,11 +60,11 @@ int eponMgr_rbus_notify_wanmanager_phy_status(bool phy_up) {
     rbusError_t rc = rbus_set(handle, WANMANAGER_PHY_STATUS_PARAM, 
                               NULL /* value */, NULL /* options */);
     if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to set WanManager PHY status: %d", rc);
+        EPONMGR_LOG_ERROR("Failed to set WanManager PHY status: %d\n", rc);
         return -1;
     }
     
-    EPONMGR_LOG_INFO("Successfully notified WanManager: PHY %s", 
+    EPONMGR_LOG_INFO("Successfully notified WanManager: PHY %s\n", 
              phy_up ? "UP" : "DOWN");
     return 0;
     #endif
@@ -82,11 +82,11 @@ int eponMgr_rbus_notify_wanmanager_phy_status(bool phy_up) {
  */
 int eponMgr_rbus_update_virtual_interface(const char* interface_name, bool is_up) {
     if (!interface_name) {
-        EPONMGR_LOG_ERROR("Invalid interface name");
+        EPONMGR_LOG_ERROR("Invalid interface name\n");
         return -1;
     }
     
-    EPONMGR_LOG_DEBUG("Updating virtual interface: %s = %s", 
+    EPONMGR_LOG_DEBUG("Updating virtual interface: %s = %s\n", 
               interface_name, is_up ? "UP" : "DOWN");
     
     #ifdef USE_DUMMY_RBUS
@@ -102,7 +102,7 @@ int eponMgr_rbus_update_virtual_interface(const char* interface_name, bool is_up
     /* Real RBUS implementation */
     rbusHandle_t handle = (rbusHandle_t)eponMgr_rbus_get_handle();
     if (!handle) {
-        EPONMGR_LOG_ERROR("RBUS handle not available");
+        EPONMGR_LOG_ERROR("RBUS handle not available\n");
         return -1;
     }
     
@@ -136,12 +136,12 @@ int eponMgr_rbus_update_virtual_interface(const char* interface_name, bool is_up
     
     if (!found) {
         /* TODO: Phase 10 - Implement table add logic for new virtual interface */
-        EPONMGR_LOG_WARN("Virtual interface '%s' not found in WanManager table. "
+        EPONMGR_LOG_WARN("Virtual interface '%s' not found in WanManager table. \n"
                         "Table add logic not yet implemented.", interface_name);
         return -1;
     }
     
-    EPONMGR_LOG_INFO("Updated virtual interface %s: Enable=%s", 
+    EPONMGR_LOG_INFO("Updated virtual interface %s: Enable=%s\n", 
                     interface_name, is_up ? "true" : "false");
     return 0;
     #endif

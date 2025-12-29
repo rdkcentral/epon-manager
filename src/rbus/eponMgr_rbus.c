@@ -40,31 +40,31 @@ int eponMgr_rbus_init(const char* component_name, void *hal_wrapper_ptr) {
     eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)hal_wrapper_ptr;
     
     if (g_rbus_initialized) {
-        EPONMGR_LOG_WARN("RBUS already initialized");
+        EPONMGR_LOG_WARN("RBUS already initialized\n");
         return 0;
     }
     
     if (!component_name || !hal_wrapper) {
-        EPONMGR_LOG_ERROR("Invalid parameters");
+        EPONMGR_LOG_ERROR("Invalid parameters\n");
         return -1;
     }
     
     g_hal_wrapper = hal_wrapper;
     
-    EPONMGR_LOG_INFO("Initializing RBUS (component: %s)", component_name);
+    EPONMGR_LOG_INFO("Initializing RBUS (component: %s)\n", component_name);
     
     /* Open RBUS connection */
     rbusError_t rc = rbus_open(&g_rbus_handle, component_name);
     if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to open RBUS: error %d", rc);
+        EPONMGR_LOG_ERROR("Failed to open RBUS: error %d\n", rc);
         return -1;
     }
     
-    EPONMGR_LOG_INFO("RBUS connection opened successfully");
+    EPONMGR_LOG_INFO("RBUS connection opened successfully\n");
     
     /* Register TR-181 parameters */
     if (eponMgr_tr181_init(g_rbus_handle, g_hal_wrapper) != 0) {
-        EPONMGR_LOG_ERROR("Failed to register TR-181 parameters");
+        EPONMGR_LOG_ERROR("Failed to register TR-181 parameters\n");
         rbus_close(g_rbus_handle);
         g_rbus_handle = NULL;
         g_hal_wrapper = NULL;
@@ -73,7 +73,7 @@ int eponMgr_rbus_init(const char* component_name, void *hal_wrapper_ptr) {
     }
     
     g_rbus_initialized = true;
-    EPONMGR_LOG_INFO("RBUS initialization complete (%d TR-181 parameters registered)", 
+    EPONMGR_LOG_INFO("RBUS initialization complete (%d TR-181 parameters registered)\n", 
                      eponMgr_tr181_get_param_count());
     
     return 0;
@@ -87,7 +87,7 @@ void eponMgr_rbus_cleanup(void) {
         return;
     }
     
-    EPONMGR_LOG_INFO("Cleaning up RBUS");
+    EPONMGR_LOG_INFO("Cleaning up RBUS\n");
     
     /* Unregister TR-181 parameters */
     eponMgr_tr181_cleanup(g_rbus_handle);
@@ -96,14 +96,14 @@ void eponMgr_rbus_cleanup(void) {
     if (g_rbus_handle) {
         rbusError_t rc = rbus_close(g_rbus_handle);
         if (rc != RBUS_ERROR_SUCCESS) {
-            EPONMGR_LOG_ERROR("Failed to close RBUS: error %d", rc);
+            EPONMGR_LOG_ERROR("Failed to close RBUS: error %d\n", rc);
         }
         g_rbus_handle = NULL;
     }
     
     g_hal_wrapper = NULL;
     g_rbus_initialized = false;
-    EPONMGR_LOG_INFO("RBUS cleanup complete");
+    EPONMGR_LOG_INFO("RBUS cleanup complete\n");
 }
 
 /**
