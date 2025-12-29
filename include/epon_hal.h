@@ -97,31 +97,34 @@ typedef enum {
 #define HAL_LOG(level, format, ...)   HAL_LOG_FUNCTION(level, __FUNCTION__, __LINE__, format, ##__VA_ARGS__)
 
 /**
- * @brief Logging backend function - can be customized by defining HAL_LOG_FUNCTION
+ * @brief Logging backend function - integrated with RDK Logger
  * 
- * By default, logging is disabled (no-op). To enable logging, define HAL_LOG_FUNCTION
- * before including this header to redirect to your preferred logging backend.
+ * HAL implementation uses RDK Logger with "LOG.RDK.EPONMANAGER" module for all logging.
+ * Log levels are mapped from generic HAL levels to RDK log levels.
  * 
- * Example for RDK Logger:
- * @code
- * #define HAL_LOG_FUNCTION(level, func, line, format, ...) \
- *     RDK_LOG(rdk_log_map[level], "LOG.RDK.HAL", "[%s:%d] " format, func, line, ##__VA_ARGS__)
- * @endcode
- * 
- * Example for printf:
- * @code
- * #define HAL_LOG_FUNCTION(level, func, line, format, ...) \
- *     printf("[HAL][%s:%d] " format "\n", func, line, ##__VA_ARGS__)
- * @endcode
- * 
- * Example for syslog:
- * @code
- * #define HAL_LOG_FUNCTION(level, func, line, format, ...) \
- *     syslog(syslog_map[level], "[%s:%d] " format, func, line, ##__VA_ARGS__)
- * @endcode
+ * To use a different logging backend, define HAL_LOG_FUNCTION before including this header.
  */
 #ifndef HAL_LOG_FUNCTION
-#define HAL_LOG_FUNCTION(level, func, line, format, ...) /* Logging disabled by default */
+#ifdef RDK_LOGGER_ENABLED
+#include "rdk_debug.h"
+
+/* Map HAL log levels to RDK log levels */
+static const rdk_LogLevel hal_to_rdk_log_level[] = {
+    [HAL_LOG_LEVEL_FATAL]  = RDK_LOG_FATAL,
+    [HAL_LOG_LEVEL_ERROR]  = RDK_LOG_ERROR,
+    [HAL_LOG_LEVEL_WARN]   = RDK_LOG_WARN,
+    [HAL_LOG_LEVEL_NOTICE] = RDK_LOG_NOTICE,
+    [HAL_LOG_LEVEL_INFO]   = RDK_LOG_INFO,
+    [HAL_LOG_LEVEL_DEBUG]  = RDK_LOG_DEBUG,
+    [HAL_LOG_LEVEL_TRACE]  = RDK_LOG_TRACE
+};
+
+#define HAL_LOG_FUNCTION(level, func, line, format, ...) \
+    RDK_LOG(hal_to_rdk_log_level[level], "LOG.RDK.EPONMANAGER", "[%s:%d] " format, func, line, ##__VA_ARGS__)
+#else
+/* Logging disabled if RDK Logger not available */
+#define HAL_LOG_FUNCTION(level, func, line, format, ...) /* No-op */
+#endif
 #endif
 
 /** @} */ /* End of HAL_LOGGER group */

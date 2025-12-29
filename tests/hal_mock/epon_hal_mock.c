@@ -7,9 +7,20 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <errno.h>
+
+#define EPON_HAL_MOCK_SOCKET_PATH "/tmp/epon_hal_mock.sock"
+#define MAX_COMMAND_LEN 256
 
 /* Mock internal state */
 static bool g_initialized = false;
+static pthread_t g_control_thread;
+static int g_control_socket = -1;
+static bool g_control_running = false;
 static epon_hal_config_t g_config = {0};
 static epon_hal_link_stats_t g_link_stats = {0};
 static epon_hal_transceiver_stats_t g_transceiver_stats = {0};
@@ -78,6 +89,142 @@ static void init_default_data(void) {
 }
 
 /**
+ * Control socket thread for inter-process communication
+ */
+static void process_command(const char *cmd) {
+    char cmd_copy[MAX_COMMAND_LEN];
+    strncpy(cmd_copy, cmd, MAX_COMMAND_LEN - 1);
+    cmd_copy[MAX_COMMAND_LEN - 1] = '\0';
+    
+    /* Parse command: TYPE:value1:value2 */
+    char *saveptr;
+    char *type = strtok_r(cmd_copy, ":", &saveptr);
+    if (!type) return;
+    
+    if (strcmp(type, "STATUS") == 0) {
+        char *status_str = strtok_r(NULL, ":", &saveptr);
+        if (!status_str) return;
+        
+        int status = atoi(status_str);
+        printf("EPON HAL Mock: Processing STATUS command: %d\n", status);
+        
+        if (g_initialized && g_config.status_callback) {
+            g_config.status_callback((epon_onu_status_t)status);
+        }
+    }
+    else if (strcmp(type, "ALARM") == 0) {
+        char *alarm_str = strtok_r(NULL, ":", &saveptr);
+        char *active_str = strtok_r(NULL, ":", &saveptr);
+        if (!alarm_str || !active_str) return;
+        
+        int alarm = atoi(alarm_str);
+        int active = atoi(active_str);
+        printf("EPON HAL Mock: Processing ALARM command: %d, active=%d\n", alarm, active);
+        
+        if (g_initialized && g_config.alarm_callback) {
+            g_config.alarm_callback((epon_hal_alarm_t)alarm, (bool)active);
+        }
+    }
+    else if (strcmp(type, "INTERFACE") == 0) {
+        char *if_name = strtok_r(NULL, ":", &saveptr);
+        char *if_status = strtok_r(NULL, ":", &saveptr);
+        if (!if_name || !if_status) return;
+        
+        int status = atoi(if_status);
+        printf("EPON HAL Mock: Processing INTERFACE command: %s, status=%d\n", if_name, status);
+        
+        if (g_initialized && g_config.interface_status_callback) {
+            epon_onu_interface_info_t info;
+            strncpy(info.name, if_name, EPON_HAL_INTERFACE_NAME_LEN - 1);
+            info.name[EPON_HAL_INTERFACE_NAME_LEN - 1] = '\0';
+            info.status = (epon_interface_link_status_t)status;
+            g_config.interface_status_callback(info);
+        }
+    }
+}
+
+static void* control_thread_func(void *arg) {
+    (void)arg;
+    struct sockaddr_un addr;
+    int server_fd, client_fd;
+    char buffer[MAX_COMMAND_LEN];
+    
+    /* Create socket */
+    server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        printf("EPON HAL Mock: Failed to create control socket: %s\n", strerror(errno));
+        return NULL;
+    }
+    
+    /* Remove old socket file if exists */
+    unlink(EPON_HAL_MOCK_SOCKET_PATH);
+    
+    /* Bind socket */
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, EPON_HAL_MOCK_SOCKET_PATH, sizeof(addr.sun_path) - 1);
+    
+    if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        printf("EPON HAL Mock: Failed to bind control socket: %s\n", strerror(errno));
+        close(server_fd);
+        return NULL;
+    }
+    
+    /* Listen for connections */
+    if (listen(server_fd, 5) < 0) {
+        printf("EPON HAL Mock: Failed to listen on control socket: %s\n", strerror(errno));
+        close(server_fd);
+        unlink(EPON_HAL_MOCK_SOCKET_PATH);
+        return NULL;
+    }
+    
+    printf("EPON HAL Mock: Control socket listening on %s\n", EPON_HAL_MOCK_SOCKET_PATH);
+    g_control_socket = server_fd;
+    
+    /* Accept and process commands */
+    while (g_control_running) {
+        fd_set readfds;
+        struct timeval tv;
+        
+        FD_ZERO(&readfds);
+        FD_SET(server_fd, &readfds);
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        
+        int ret = select(server_fd + 1, &readfds, NULL, NULL, &tv);
+        if (ret < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        if (ret == 0) continue; /* Timeout */
+        
+        client_fd = accept(server_fd, NULL, NULL);
+        if (client_fd < 0) {
+            if (errno == EINTR || errno == EAGAIN) continue;
+            break;
+        }
+        
+        /* Read command */
+        ssize_t n = read(client_fd, buffer, sizeof(buffer) - 1);
+        if (n > 0) {
+            buffer[n] = '\0';
+            process_command(buffer);
+            
+            /* Send acknowledgment */
+            const char *ack = "OK\n";
+            write(client_fd, ack, strlen(ack));
+        }
+        
+        close(client_fd);
+    }
+    
+    close(server_fd);
+    unlink(EPON_HAL_MOCK_SOCKET_PATH);
+    printf("EPON HAL Mock: Control socket closed\n");
+    return NULL;
+}
+
+/**
  * HAL API implementations
  */
 
@@ -101,6 +248,13 @@ int epon_hal_init(const epon_hal_config_t *config) {
     init_default_data();
     
     g_initialized = true;
+    
+    /* Start control socket thread for IPC */
+    g_control_running = true;
+    if (pthread_create(&g_control_thread, NULL, control_thread_func, NULL) != 0) {
+        printf("EPON HAL Mock: Warning - failed to create control thread\n");
+        /* Non-fatal - continue without control socket */
+    }
     
     printf("EPON HAL Mock: Initialized\n");
     return EPON_HAL_SUCCESS;

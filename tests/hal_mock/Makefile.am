@@ -13,6 +13,18 @@ libepon_hal_mock_la_CFLAGS = \
     $(AM_CFLAGS)
 
 libepon_hal_mock_la_LDFLAGS = \
-    -version-info 1:0:0
+    -version-info 1:0:0 \
+    -lpthread
+
+# HAL event trigger utility for interactive testing
+bin_PROGRAMS = epon_hal_trigger
+
+epon_hal_trigger_SOURCES = epon_hal_trigger.c
+
+epon_hal_trigger_CFLAGS = \
+    -I$(top_srcdir)/include \
+    $(AM_CFLAGS)
+
+epon_hal_trigger_LDADD =
 
 endif
