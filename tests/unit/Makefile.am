@@ -22,7 +22,7 @@ AM_CFLAGS = \
 # Test: Logger
 test_logger_SOURCES = test_logger.c
 test_logger_LDADD = \
-    $(top_builddir)/src/logger/libeponMgr_logger.a
+    $(top_builddir)/src/logger/libeponMgr_logger.la
 
 # Test: Config
 test_config_SOURCES = test_config.c
@@ -55,7 +55,7 @@ test_rbus_basic_LDADD = \
     $(top_builddir)/src/core/hal_wrapper/libeponMgr_hal_wrapper.a \
     $(top_builddir)/src/core/data_structures/libeponMgr_datastructures.a \
     $(top_builddir)/src/core/config/libeponMgr_config.a \
-    $(top_builddir)/src/logger/libeponMgr_logger.a \
+    $(top_builddir)/src/logger/libeponMgr_logger.la \
     $(top_builddir)/tests/hal_mock/libepon_hal_mock.la \
     -lpthread
 

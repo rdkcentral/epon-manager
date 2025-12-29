@@ -43,7 +43,7 @@ void eponMgr_logger_close(void);
 /**
  * Map HAL logging to EPON Manager RDK logger profile
  * Include this before epon_hal.h to enable HAL logging
- */
+
 #ifndef HAL_LOG_FUNCTION
 static inline rdk_LogLevel map_hal_to_rdk_level(hal_log_level_t level) {
     switch (level) {
@@ -61,5 +61,5 @@ static inline rdk_LogLevel map_hal_to_rdk_level(hal_log_level_t level) {
 #define HAL_LOG_FUNCTION(level, func, line, format, ...) \
     RDK_LOG(map_hal_to_rdk_level(level), EPONMGR_LOG_MODULE, "[%s:%d] " format, func, line, ##__VA_ARGS__)
 #endif
-
+ */
 #endif /* EPONMGR_LOGGER_H */

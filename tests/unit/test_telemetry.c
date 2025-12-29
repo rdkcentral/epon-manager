@@ -309,7 +309,7 @@ int main(void) {
     printf("========================================\n");
     
     // Initialize logger (required for telemetry)
-    eponMgr_logger_init("./logs", LOG_LEVEL_INFO);
+    eponMgr_logger_init();
     
     // Run all tests
     test_telemetry_init_cleanup();

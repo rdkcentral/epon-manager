@@ -7,7 +7,8 @@ noinst_LIBRARIES = libeponMgr_rbus.a
 libeponMgr_rbus_a_SOURCES = \
     eponMgr_rbus.c \
     tr181/eponMgr_tr181.c \
-    tr181/eponMgr_tr181.h
+    tr181/eponMgr_tr181.h \
+    wanmanager/eponMgr_wanmanager.c
 
 libeponMgr_rbus_a_CFLAGS = \
     -I$(top_srcdir)/include \

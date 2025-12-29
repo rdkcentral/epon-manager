@@ -8,11 +8,14 @@
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
+    (void)argc;  /* Unused parameter */
+    (void)argv;  /* Unused parameter */
+    
     printf("=== EPON Logger Test ===\n\n");
 
     /* Initialize logger */
-    printf("Initializing logger with ./logs/ directory...\n");
-    if (eponMgr_logger_init("./logs", LOG_LEVEL_DEBUG) != 0) {
+    printf("Initializing logger...\n");
+    if (eponMgr_logger_init() != 0) {
         fprintf(stderr, "Failed to initialize logger\n");
         return 1;
     }
