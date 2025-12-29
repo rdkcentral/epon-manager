@@ -4,7 +4,6 @@ if ENABLE_TESTS
 
 # Test programs
 check_PROGRAMS = \
-    test_logger \
     test_config \
     test_cache \
     test_queue \
@@ -18,11 +17,6 @@ AM_CFLAGS = \
     -I$(top_srcdir)/src/logger \
     -I$(top_srcdir)/src/core/config \
     -I$(top_srcdir)/src/core/data_structures
-
-# Test: Logger
-test_logger_SOURCES = test_logger.c
-test_logger_LDADD = \
-    $(top_builddir)/src/logger/libeponMgr_logger.la
 
 # Test: Config
 test_config_SOURCES = test_config.c
@@ -55,7 +49,6 @@ test_rbus_basic_LDADD = \
     $(top_builddir)/src/core/hal_wrapper/libeponMgr_hal_wrapper.a \
     $(top_builddir)/src/core/data_structures/libeponMgr_datastructures.a \
     $(top_builddir)/src/core/config/libeponMgr_config.a \
-    $(top_builddir)/src/logger/libeponMgr_logger.la \
     $(top_builddir)/tests/hal_mock/libepon_hal_mock.la \
     -lpthread
 
@@ -63,7 +56,6 @@ test_rbus_basic_LDADD = \
 test_telemetry_SOURCES = test_telemetry.c
 test_telemetry_LDADD = \
     $(top_builddir)/src/telemetry/libepon_telemetry.la \
-    $(top_builddir)/src/logger/libeponMgr_logger.la \
     -lpthread
 
 # Define tests to run

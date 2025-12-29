@@ -12,7 +12,5 @@ libepon_telemetry_la_CFLAGS = \
     -I$(top_srcdir)/src/logger \
     $(AM_CFLAGS)
 
-libepon_telemetry_la_LIBADD = \
-    $(top_builddir)/src/logger/libeponMgr_logger.la
 
 endif

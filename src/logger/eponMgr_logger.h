@@ -12,15 +12,20 @@
 #define EPONMGR_LOG_MODULE "LOG.RDK.EPONMANAGER"
 
 /**
- * Initialize logger
- * @return 0 on success, -1 on error
+ * Initialize logger - directly calls rdk_logger_init
  */
-int eponMgr_logger_init(void);
+static inline int eponMgr_logger_init(void) {
+    rdk_logger_init("/etc/debug.ini");
+    RDK_LOG(RDK_LOG_INFO, EPONMGR_LOG_MODULE, "EPON Manager Logger Initialized\n");
+    return 0;
+}
 
 /**
  * Close logger and cleanup
  */
-void eponMgr_logger_close(void);
+static inline void eponMgr_logger_close(void) {
+    RDK_LOG(RDK_LOG_INFO, EPONMGR_LOG_MODULE, "EPON Manager Logger Closed\n");
+}
 
 /**
  * Logging macros - directly map to RDK_LOG for efficiency
@@ -40,26 +45,4 @@ void eponMgr_logger_close(void);
 #define EPONMGR_LOG_DEBUG(fmt, ...) \
     RDK_LOG(RDK_LOG_DEBUG, EPONMGR_LOG_MODULE, fmt, ##__VA_ARGS__)
 
-/**
- * Map HAL logging to EPON Manager RDK logger profile
- * Include this before epon_hal.h to enable HAL logging
-
-#ifndef HAL_LOG_FUNCTION
-static inline rdk_LogLevel map_hal_to_rdk_level(hal_log_level_t level) {
-    switch (level) {
-        case HAL_LOG_LEVEL_FATAL:  return RDK_LOG_FATAL;
-        case HAL_LOG_LEVEL_ERROR:  return RDK_LOG_ERROR;
-        case HAL_LOG_LEVEL_WARN:   return RDK_LOG_WARN;
-        case HAL_LOG_LEVEL_NOTICE: return RDK_LOG_NOTICE;
-        case HAL_LOG_LEVEL_INFO:   return RDK_LOG_INFO;
-        case HAL_LOG_LEVEL_DEBUG:  return RDK_LOG_DEBUG;
-        case HAL_LOG_LEVEL_TRACE:  return RDK_LOG_DEBUG;
-        default:                   return RDK_LOG_INFO;
-    }
-}
-
-#define HAL_LOG_FUNCTION(level, func, line, format, ...) \
-    RDK_LOG(map_hal_to_rdk_level(level), EPONMGR_LOG_MODULE, "[%s:%d] " format, func, line, ##__VA_ARGS__)
-#endif
- */
 #endif /* EPONMGR_LOGGER_H */
