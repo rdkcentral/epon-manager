@@ -10,6 +10,7 @@
 #include "eponMgr_hal_wrapper.h"
 #include "eponMgr_onu_state.h"
 #include "eponMgr_queue.h"
+#include "eponMgr_rbus.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +43,9 @@ struct eponMgr_controller_context {
     
     // Logger state
     bool logger_initialized;
+    
+    // RBUS state
+    bool rbus_initialized;
 };
 
 // Global controller pointer for signal handler
@@ -340,6 +344,14 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     }
     EPONMGR_LOG_INFO("EPON HAL initialized successfully");
     
+    // Step 6: Initialize RBUS
+    if (eponMgr_rbus_init("epon_manager", ctrl->hal_wrapper) != 0) {
+        EPONMGR_LOG_ERROR("Failed to initialize RBUS");
+        goto error;
+    }
+    ctrl->rbus_initialized = true;
+    EPONMGR_LOG_INFO("RBUS initialized and TR-181 parameters registered");
+    
     // Set up signal handlers
     g_controller = ctrl;
     signal(SIGINT, signal_handler);
@@ -348,6 +360,7 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     
     ctrl->running = false;
     ctrl->shutdown_requested = false;
+    ctrl->rbus_initialized = false;
     
     EPONMGR_LOG_INFO("EPON Manager Controller initialized successfully");
     return ctrl;
@@ -453,6 +466,13 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
     // Clear global pointer
     if (g_controller == controller) {
         g_controller = NULL;
+    }
+    
+    // Cleanup RBUS
+    if (controller->rbus_initialized) {
+        EPONMGR_LOG_INFO("Cleaning up RBUS...");
+        eponMgr_rbus_cleanup();
+        controller->rbus_initialized = false;
     }
     
     // Destroy HAL wrapper (this also destroys all data structures)
