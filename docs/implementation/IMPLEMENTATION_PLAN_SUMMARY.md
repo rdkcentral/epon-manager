@@ -189,19 +189,15 @@ int epon_hal_wrapper_get_link_stats(epon_hal_link_stats_t *stats) {
 }
 ```
 
-### 5. Dummy APIs for Local Testing
+### 5. Real RBUS Implementation
 
-**RBUS Dummy Implementation:**
+**RBUS Integration:**
 ```c
-#define USE_DUMMY_RBUS  // For local builds
-
-#ifdef USE_DUMMY_RBUS
-typedef void* rbusHandle_t;
+#include <rbus/rbus.h>
 
 int rbus_open(rbusHandle_t* handle, const char* component_name) {
-    *handle = (rbusHandle_t)1;
-    printf("[DUMMY_RBUS] rbus_open(%s)\n", component_name);
-    return 0;
+    // Real RBUS library call
+    return rbus_open(handle, component_name);
 }
 
 int rbus_regDataElements(rbusHandle_t handle, int numElements, 
