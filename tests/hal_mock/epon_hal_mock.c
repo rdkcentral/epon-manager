@@ -209,6 +209,20 @@ static void process_command(const char *cmd) {
             g_link_stats.errors_received += inc;
         }
     }
+    else if (strcmp(type, "INVALIDATE") == 0) {
+        printf("EPON HAL Mock: Cache invalidation requested - triggering ONU status events\n");
+        
+        /* Invalidate EPON Manager cache by triggering status change events */
+        if (g_initialized && g_config.status_callback) {
+            /* Trigger DOWN then UP to invalidate cache without changing actual state */
+            g_config.status_callback(EPON_ONU_STATUS_DEREGISTRATION);
+            usleep(10000); /* 10ms delay between events */
+            g_config.status_callback(EPON_ONU_STATUS_REGISTRATION);
+            printf("EPON HAL Mock: Cache invalidation complete (sent DEREGISTRATION -> REGISTRATION)\n");
+        } else {
+            printf("EPON HAL Mock: Warning - cache invalidation failed (callbacks not registered)\n");
+        }
+    }
 }
 
 static void* control_thread_func(void *arg) {

@@ -48,13 +48,17 @@ static void print_usage(const char *prog_name) {
     printf("  -h, --help                Show this help message\n\n");
     printf("Examples:\n");
     printf("  %s -s register              # Trigger ONU registration\n", prog_name);
-    printf("  %s -a los                   # Trigger LOS alarm (raised)\n", prog_name);
-    printf("  %s -a los -c                # Clear LOS alarm\n", prog_name);
-    printf("  %s -i veip0:up              # Trigger veip0 link up\n", prog_name);
-    printf("  %s -s los -r 5 -d 500       # Trigger LOS status 5 times, 500ms apart\n", prog_name);
-    printf("  %s -L packets_sent=1000000  # Set packets sent to 1 million\n", prog_name);
-    printf("  %s -T tx_power=-2.5         # Set TX power to -2.5 dBm\n", prog_name);
-    printf("  %s -I packets_received=5000 # Increment packets received by 5000\n", prog_name);
+    printf("  %s -a power_low             # Raise power_low alarm\n", prog_name);
+    printf("  %s -c power_low             # Clear power_low alarm (standalone)\n", prog_name);
+    printf("  %s -a power_low -C          # Clear power_low alarm (with -a)\n", prog_name);
+    printf("  %s -i veip0:up              # Set veip0 interface UP\n", prog_name);
+    printf("  %s -L packets_sent=1000000  # Set link stats (auto-invalidates cache)\n", prog_name);
+    printf("  %s -T rx_power=-15.8        # Set RX power (auto-invalidates cache)\n", prog_name);
+    printf("  %s -I packets_received=5000 # Increment packets (auto-invalidates cache)\n", prog_name);
+    printf("  %s -V                       # Manually invalidate statistics cache\n", prog_name);
+    printf("\n");
+    printf("Note: Statistics updates now AUTO-INVALIDATE cache for immediate TR-181 updates.\n");
+    printf("      Event callbacks (ONU status, alarms, interfaces) update immediately.\n");
     printf("\n");
 }
 
@@ -191,22 +195,26 @@ int main(int argc, char *argv[]) {
     int opt;
     char *status_str = NULL;
     char *alarm_str = NULL;
+    char *clear_str = NULL;
     char *interface_str = NULL;
     char *linkstats_str = NULL;
     char *transcvrstats_str = NULL;
     char *increment_str = NULL;
     bool alarm_clear = false;
+    bool invalidate_cache = false;
     int repeat_count = 1;
     int delay_ms = 1000;
     
     static struct option long_options[] = {
         {"status",    required_argument, 0, 's'},
         {"alarm",     required_argument, 0, 'a'},
-        {"clear",     no_argument,       0, 'c'},
+        {"clear",     required_argument, 0, 'c'},
+        {"clearflag", no_argument,       0, 'C'},
         {"interface", required_argument, 0, 'i'},
         {"linkstats", required_argument, 0, 'L'},
         {"transcvrstats", required_argument, 0, 'T'},
         {"increment", required_argument, 0, 'I'},
+        {"invalidate-cache", no_argument, 0, 'V'},
         {"list",      no_argument,       0, 'l'},
         {"repeat",    required_argument, 0, 'r'},
         {"delay",     required_argument, 0, 'd'},
@@ -219,7 +227,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
     
-    while ((opt = getopt_long(argc, argv, "s:a:ci:L:T:I:lr:d:h", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "s:a:c:Ci:L:T:I:Vlr:d:h", long_options, NULL)) != -1) {
         switch (opt) {
             case 's':
                 status_str = optarg;
@@ -228,6 +236,10 @@ int main(int argc, char *argv[]) {
                 alarm_str = optarg;
                 break;
             case 'c':
+                clear_str = optarg;
+                alarm_clear = true;
+                break;
+            case 'C':
                 alarm_clear = true;
                 break;
             case 'i':
@@ -241,6 +253,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'I':
                 increment_str = optarg;
+                break;
+            case 'V':
+                invalidate_cache = true;
                 break;
             case 'l':
                 list_events();
@@ -263,6 +278,12 @@ int main(int argc, char *argv[]) {
     }
     
     printf("=== EPON HAL Mock Event Trigger ===\n\n");
+    
+    /* Handle standalone -c/--clear option */
+    if (clear_str && !alarm_str) {
+        alarm_str = clear_str;
+        alarm_clear = true;
+    }
     
     /* Trigger ONU status callback */
     if (status_str) {
@@ -443,9 +464,21 @@ int main(int argc, char *argv[]) {
         printf("✓ Link statistics incremented successfully\n\n");
     }
     
-    if (!status_str && !alarm_str && !interface_str && !linkstats_str && !transcvrstats_str && !increment_str) {
+    /* Invalidate cache if requested or if statistics were updated */
+    if (invalidate_cache || linkstats_str || transcvrstats_str || increment_str) {
+        printf("Invalidating EPON Manager statistics cache...\n");
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "INVALIDATE");
+        if (send_command(cmd) < 0) {
+            fprintf(stderr, "Warning: Cache invalidation failed\n");
+        } else {
+            printf("✓ Cache invalidated - TR-181 queries will now return updated values\n\n");
+        }
+    }
+    
+    if (!status_str && !alarm_str && !clear_str && !interface_str && !linkstats_str && !transcvrstats_str && !increment_str && !invalidate_cache) {
         fprintf(stderr, "Error: No event or statistics update specified\n");
-        fprintf(stderr, "Use -s, -a, -i, -L, -T, or -I to trigger events or update statistics\n");
+        fprintf(stderr, "Use -s, -a, -c, -i, -L, -T, -I, or -V to trigger events or update statistics\n");
         fprintf(stderr, "Use -h for help or -l to list available events\n");
         return 1;
     }

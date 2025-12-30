@@ -177,15 +177,52 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
 }
 
 /**
+ * @brief Get alarm name string from enum value
+ */
+static const char* get_alarm_name(epon_hal_alarm_t alarm) {
+    switch (alarm) {
+        case EPON_HAL_ALARM_LOS:
+            return "LOS";
+        case EPON_HAL_ALARM_LOFI:
+            return "LOFI";
+        case EPON_HAL_ALARM_DYING_GASP:
+            return "DYING_GASP";
+        case EPON_HAL_ALARM_ERROR_SYMBOL_PERIOD:
+            return "ERROR_SYMBOL_PERIOD";
+        case EPON_HAL_ALARM_ERROR_FRAME:
+            return "ERROR_FRAME";
+        case EPON_HAL_ALARM_ERROR_FRAME_PERIOD:
+            return "ERROR_FRAME_PERIOD";
+        case EPON_HAL_ALARM_ERROR_FRAME_SECONDS:
+            return "ERROR_FRAME_SECONDS";
+        case EPON_HAL_ALARM_OAM_SESSION_LOST:
+            return "OAM_SESSION_LOST";
+        case EPON_HAL_ALARM_POWER_LOW:
+            return "POWER_LOW";
+        case EPON_HAL_ALARM_POWER_HIGH:
+            return "POWER_HIGH";
+        case EPON_HAL_ALARM_EQUIPMENT_FAILURE:
+            return "EQUIPMENT_FAILURE";
+        case EPON_HAL_ALARM_TEMPERATURE:
+            return "TEMPERATURE";
+        case EPON_HAL_ALARM_VENDOR_SPECIFIC:
+            return "VENDOR_SPECIFIC";
+        case EPON_HAL_ALARM_FEC_THRESHOLD:
+            return "FEC_THRESHOLD";
+        case EPON_HAL_ALARM_LASER_BIAS_CURRENT:
+            return "LASER_BIAS_CURRENT";
+        case EPON_HAL_ALARM_SUPPLY_VOLTAGE:
+            return "SUPPLY_VOLTAGE";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+/**
  * @brief Process alarm event
  */
 static void process_alarm_event(eponMgr_controller_t *ctrl, epon_hal_alarm_t alarm, bool is_active) {
-    const char *alarm_str = (alarm == EPON_HAL_ALARM_LOS) ? "LOS" :
-                           (alarm == EPON_HAL_ALARM_DYING_GASP) ? "DYING_GASP" :
-                           (alarm == EPON_HAL_ALARM_EQUIPMENT_FAILURE) ? "EQUIPMENT_FAILURE" :
-                           (alarm == EPON_HAL_ALARM_POWER_LOW) ? "POWER_LOW" :
-                           (alarm == EPON_HAL_ALARM_POWER_HIGH) ? "POWER_HIGH" :
-                           (alarm == EPON_HAL_ALARM_TEMPERATURE) ? "TEMPERATURE" : "UNKNOWN";
+    const char *alarm_str = get_alarm_name(alarm);
     
     if (is_active) {
         EPONMGR_LOG_WARN("Alarm RAISED: %s (%d)\n", alarm_str, alarm);
