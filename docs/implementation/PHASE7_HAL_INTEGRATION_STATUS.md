@@ -13,7 +13,6 @@ Attempted to replace dummy TR-181 implementations with real HAL wrapper calls an
 ### 1. Makefile Updates
 ✅ **COMPLETED** - Updated `src/rbus/Makefile`:
 - Added include paths: `-I../../src/core/hal_wrapper -I../../src/core/data_structures -I../../src/core/config`
-- Kept `USE_DUMMY_RBUS` flag (for dummy RBUS layer, not TR-181 data)
 
 ### 2. TR-181 Header Updates
 ✅ **COMPLETED** - Updated `include/eponMgr_tr181.h`:

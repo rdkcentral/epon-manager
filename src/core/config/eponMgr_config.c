@@ -41,7 +41,6 @@ int eponMgr_config_init_defaults(eponMgr_config_t *config) {
     strncpy(config->log_level, "INFO", sizeof(config->log_level) - 1);
     strncpy(config->log_directory, "./logs", sizeof(config->log_directory) - 1);
     config->dpoe_enabled = false;
-    config->use_dummy_rbus = true;  /* Default to dummy for local testing */
     config->use_dummy_telemetry = true;
     config->event_queue_size = 100;
     
@@ -112,9 +111,6 @@ int eponMgr_config_load_file(eponMgr_config_t *config, const char *ini_file) {
         else if (strcmp(key, "dpoe_enabled") == 0) {
             config->dpoe_enabled = (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
         }
-        else if (strcmp(key, "use_dummy_rbus") == 0) {
-            config->use_dummy_rbus = (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
-        }
         else if (strcmp(key, "use_dummy_telemetry") == 0) {
             config->use_dummy_telemetry = (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
         }
@@ -154,12 +150,6 @@ void eponMgr_config_load_env(eponMgr_config_t *config) {
     env_val = getenv("EPON_DPOE_ENABLED");
     if (env_val) {
         config->dpoe_enabled = (strcmp(env_val, "true") == 0 || strcmp(env_val, "1") == 0);
-    }
-    
-    /* Check dummy RBUS */
-    env_val = getenv("EPON_USE_DUMMY_RBUS");
-    if (env_val) {
-        config->use_dummy_rbus = (strcmp(env_val, "true") == 0 || strcmp(env_val, "1") == 0);
     }
     
     /* Check dummy telemetry */
@@ -221,7 +211,6 @@ void eponMgr_config_print(const eponMgr_config_t *config) {
     printf("Log Level: %s\n", config->log_level);
     printf("Log Directory: %s\n", config->log_directory);
     printf("DPoE Enabled: %s\n", config->dpoe_enabled ? "Yes" : "No");
-    printf("Use Dummy RBUS: %s\n", config->use_dummy_rbus ? "Yes" : "No");
     printf("Use Dummy Telemetry: %s\n", config->use_dummy_telemetry ? "Yes" : "No");
     printf("Event Queue Size: %u\n", config->event_queue_size);
     printf("==================================\n");

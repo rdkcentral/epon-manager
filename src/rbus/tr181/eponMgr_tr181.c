@@ -18,12 +18,7 @@
 #include "eponMgr_logger.h"
 #include "eponMgr_hal_wrapper.h"
 #include "eponMgr_config.h"
-
-#ifdef USE_DUMMY_RBUS
-#include "rbus/eponMgr_rbus_dummy.h"
-#else
 #include <rbus/rbus.h>
-#endif
 
 /* TR-181 Base Path */
 #define TR181_BASE_PATH "Device.Optical.Interface.1"

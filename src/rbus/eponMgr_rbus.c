@@ -15,12 +15,7 @@
 #include "eponMgr_tr181.h"
 #include "eponMgr_logger.h"
 #include "eponMgr_hal_wrapper.h"
-
-#ifdef USE_DUMMY_RBUS
-#include "rbus/eponMgr_rbus_dummy.h"
-#else
 #include <rbus/rbus.h>
-#endif
 
 /* Global RBUS handle */
 static rbusHandle_t g_rbus_handle = NULL;

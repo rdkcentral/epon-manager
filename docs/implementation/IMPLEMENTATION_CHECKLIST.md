@@ -236,7 +236,6 @@ Track progress through each phase of development.
 ### Build System Integration
 - [x] Create `src/rbus/Makefile`
 - [x] Build as `libeponMgr_rbus.a` (static library, 15KB)
-- [x] Compile with `-DUSE_DUMMY_RBUS` flag
 - [x] Add RBUS library to build script
 - [x] Update unit test Makefile
 - [x] Add RBUS test to test execution list
@@ -282,8 +281,7 @@ Track progress through each phase of development.
 - WanManager interface index resolution
 
 **Deferred to Phase 10:**
-- Real RBUS library integration
-- Replace `-DUSE_DUMMY_RBUS` with `-lrbus`
+- Real RBUS library integration complete
 - Test with real WanManager on RDK device
 - Remove dummy printf outputs
 
@@ -434,9 +432,9 @@ Track progress through each phase of development.
 
 ### Build System
 - [ ] Update CMakeLists.txt for RDK
-- [ ] Remove USE_DUMMY_RBUS flag
+- [x] Remove USE_DUMMY_RBUS flag
 - [ ] Remove USE_DUMMY_TELEMETRY flag
-- [ ] Link with real -lrbus
+- [x] Link with real -lrbus
 - [ ] Link with real -lt2
 - [ ] Link with real EPON HAL (when available)
 

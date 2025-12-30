@@ -29,9 +29,6 @@ typedef struct {
     /* HAL settings */
     bool dpoe_enabled;                   /**< DPoE support enabled */
     
-    /* RBUS settings */
-    bool use_dummy_rbus;                 /**< Use dummy RBUS for testing */
-    
     /* Telemetry settings */
     bool use_dummy_telemetry;            /**< Use dummy telemetry for testing */
     
@@ -68,7 +65,6 @@ int eponMgr_config_load_file(eponMgr_config_t *config, const char *ini_file);
  * - EPONMGR_LOG_LEVEL
  * - EPONMGR_LOG_DIR
  * - EPON_DPOE_ENABLED
- * - EPON_USE_DUMMY_RBUS
  * - EPON_USE_DUMMY_TELEMETRY
  * - EPON_EVENT_QUEUE_SIZE
  * 

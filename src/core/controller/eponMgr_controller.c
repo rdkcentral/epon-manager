@@ -147,6 +147,20 @@ static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status
 }
 
 /**
+ * @brief Check if any interface is UP
+ */
+static bool has_any_interface_up(eponMgr_interface_list_t *iface_list) {
+    if (!iface_list) return false;
+    
+    for (uint32_t i = 0; i < iface_list->if_list.interface_count; i++) {
+        if (iface_list->if_list.interface[i].status == EPON_ONU_INTF_STATUS_LINK_UP) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * @brief Process interface status event
  */
 static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_interface_info_t *info) {
@@ -168,10 +182,23 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
         }
     }
     
-    // TODO: Phase 6/7 - Update WanManager via RBus
-    //   - If any interface is UP: Notify WanManager EPON_PHY_STATUS_UP
-    //   - If all interfaces are DOWN: Notify WanManager EPON_PHY_STATUS_DOWN
-    //   - Update virtual interface table with interface name and status
+    // Phase 6/7 - Update WanManager via RBus
+    // Step 1: Update virtual interface table with interface name and status
+    if (eponMgr_rbus_update_virtual_interface(info->name, 
+                                             info->status == EPON_ONU_INTF_STATUS_LINK_UP) != 0) {
+        EPONMGR_LOG_WARN("Failed to update virtual interface %s in WanManager\n", info->name);
+    }
+    
+    // Step 2: Check overall PHY status and notify WanManager
+    // PHY UP if ANY interface is UP, PHY DOWN if ALL interfaces are DOWN
+    bool phy_is_up = has_any_interface_up(iface_list);
+    
+    if (eponMgr_rbus_notify_wanmanager_phy_status(phy_is_up) != 0) {
+        EPONMGR_LOG_WARN("Failed to notify WanManager of PHY status change\n");
+    }
+    
+    EPONMGR_LOG_INFO("WanManager updated: interface=%s, PHY status=%s\n", 
+                    info->name, phy_is_up ? "UP" : "DOWN");
     
     // TODO: Phase 7 - Report telemetry event for interface status change
 }

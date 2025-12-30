@@ -12,12 +12,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../src/core/hal_wrapper/eponMgr_hal_wrapper.h"
-
-#ifdef USE_DUMMY_RBUS
-#include "rbus/eponMgr_rbus_dummy.h"
-#else
 #include <rbus/rbus.h>
-#endif
 
 /**
  * @brief Initialize TR-181 parameter handlers and register with RBUS

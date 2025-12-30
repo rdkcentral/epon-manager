@@ -161,10 +161,10 @@ Components built as separate shared libraries:
 - WanManager notification stubs
 - Builds as libepon_rbus.so
 
-**Dummy Implementation:**
-- Printf-based stubs for local testing
-- Controlled by USE_DUMMY_RBUS flag
-- Traces all function calls
+**Real RBUS Implementation:**
+- Uses real RBUS library from rdkcentral/rbus
+- Full RBUS API integration
+- All function calls use real RBUS operations
 
 **Success Criteria:**
 - Compiles with dummy implementation
@@ -253,12 +253,14 @@ Components built as separate shared libraries:
 
 **Tasks:**
 1. Update build for RDK environment
-2. Remove USE_DUMMY_RBUS and USE_DUMMY_TELEMETRY flags
-3. Link with real -lrbus and -lt2 libraries
-4. Replace mock HAL with real HAL (when available)
-5. Test on actual RDK-B platform
-6. Create systemd service configuration
-7. Package for deployment (ipk)
+2. ✅ Removed USE_DUMMY_RBUS flag (using real RBUS)
+3. Remove USE_DUMMY_TELEMETRY flag
+4. ✅ Link with real -lrbus library
+5. Link with real -lt2 libraries
+6. Replace mock HAL with real HAL (when available)
+7. Test on actual RDK-B platform
+8. Create systemd service configuration
+9. Package for deployment (ipk)
 
 **Deliverables:**
 - RDK-B compatible build
