@@ -412,20 +412,9 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     ctrl->rbus_initialized = true;
     EPONMGR_LOG_INFO("RBUS initialized and TR-181 parameters registered\n");
     
-    // Set rbus handle for PSM operations
-    rbusHandle_t rbus_handle = (rbusHandle_t)eponMgr_rbus_get_handle();
-    if (rbus_handle) {
-        eponMgr_psm_set_rbus_handle(rbus_handle);
-        EPONMGR_LOG_INFO("RBUS handle set for PSM operations\n");
-    } else {
-        EPONMGR_LOG_WARN("Failed to get RBUS handle for PSM\n");
-    }
-    
     // Set global controller for shutdown function
     g_controller = ctrl;
-    
-    // Set global controller for shutdown function
-    g_controller = ctrl;
+
     
     ctrl->running = false;
     ctrl->shutdown_requested = false;

@@ -28,12 +28,6 @@ int eponMgr_psm_init(void);
 void eponMgr_psm_close(void);
 
 /**
- * @brief Set rbus handle for PSM operations
- * @param handle rbus handle
- */
-void eponMgr_psm_set_rbus_handle(rbusHandle_t handle);
-
-/**
  * @brief Read string value from PSM
  * @param param PSM parameter name
  * @param value Buffer to store value

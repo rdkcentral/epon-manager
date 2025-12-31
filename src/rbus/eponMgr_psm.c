@@ -6,17 +6,14 @@
  */
 
 #include "eponMgr_psm.h"
+#include "eponMgr_rbus.h"
 #include "eponMgr_logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <rbus/rbus.h>
 
-/* Global rbus handle */
-static rbusHandle_t g_rbus_handle = NULL;
-
 int eponMgr_psm_init(void) {
-    // rbus handle should be set from main controller
     EPONMGR_LOG_INFO("PSM interface initialized\n");
     return 0;
 }
@@ -25,20 +22,14 @@ void eponMgr_psm_close(void) {
     EPONMGR_LOG_INFO("PSM interface closed\n");
 }
 
-/**
- * @brief Set the rbus handle for PSM operations
- * This should be called after rbus initialization in the controller
- */
-void eponMgr_psm_set_rbus_handle(rbusHandle_t handle) {
-    g_rbus_handle = handle;
-}
-
 int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
     if (!param || !value || value_size == 0) {
         return -1;
     }
     
-    if (!g_rbus_handle) {
+    /* Get rbus handle from rbus module */
+    rbusHandle_t rbus_handle = (rbusHandle_t)eponMgr_rbus_get_handle();
+    if (!rbus_handle) {
         EPONMGR_LOG_ERROR("PSM: rbus handle not initialized\n");
         return -1;
     }
@@ -53,7 +44,7 @@ int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
     rbusProperty_Release(prop);
     
     /* Invoke GetPSMRecordValue method */
-    rbusError_t rc = rbusMethod_Invoke(g_rbus_handle, "GetPSMRecordValue()", inParams, &outParams);
+    rbusError_t rc = rbusMethod_Invoke(rbus_handle, "GetPSMRecordValue()", inParams, &outParams);
     
     if (inParams) {
         rbusObject_Release(inParams);
@@ -125,7 +116,9 @@ int eponMgr_psm_set_string(const char *param, const char *value) {
         return -1;
     }
     
-    if (!g_rbus_handle) {
+    /* Get rbus handle from rbus module */
+    rbusHandle_t rbus_handle = (rbusHandle_t)eponMgr_rbus_get_handle();
+    if (!rbus_handle) {
         EPONMGR_LOG_ERROR("PSM: rbus handle not initialized\n");
         return -1;
     }
@@ -146,7 +139,7 @@ int eponMgr_psm_set_string(const char *param, const char *value) {
     rbusProperty_Release(prop);
     
     /* Invoke SetPSMRecordValue method */
-    rbusError_t rc = rbusMethod_Invoke(g_rbus_handle, "SetPSMRecordValue()", inParams, &outParams);
+    rbusError_t rc = rbusMethod_Invoke(rbus_handle, "SetPSMRecordValue()", inParams, &outParams);
     
     if (inParams) {
         rbusObject_Release(inParams);
