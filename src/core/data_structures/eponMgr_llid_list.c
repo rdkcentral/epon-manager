@@ -47,7 +47,7 @@ int eponMgr_llid_list_update(eponMgr_llid_list_t *list, const epon_llid_info_t *
             // Update existing
             list->llid_list.llid_list[i] = *llid_info;
             pthread_mutex_unlock(&list->mutex);
-            return 0;
+            return 0;  // Existing entry updated, no change in count
         }
     }
     
@@ -68,11 +68,7 @@ int eponMgr_llid_list_update(eponMgr_llid_list_t *list, const epon_llid_info_t *
     list->llid_list.llid_list[list->llid_list.llid_count++] = *llid_info;
     
     pthread_mutex_unlock(&list->mutex);
-    
-    /* Sync TR-181 table registrations */
-    eponMgr_tr181_sync_llid_table();
-    
-    return 0;
+    return 1;  // New LLID added
 }
 
 int eponMgr_llid_list_remove(eponMgr_llid_list_t *list, uint16_t llid_value)
@@ -104,7 +100,7 @@ int eponMgr_llid_list_remove(eponMgr_llid_list_t *list, uint16_t llid_value)
             
             pthread_mutex_unlock(&list->mutex);
             
-            /* Sync TR-181 table registrations */
+            /* Sync TR-181 table registrations after removal */
             eponMgr_tr181_sync_llid_table();
             
             return 0;

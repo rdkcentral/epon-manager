@@ -7,6 +7,7 @@
 #include "eponMgr_logger.h"
 
 #include "eponMgr_hal_wrapper.h"
+#include "eponMgr_tr181.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -188,11 +189,25 @@ int eponMgr_hal_wrapper_get_llid_info(eponMgr_hal_wrapper_t *wrapper,
     // Call HAL to get current LLID list
     int ret = epon_hal_get_llid_info(llid_list);
     if (ret == EPON_HAL_SUCCESS) {
+        // Check if LLID list has changed
+        uint32_t old_count = eponMgr_llid_list_count(wrapper->llid_list);
+        bool changed = (old_count != llid_list->llid_count);
+        
         // Update internal LLID list data structure
         eponMgr_llid_list_clear(wrapper->llid_list);
         
         for (uint32_t i = 0; i < llid_list->llid_count; i++) {
-            eponMgr_llid_list_update(wrapper->llid_list, &llid_list->llid_list[i]);
+            int update_ret = eponMgr_llid_list_update(wrapper->llid_list, &llid_list->llid_list[i]);
+            if (update_ret == 1) {
+                changed = true;  // New LLID added
+            }
+        }
+        
+        // Only sync TR-181 if LLID list changed
+        if (changed) {
+            pthread_mutex_unlock(&wrapper->mutex);
+            eponMgr_tr181_sync_llid_table();
+            return ret;
         }
     }
     
