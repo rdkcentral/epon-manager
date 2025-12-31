@@ -12,9 +12,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../src/core/hal_wrapper/eponMgr_hal_wrapper.h"
-
-/* Forward declaration for RBUS handle */
-typedef void* rbusHandle_t;
+#include <rbus/rbus.h>
 
 /**
  * @brief Initialize TR-181 parameter handlers and register with RBUS
