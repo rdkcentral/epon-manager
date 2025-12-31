@@ -72,26 +72,6 @@ int eponMgr_persistence_save(const eponMgr_persistence_t *config) {
     return 0;
 }
 
-void eponMgr_persistence_load_env(eponMgr_persistence_t *config) {
-    const char *env_val;
-    
-    if (!config) return;
-    
-    /* Check cache TTL */
-    env_val = getenv("EPON_CACHE_TTL");
-    if (env_val) {
-        config->cache_ttl_seconds = (uint32_t)atoi(env_val);
-        printf("Environment override: EPON_CACHE_TTL = %u\n", config->cache_ttl_seconds);
-    }
-    
-    /* Check DPoE */
-    env_val = getenv("EPON_DPOE_ENABLED");
-    if (env_val) {
-        config->dpoe_enabled = (strcmp(env_val, "true") == 0 || strcmp(env_val, "1") == 0);
-        printf("Environment override: EPON_DPOE_ENABLED = %s\n", config->dpoe_enabled ? "true" : "false");
-    }
-}
-
 int eponMgr_persistence_validate(const eponMgr_persistence_t *config) {
     if (!config) {
         return -1;
@@ -105,13 +85,4 @@ int eponMgr_persistence_validate(const eponMgr_persistence_t *config) {
     }
     
     return 0;
-}
-
-void eponMgr_persistence_print(const eponMgr_persistence_t *config) {
-    if (!config) return;
-    
-    printf("=== EPON Manager Persistent Configuration ===\n");
-    printf("Cache TTL: %u seconds\n", config->cache_ttl_seconds);
-    printf("DPoE Enabled: %s\n", config->dpoe_enabled ? "Yes" : "No");
-    printf("==============================================\n");
 }

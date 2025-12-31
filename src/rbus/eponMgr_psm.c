@@ -1,6 +1,8 @@
 /**
  * @file eponMgr_psm.c
  * @brief EPON Manager PSM (Persistent Storage Manager) implementation
+ * 
+ * Direct rbus method calls to PSM without using ccsp_psm_helper dependency
  */
 
 #include "eponMgr_psm.h"
@@ -8,25 +10,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ccsp_psm_helper.h>
+#include <rbus/rbus.h>
 
-/* PSM component name */
-#define EPON_PSM_COMPONENT_NAME    "epon_manager"
-
-/* Global PSM handle */
-static void *g_psm_bus_handle = NULL;
+/* Global rbus handle */
+static rbusHandle_t g_rbus_handle = NULL;
 
 int eponMgr_psm_init(void) {
-    // PSM connection is handled by CCSP framework
-    // We just need to get the bus handle from the system
-    // This is typically initialized by the CCSP subsystem
+    // rbus handle should be set from main controller
     EPONMGR_LOG_INFO("PSM interface initialized\n");
     return 0;
 }
 
 void eponMgr_psm_close(void) {
-    // PSM cleanup handled by CCSP framework
     EPONMGR_LOG_INFO("PSM interface closed\n");
+}
+
+/**
+ * @brief Set the rbus handle for PSM operations
+ * This should be called after rbus initialization in the controller
+ */
+void eponMgr_psm_set_rbus_handle(rbusHandle_t handle) {
+    g_rbus_handle = handle;
 }
 
 int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
@@ -34,28 +38,60 @@ int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
         return -1;
     }
     
-    char *psm_value = NULL;
-    int ret = PSM_Get_Record_Value2(g_psm_bus_handle, 
-                                    CCSP_SUBSYS, 
-                                    param, 
-                                    NULL, 
-                                    &psm_value);
-    
-    if (ret != CCSP_SUCCESS || !psm_value) {
-        EPONMGR_LOG_DEBUG("PSM get failed for %s: ret=%d\n", param, ret);
+    if (!g_rbus_handle) {
+        EPONMGR_LOG_ERROR("PSM: rbus handle not initialized\n");
         return -1;
     }
     
-    strncpy(value, psm_value, value_size - 1);
-    value[value_size - 1] = '\0';
+    /* Create input parameters */
+    rbusObject_t inParams = NULL, outParams = NULL;
+    rbusObject_Init(&inParams, NULL);
     
-    // Free PSM allocated memory
-    if (psm_value) {
-        ((CCSP_MESSAGE_BUS_INFO *)g_psm_bus_handle)->freefunc(psm_value);
+    rbusProperty_t prop;
+    rbusValue_t rbusVal;
+    rbusValue_Init(&rbusVal);
+    rbusValue_SetString(rbusVal, param);
+    rbusProperty_Init(&prop, "param0", rbusVal);
+    rbusValue_Release(rbusVal);
+    rbusObject_SetProperties(inParams, prop);
+    rbusProperty_Release(prop);
+    
+    /* Invoke GetPSMRecordValue method */
+    rbusError_t rc = rbusMethod_Invoke(g_rbus_handle, "GetPSMRecordValue()", inParams, &outParams);
+    
+    if (inParams) {
+        rbusObject_Release(inParams);
     }
     
-    EPONMGR_LOG_DEBUG("PSM get: %s = %s\n", param, value);
-    return 0;
+    if (rc != RBUS_ERROR_SUCCESS) {
+        EPONMGR_LOG_DEBUG("PSM get failed for %s: rc=%d\n", param, rc);
+        if (outParams) {
+            rbusObject_Release(outParams);
+        }
+        return -1;
+    }
+    
+    /* Parse output */
+    if (outParams) {
+        rbusProperty_t outProp = rbusObject_GetProperties(outParams);
+        if (outProp) {
+            rbusValue_t val = rbusProperty_GetValue(outProp);
+            if (val) {
+                const char *str_val = rbusValue_GetString(val, NULL);
+                if (str_val) {
+                    strncpy(value, str_val, value_size - 1);
+                    value[value_size - 1] = '\0';
+                    EPONMGR_LOG_DEBUG("PSM get: %s = %s\n", param, value);
+                    rbusObject_Release(outParams);
+                    return 0;
+                }
+            }
+        }
+        rbusObject_Release(outParams);
+    }
+    
+    EPONMGR_LOG_ERROR("PSM get failed: no value returned for %s\n", param);
+    return -1;
 }
 
 int eponMgr_psm_get_uint(const char *param, uint32_t *value) {
@@ -93,14 +129,45 @@ int eponMgr_psm_set_string(const char *param, const char *value) {
         return -1;
     }
     
-    int ret = PSM_Set_Record_Value2(g_psm_bus_handle,
-                                    CCSP_SUBSYS,
-                                    param,
-                                    ccsp_string,
-                                    (char *)value);
+    if (!g_rbus_handle) {
+        EPONMGR_LOG_ERROR("PSM: rbus handle not initialized\n");
+        return -1;
+    }
     
-    if (ret != CCSP_SUCCESS) {
-        EPONMGR_LOG_ERROR("PSM set failed for %s: ret=%d\n", param, ret);
+    /* Create input parameters */
+    rbusObject_t inParams = NULL, outParams = NULL;
+    rbusObject_Init(&inParams, NULL);
+    
+    /* Create property for parameter */
+    rbusObject_t paramObj = NULL;
+    rbusObject_Init(&paramObj, param);
+    rbusObject_SetPropertyString(paramObj, "value", value);
+    rbusObject_SetPropertyString(paramObj, "type", "astr");
+    
+    rbusProperty_t prop;
+    rbusValue_t rbusVal;
+    rbusValue_Init(&rbusVal);
+    rbusValue_SetFromObject(rbusVal, paramObj);
+    rbusProperty_Init(&prop, "param0", rbusVal);
+    rbusValue_Release(rbusVal);
+    rbusObject_Release(paramObj);
+    
+    rbusObject_SetProperties(inParams, prop);
+    rbusProperty_Release(prop);
+    
+    /* Invoke SetPSMRecordValue method */
+    rbusError_t rc = rbusMethod_Invoke(g_rbus_handle, "SetPSMRecordValue()", inParams, &outParams);
+    
+    if (inParams) {
+        rbusObject_Release(inParams);
+    }
+    
+    if (outParams) {
+        rbusObject_Release(outParams);
+    }
+    
+    if (rc != RBUS_ERROR_SUCCESS) {
+        EPONMGR_LOG_ERROR("PSM set failed for %s: rc=%d\n", param, rc);
         return -1;
     }
     
@@ -117,3 +184,4 @@ int eponMgr_psm_set_uint(const char *param, uint32_t value) {
 int eponMgr_psm_set_bool(const char *param, bool value) {
     return eponMgr_psm_set_string(param, value ? "TRUE" : "FALSE");
 }
+

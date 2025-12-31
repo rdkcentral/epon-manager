@@ -20,9 +20,6 @@ static void print_usage(const char *program_name) {
     printf("  -h, --help           Show this help message\n");
     printf("\nConfiguration:\n");
     printf("  Persistence: CCSP PSM (dmsb.eponmanager.*)\n");
-    printf("  Override with environment variables:\n");
-    printf("    EPON_CACHE_TTL       - Cache TTL in seconds\n");
-    printf("    EPON_DPOE_ENABLED    - Enable DPoE support (true/false)\n");
     printf("\nExample:\n");
     printf("  %s                   # Run as daemon\n", program_name);
     printf("  %s -c                # Run in foreground\n", program_name);
@@ -122,7 +119,6 @@ int main(int argc, char *argv[]) {
     printf("Version: 1.0.0\n");
     printf("Mode: %s\n", run_as_daemon ? "daemon" : "console");
     printf("Persistence: CCSP PSM (dmsb.eponmanager.*)\n");
-    printf("Override with env vars: EPON_CACHE_TTL, EPON_DPOE_ENABLED\n");
     printf("\n");
     
     // Create PID file

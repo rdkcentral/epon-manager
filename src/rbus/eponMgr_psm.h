@@ -2,7 +2,7 @@
  * @file eponMgr_psm.h
  * @brief EPON Manager PSM (Persistent Storage Manager) interface
  * 
- * Provides APIs to read/write persistent configuration using CCSP PSM.
+ * Provides APIs to read/write persistent configuration using direct rbus calls to PSM.
  */
 
 #ifndef EPONMGR_PSM_H
@@ -10,6 +10,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <rbus/rbus.h>
 
 /* PSM parameter names for EPON Manager */
 #define PSM_EPON_DPOE_ENABLE       "dmsb.eponmanager.DpoeEnable"
@@ -25,6 +26,12 @@ int eponMgr_psm_init(void);
  * @brief Close PSM connection
  */
 void eponMgr_psm_close(void);
+
+/**
+ * @brief Set rbus handle for PSM operations
+ * @param handle rbus handle
+ */
+void eponMgr_psm_set_rbus_handle(rbusHandle_t handle);
 
 /**
  * @brief Read string value from PSM
