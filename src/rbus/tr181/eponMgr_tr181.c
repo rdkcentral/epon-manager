@@ -197,32 +197,32 @@ int eponMgr_tr181_register_llid_instance(uint32_t instance) {
     char path_buf[256];
     rbusDataElement_t llid_params[6];
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.LLID\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.LLID", instance);
     llid_params[0].name = strdup(path_buf);
     llid_params[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
     llid_params[0].cbTable.getHandler = llid_table_handler;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Status\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Status", instance);
     llid_params[1].name = strdup(path_buf);
     llid_params[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
     llid_params[1].cbTable.getHandler = llid_table_handler;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.MACAddress\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.MACAddress", instance);
     llid_params[2].name = strdup(path_buf);
     llid_params[2].type = RBUS_ELEMENT_TYPE_PROPERTY;
     llid_params[2].cbTable.getHandler = llid_table_handler;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Mode\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Mode", instance);
     llid_params[3].name = strdup(path_buf);
     llid_params[3].type = RBUS_ELEMENT_TYPE_PROPERTY;
     llid_params[3].cbTable.getHandler = llid_table_handler;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.EncryptionEnabled\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.EncryptionEnabled", instance);
     llid_params[4].name = strdup(path_buf);
     llid_params[4].type = RBUS_ELEMENT_TYPE_PROPERTY;
     llid_params[4].cbTable.getHandler = llid_table_handler;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.ForwardingState\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.ForwardingState", instance);
     llid_params[5].name = strdup(path_buf);
     llid_params[5].type = RBUS_ELEMENT_TYPE_PROPERTY;
     llid_params[5].cbTable.getHandler = llid_table_handler;
@@ -275,27 +275,27 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
     char path_buf[256];
     rbusDataElement_t llid_params[6];
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.LLID\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.LLID", instance);
     llid_params[0].name = strdup(path_buf);
     llid_params[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Status\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Status", instance);
     llid_params[1].name = strdup(path_buf);
     llid_params[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.MACAddress\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.MACAddress", instance);
     llid_params[2].name = strdup(path_buf);
     llid_params[2].type = RBUS_ELEMENT_TYPE_PROPERTY;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Mode\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.Mode", instance);
     llid_params[3].name = strdup(path_buf);
     llid_params[3].type = RBUS_ELEMENT_TYPE_PROPERTY;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.EncryptionEnabled\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.EncryptionEnabled", instance);
     llid_params[4].name = strdup(path_buf);
     llid_params[4].type = RBUS_ELEMENT_TYPE_PROPERTY;
 
-    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.ForwardingState\", instance);
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.ForwardingState", instance);
     llid_params[5].name = strdup(path_buf);
     llid_params[5].type = RBUS_ELEMENT_TYPE_PROPERTY;
 
