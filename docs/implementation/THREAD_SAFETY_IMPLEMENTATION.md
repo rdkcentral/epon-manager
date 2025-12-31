@@ -66,7 +66,7 @@
 - Current implementation: config is typically read-only after init
 
 **Files Modified:**
-- `src/core/config/eponMgr_config.h`
+- `src/core/config/eponMgr_persistence.h`
 - `src/core/config/eponMgr_config.c`
 
 ---
@@ -245,7 +245,7 @@ With thread-safe data structures in place, Phase 4 can safely:
 ## Files Modified Summary
 
 ### Headers
-- `src/core/config/eponMgr_config.h`
+- `src/core/config/eponMgr_persistence.h`
 - `src/core/data_structures/eponMgr_cache.h`
 - `src/core/data_structures/eponMgr_queue.h`
 

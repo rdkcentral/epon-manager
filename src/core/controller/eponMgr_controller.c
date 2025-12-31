@@ -429,7 +429,6 @@ error:
             free(ctrl->hal_wrapper);
         }
         if (ctrl->config) {
-            eponMgr_config_destroy(ctrl->config);
             free(ctrl->config);
         }
         if (ctrl->logger_initialized) {

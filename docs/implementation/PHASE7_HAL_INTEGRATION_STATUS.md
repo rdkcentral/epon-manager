@@ -171,7 +171,7 @@ typedef enum {
 
 **Fix Options:**
 1. **Quick Fix:** Use dummy values for now (like before)
-2. **Proper Fix:** Check if config API exists in `src/core/config/eponMgr_config.h`
+2. **Proper Fix:** Check if config API exists in `src/core/config/eponMgr_persistence.h`
 3. **Alternative:** Read/write to `/nvram/epon_interface.conf` directly
 
 ---
@@ -190,7 +190,7 @@ typedef enum {
 6. Line 951, 955: Fix cpe_table_handler() - CPE entry field names and type check
 
 ### Priority 2: Check Config API
-**File:** `src/core/config/eponMgr_config.h`
+**File:** `src/core/config/eponMgr_persistence.h`
 
 **Action:** Verify if `eponMgr_config_get()` and `eponMgr_config_set()` exist
 

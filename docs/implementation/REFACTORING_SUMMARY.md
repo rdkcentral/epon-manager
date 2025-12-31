@@ -211,7 +211,7 @@ When implementing HAL Wrapper & Controller:
 - [src/logger/eponMgr_logger.c](src/logger/eponMgr_logger.c)
 - [src/logger/eponMgr_logger.h](src/logger/eponMgr_logger.h)
 - [src/core/config/eponMgr_config.c](src/core/config/eponMgr_config.c)
-- [src/core/config/eponMgr_config.h](src/core/config/eponMgr_config.h)
+- [src/core/config/eponMgr_persistence.h](src/core/config/eponMgr_persistence.h)
 - [src/core/data_structures/eponMgr_cache.c](src/core/data_structures/eponMgr_cache.c) ← **Major refactor**
 - [src/core/data_structures/eponMgr_cache.h](src/core/data_structures/eponMgr_cache.h) ← **Major refactor**
 - [src/core/data_structures/eponMgr_queue.c](src/core/data_structures/eponMgr_queue.c)

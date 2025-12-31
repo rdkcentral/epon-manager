@@ -17,8 +17,13 @@
 #include "eponMgr_tr181.h"
 #include "eponMgr_logger.h"
 #include "eponMgr_hal_wrapper.h"
-#include "eponMgr_config.h"
+#include "eponMgr_persistence.h"
+
+#ifdef USE_DUMMY_RBUS
+#include "rbus/eponMgr_rbus_dummy.h"
+#else
 #include <rbus/rbus.h>
+#endif
 
 /* TR-181 Base Path */
 #define TR181_BASE_PATH "Device.Optical.Interface.1"
@@ -243,14 +248,8 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     if (strstr(param_name, ".Enable")) {
-        // Read from config file
-        char enable_str[32];
-        if (eponMgr_config_get("epon.interface.enable", enable_str, sizeof(enable_str)) == 0) {
-            bool enable = (strcmp(enable_str, "true") == 0);
-            rbusValue_SetBoolean(value, enable);
-        } else {
-            rbusValue_SetBoolean(value, true);  // Default enabled
-        }
+        // Always return enabled for now - TODO: implement PSM-based config storage
+        rbusValue_SetBoolean(value, true);
     }
     else if (strstr(param_name, ".Status")) {
         // Get status from ONU state
@@ -277,12 +276,8 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
         }
     }
     else if (strstr(param_name, ".Alias")) {
-        char alias[256];
-        if (eponMgr_config_get("epon.interface.alias", alias, sizeof(alias)) == 0) {
-            rbusValue_SetString(value, alias);
-        } else {
-            rbusValue_SetString(value, "OpticalInterface1");
-        }
+        // Return default alias - TODO: implement PSM-based config storage
+        rbusValue_SetString(value, "OpticalInterface1");
     }
     else if (strstr(param_name, ".Name")) {
         rbusValue_SetString(value, "veip0");
@@ -327,27 +322,16 @@ static rbusError_t base_param_set_handler(rbusHandle_t handle, rbusProperty_t pr
     if (strstr(param_name, ".Enable")) {
         bool enable = rbusValue_GetBoolean(value);
         
-        // Update config file
-        if (eponMgr_config_set("epon.interface.enable", enable ? "true" : "false") == 0) {
-            EPONMGR_LOG_INFO("Interface %s via TR-181\n", enable ? "enabled" : "disabled");
-            // TODO: Trigger controller state machine event
-            return RBUS_ERROR_SUCCESS;
-        } else {
-            EPONMGR_LOG_ERROR("Failed to update Enable config\n");
-            return RBUS_ERROR_BUS_ERROR;
-        }
+        // TODO: Store in PSM and trigger controller state machine event
+        EPONMGR_LOG_INFO("Interface %s via TR-181 (not persisted yet)\n", enable ? "enabled" : "disabled");
+        return RBUS_ERROR_SUCCESS;
     }
     else if (strstr(param_name, ".Alias")) {
         const char* alias = rbusValue_GetString(value, NULL);
         
-        // Update config file
-        if (eponMgr_config_set("epon.interface.alias", alias) == 0) {
-            EPONMGR_LOG_INFO("Interface alias set to '%s' via TR-181\n", alias);
-            return RBUS_ERROR_SUCCESS;
-        } else {
-            EPONMGR_LOG_ERROR("Failed to update Alias config\n");
-            return RBUS_ERROR_BUS_ERROR;
-        }
+        // TODO: Store in PSM
+        EPONMGR_LOG_INFO("Interface alias set to '%s' via TR-181 (not persisted yet)\n", alias);
+        return RBUS_ERROR_SUCCESS;
     }
 
     return RBUS_ERROR_INVALID_INPUT;
