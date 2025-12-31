@@ -18,6 +18,8 @@
 #include "eponMgr_logger.h"
 #include "eponMgr_controller.h"
 #include "eponMgr_persistence.h"
+#include "eponMgr_psm.h"
+#include "eponMgr_stats_poller.h"
 
 #include <rbus/rbus.h>
 
@@ -68,6 +70,8 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
 static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
+static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
+static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts);
 
 /**
  * @brief TR-181 Parameter Registration Table
@@ -150,6 +154,10 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.StaticCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.DynamicCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPENumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+
+    /* Stats Poller Configuration (2 parameters) */
+    {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.Enable", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.PollingInterval", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
 };
 
 /**
@@ -1584,12 +1592,157 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
         rbusValue_SetString(value, info.name);
     }
     else if (strstr(param_name, ".Status")) {
-        const char *status_str = (info.status == EPON_LINK_STATUS_UP) ? "Up" : "Down";
+        const char *status_str = (info.status == EPON_ONU_INTF_STATUS_LINK_UP) ? "Up" : "Down";
         rbusValue_SetString(value, status_str);
     }
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
     eponMgr_controller_unlock_hal_wrapper();
+    return RBUS_ERROR_SUCCESS;
+}
+/**
+ * @brief GET handler for stats poller configuration parameters
+ */
+static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts) {
+    (void)handle;
+    (void)opts;
+    
+    const char *param_name = rbusProperty_GetName(property);
+    if (!param_name) {
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    EPONMGR_LOG_DEBUG("GET: %s\n", param_name);
+    
+    rbusValue_t value;
+    rbusValue_Init(&value);
+    
+    if (strstr(param_name, ".Enable")) {
+        /* Read from PSM */
+        bool enabled = false;
+        if (eponMgr_psm_get_bool(PSM_EPON_STATS_POLLER_ENABLED, &enabled) != 0) {
+            /* Use default if PSM read fails */
+            enabled = false;
+        }
+        rbusValue_SetBoolean(value, enabled);
+    }
+    else if (strstr(param_name, ".PollingInterval")) {
+        /* Read from PSM */
+        uint32_t interval = 900;
+        if (eponMgr_psm_get_uint(PSM_EPON_STATS_POLLER_INTERVAL, &interval) != 0) {
+            /* Use default if PSM read fails */
+            interval = 900;
+        }
+        rbusValue_SetUInt32(value, interval);
+    }
+    else {
+        rbusValue_Release(value);
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    rbusProperty_SetValue(property, value);
+    rbusValue_Release(value);
+    return RBUS_ERROR_SUCCESS;
+}
+
+/**
+ * @brief SET handler for stats poller configuration parameters
+ */
+static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts) {
+    (void)handle;
+    (void)opts;
+    
+    const char *param_name = rbusProperty_GetName(property);
+    if (!param_name) {
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    rbusValue_t value = rbusProperty_GetValue(property);
+    if (!value) {
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    EPONMGR_LOG_INFO("SET: %s\n", param_name);
+    
+    /* Get controller and stats poller */
+    eponMgr_controller_t *ctrl = eponMgr_controller_get_instance();
+    if (!ctrl) {
+        EPONMGR_LOG_ERROR("Controller not available\n");
+        return RBUS_ERROR_BUS_ERROR;
+    }
+    
+    eponMgr_stats_poller_t *poller = eponMgr_controller_get_stats_poller(ctrl);
+    if (!poller) {
+        EPONMGR_LOG_ERROR("Stats poller not available\n");
+        return RBUS_ERROR_BUS_ERROR;
+    }
+    
+    if (strstr(param_name, ".Enable")) {
+        bool enabled = rbusValue_GetBoolean(value);
+        bool is_running = eponMgr_stats_poller_is_running(poller);
+        
+        /* Validate and save to PSM */
+        if (eponMgr_psm_set_bool(PSM_EPON_STATS_POLLER_ENABLED, enabled) != 0) {
+            EPONMGR_LOG_ERROR("Failed to save stats poller enabled to PSM\n");
+            return RBUS_ERROR_BUS_ERROR;
+        }
+        
+        /* Handle dynamic start/stop */
+        if (enabled && !is_running) {
+            /* Start the thread and set enabled flag */
+            if (eponMgr_stats_poller_set_enabled(poller, true) != 0) {
+                EPONMGR_LOG_ERROR("Failed to set stats poller enabled flag\n");
+                return RBUS_ERROR_BUS_ERROR;
+            }
+            if (eponMgr_stats_poller_start(poller) != 0) {
+                EPONMGR_LOG_ERROR("Failed to start stats poller thread\n");
+                return RBUS_ERROR_BUS_ERROR;
+            }
+            EPONMGR_LOG_INFO("Stats poller thread started via TR-181\n");
+        } else if (!enabled && is_running) {
+            /* Stop the thread and set enabled flag */
+            eponMgr_stats_poller_stop(poller);
+            if (eponMgr_stats_poller_set_enabled(poller, false) != 0) {
+                EPONMGR_LOG_ERROR("Failed to set stats poller enabled flag\n");
+                return RBUS_ERROR_BUS_ERROR;
+            }
+            EPONMGR_LOG_INFO("Stats poller thread stopped via TR-181\n");
+        } else {
+            /* Thread state already matches, just update the flag */
+            if (eponMgr_stats_poller_set_enabled(poller, enabled) != 0) {
+                EPONMGR_LOG_ERROR("Failed to set stats poller enabled flag\n");
+                return RBUS_ERROR_BUS_ERROR;
+            }
+            EPONMGR_LOG_INFO("Stats poller %s flag updated via TR-181\n", enabled ? "enabled" : "disabled");
+        }
+    }
+    else if (strstr(param_name, ".PollingInterval")) {
+        uint32_t interval = rbusValue_GetUInt32(value);
+        
+        /* Validate interval (60-3600 seconds) */
+        if (interval < 60 || interval > 3600) {
+            EPONMGR_LOG_ERROR("Invalid polling interval: %u (must be 60-3600)\n", interval);
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        
+        /* Save to PSM */
+        if (eponMgr_psm_set_uint(PSM_EPON_STATS_POLLER_INTERVAL, interval) != 0) {
+            EPONMGR_LOG_ERROR("Failed to save stats poller interval to PSM\n");
+            return RBUS_ERROR_BUS_ERROR;
+        }
+        
+        /* Apply runtime change */
+        if (eponMgr_stats_poller_set_interval(poller, interval) != 0) {
+            EPONMGR_LOG_ERROR("Failed to set stats poller interval\n");
+            return RBUS_ERROR_BUS_ERROR;
+        }
+        
+        EPONMGR_LOG_INFO("Stats poller interval set to %u seconds via TR-181\n", interval);
+    }
+    else {
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
     return RBUS_ERROR_SUCCESS;
 }

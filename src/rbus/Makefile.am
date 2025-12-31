@@ -18,6 +18,7 @@ libeponMgr_rbus_a_CFLAGS = \
     -I$(top_srcdir)/src/core/config \
     -I$(top_srcdir)/src/core/data_structures \
     -I$(top_srcdir)/src/core/hal_wrapper \
+    -I$(top_srcdir)/src/core/stats_poller \
     -I$(top_srcdir)/src/core/controller \
     $(AM_CFLAGS)
 

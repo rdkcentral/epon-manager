@@ -13,8 +13,10 @@
 #include <rbus/rbus.h>
 
 /* PSM parameter names for EPON Manager */
-#define PSM_EPON_DPOE_ENABLE       "dmsb.eponmanager.DpoeEnable"
-#define PSM_EPON_CACHE_TTL         "dmsb.eponmanager.CacheTtlSeconds"
+#define PSM_EPON_DPOE_ENABLE            "dmsb.eponmanager.DpoeEnable"
+#define PSM_EPON_CACHE_TTL              "dmsb.eponmanager.CacheTtlSeconds"
+#define PSM_EPON_STATS_POLLER_ENABLED   "dmsb.eponmanager.StatsPollerEnabled"
+#define PSM_EPON_STATS_POLLER_INTERVAL  "dmsb.eponmanager.StatsPollerIntervalSeconds"
 
 /**
  * @brief Initialize PSM connection

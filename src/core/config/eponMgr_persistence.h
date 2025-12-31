@@ -21,6 +21,10 @@ typedef struct {
     
     /* HAL settings */
     bool dpoe_enabled;                   /**< DPoE support enabled */
+    
+    /* Stats poller settings */
+    bool stats_poller_enabled;           /**< Stats poller thread enabled (default: false) */
+    uint32_t stats_poller_interval_seconds;  /**< Stats poller interval in seconds (default: 900) */
 } eponMgr_persistence_t;
 
 /**

@@ -95,4 +95,19 @@ void* eponMgr_controller_lock_hal_wrapper(void);
  */
 void eponMgr_controller_unlock_hal_wrapper(void);
 
+/**
+ * @brief Get stats poller from controller
+ * 
+ * @param controller Pointer to controller context
+ * @return Pointer to stats poller context, NULL on error
+ */
+void* eponMgr_controller_get_stats_poller(eponMgr_controller_t *controller);
+
+/**
+ * @brief Get global controller instance
+ * 
+ * @return Pointer to controller context, NULL if not initialized
+ */
+eponMgr_controller_t* eponMgr_controller_get_instance(void);
+
 #endif /* EPONMGR_CONTROLLER_H */

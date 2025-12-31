@@ -13,6 +13,7 @@
 #include "eponMgr_rbus.h"
 #include "eponMgr_psm.h"
 #include "eponMgr_tr181.h"
+#include "eponMgr_stats_poller.h"
 #include <rbus/rbus.h>
 
 #include <stdio.h>
@@ -31,6 +32,9 @@ struct eponMgr_controller_context {
     
     // HAL wrapper with all data structures
     eponMgr_hal_wrapper_t *hal_wrapper;
+    
+    // Stats poller thread
+    eponMgr_stats_poller_t *stats_poller;
     
     // Event queue for HAL callbacks
     eponMgr_queue_t *event_queue;
@@ -417,7 +421,27 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("EPON HAL initialized successfully\n");
     
-    // Step 8: Register TR-181 parameters (now HAL wrapper is available)
+    // Step 8: Initialize stats poller
+    ctrl->stats_poller = (eponMgr_stats_poller_t *)malloc(sizeof(eponMgr_stats_poller_t));
+    if (!ctrl->stats_poller) {
+        EPONMGR_LOG_ERROR("Failed to allocate stats poller\n");
+        goto error;
+    }
+    
+    if (eponMgr_stats_poller_init(ctrl->stats_poller, 
+                                   ctrl->hal_wrapper,
+                                   ctrl->config->stats_poller_enabled,
+                                   ctrl->config->stats_poller_interval_seconds) != 0) {
+        EPONMGR_LOG_ERROR("Failed to initialize stats poller\n");
+        free(ctrl->stats_poller);
+        ctrl->stats_poller = NULL;
+        goto error;
+    }
+    EPONMGR_LOG_INFO("Stats poller initialized (enabled: %s, interval: %us)\n",
+                     ctrl->config->stats_poller_enabled ? "true" : "false",
+                     ctrl->config->stats_poller_interval_seconds);
+    
+    // Step 9: Register TR-181 parameters (now HAL wrapper is available)
     if (eponMgr_rbus_register_tr181() != 0) {
         EPONMGR_LOG_ERROR("Failed to register TR-181 parameters\n");
         goto error;
@@ -436,6 +460,10 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
 
 error:
     if (ctrl) {
+        if (ctrl->stats_poller) {
+            eponMgr_stats_poller_destroy(ctrl->stats_poller);
+            free(ctrl->stats_poller);
+        }
         if (ctrl->hal_wrapper) {
             eponMgr_hal_wrapper_destroy(ctrl->hal_wrapper);
             free(ctrl->hal_wrapper);
@@ -467,6 +495,15 @@ int eponMgr_controller_run(eponMgr_controller_t *controller) {
     controller->running = true;
     controller->shutdown_requested = false;
     pthread_mutex_unlock(&controller->mutex);
+    
+    // Start stats poller thread if enabled
+    if (controller->stats_poller && controller->config->stats_poller_enabled) {
+        if (eponMgr_stats_poller_start(controller->stats_poller) == 0) {
+            EPONMGR_LOG_INFO("Stats poller thread started\n");
+        } else {
+            EPONMGR_LOG_WARN("Failed to start stats poller thread\n");
+        }
+    }
     
     EPONMGR_LOG_INFO("EPON Manager Controller started\n");
     EPONMGR_LOG_INFO("Entering main event loop (send SIGTERM to stop gracefully)...\n");
@@ -543,6 +580,14 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
         controller->rbus_initialized = false;
     }
     
+    // Stop and destroy stats poller
+    if (controller->stats_poller) {
+        EPONMGR_LOG_INFO("Stopping stats poller...\n");
+        eponMgr_stats_poller_destroy(controller->stats_poller);
+        free(controller->stats_poller);
+        controller->stats_poller = NULL;
+    }
+    
     // Destroy HAL wrapper (this also destroys all data structures)
     if (controller->hal_wrapper) {
         EPONMGR_LOG_INFO("Destroying HAL wrapper...\n");
@@ -603,4 +648,13 @@ void* eponMgr_controller_lock_hal_wrapper(void) {
 void eponMgr_controller_unlock_hal_wrapper(void) {
     if (!g_controller) return;
     pthread_mutex_unlock(&g_controller->mutex);
+}
+
+void* eponMgr_controller_get_stats_poller(eponMgr_controller_t *controller) {
+    if (!controller) return NULL;
+    return controller->stats_poller;
+}
+
+eponMgr_controller_t* eponMgr_controller_get_instance(void) {
+    return g_controller;
 }
