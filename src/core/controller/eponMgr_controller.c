@@ -343,7 +343,16 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("PSM interface initialized\n");
     
-    // Step 3: Load persistent configuration
+    // Step 3: Initialize RBUS (needed for PSM operations)
+    // Note: We initialize RBUS early with NULL hal_wrapper, will update later
+    if (eponMgr_rbus_init("epon_manager", NULL) != 0) {
+        EPONMGR_LOG_ERROR("Failed to initialize RBUS\n");
+        goto error;
+    }
+    ctrl->rbus_initialized = true;
+    EPONMGR_LOG_INFO("RBUS initialized (handle available for PSM)\n");
+    
+    // Step 4: Load persistent configuration (now RBUS is available for PSM)
     ctrl->config = (eponMgr_persistence_t *)malloc(sizeof(eponMgr_persistence_t));
     if (!ctrl->config) {
         EPONMGR_LOG_ERROR("Failed to allocate persistence structure\n");
@@ -362,7 +371,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
         EPONMGR_LOG_INFO("Persistent configuration loaded from PSM\n");
     }
     
-    // Step 4: Initialize event queue (hardcoded to 100)
+    // Step 5: Initialize event queue (hardcoded to 100)
     ctrl->event_queue = (eponMgr_queue_t *)malloc(sizeof(eponMgr_queue_t));
     if (!ctrl->event_queue) {
         EPONMGR_LOG_ERROR("Failed to allocate event queue\n");
@@ -374,7 +383,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("Event queue initialized (capacity: 100)\n");
     
-    // Step 5: Initialize HAL wrapper with data structures
+    // Step 6: Initialize HAL wrapper with data structures
     ctrl->hal_wrapper = (eponMgr_hal_wrapper_t *)malloc(sizeof(eponMgr_hal_wrapper_t));
     if (!ctrl->hal_wrapper) {
         EPONMGR_LOG_ERROR("Failed to allocate HAL wrapper\n");
@@ -396,7 +405,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("HAL wrapper initialized with %us cache TTL\n", cache_ttl);
     
-    // Step 6: Initialize HAL
+    // Step 7: Initialize HAL
     int ret = eponMgr_hal_wrapper_hal_init(ctrl->hal_wrapper);
     if (ret != EPON_HAL_SUCCESS) {
         EPONMGR_LOG_ERROR("Failed to initialize EPON HAL: %d\n", ret);
@@ -404,13 +413,12 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("EPON HAL initialized successfully\n");
     
-    // Step 7: Initialize RBUS
-    if (eponMgr_rbus_init("epon_manager", ctrl->hal_wrapper) != 0) {
-        EPONMGR_LOG_ERROR("Failed to initialize RBUS\n");
+    // Step 8: Register TR-181 parameters (now HAL wrapper is available)
+    if (eponMgr_rbus_register_tr181() != 0) {
+        EPONMGR_LOG_ERROR("Failed to register TR-181 parameters\n");
         goto error;
     }
-    ctrl->rbus_initialized = true;
-    EPONMGR_LOG_INFO("RBUS initialized and TR-181 parameters registered\n");
+    EPONMGR_LOG_INFO("TR-181 parameters registered\n");
     
     // Set global controller for shutdown function
     g_controller = ctrl;
@@ -580,4 +588,15 @@ bool eponMgr_controller_is_running(const eponMgr_controller_t *controller) {
 void* eponMgr_controller_get_hal_wrapper(eponMgr_controller_t *controller) {
     if (!controller) return NULL;
     return controller->hal_wrapper;
+}
+
+void* eponMgr_controller_lock_hal_wrapper(void) {
+    if (!g_controller) return NULL;
+    pthread_mutex_lock(&g_controller->mutex);
+    return g_controller->hal_wrapper;
+}
+
+void eponMgr_controller_unlock_hal_wrapper(void) {
+    if (!g_controller) return;
+    pthread_mutex_unlock(&g_controller->mutex);
 }

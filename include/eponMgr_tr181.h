@@ -17,11 +17,12 @@
 /**
  * @brief Initialize TR-181 parameter handlers and register with RBUS
  * 
+ * Uses controller lock/unlock functions for thread-safe HAL wrapper access.
+ * 
  * @param handle RBUS handle from eponMgr_rbus_init()
- * @param hal_wrapper Pointer to HAL wrapper context (for data access)
  * @return 0 on success, -1 on failure
  */
-int eponMgr_tr181_init(rbusHandle_t handle, eponMgr_hal_wrapper_t *hal_wrapper);
+int eponMgr_tr181_init(rbusHandle_t handle);
 
 /**
  * @brief Cleanup TR-181 parameter handlers and unregister from RBUS

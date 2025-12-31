@@ -27,10 +27,19 @@ typedef void* eponMgr_rbus_handle_t;
  * @brief Initialize RBUS for EPON Manager
  * 
  * @param component_name Component name for RBUS registration
- * @param hal_wrapper Pointer to HAL wrapper context (for TR-181 data access)
+ * @param hal_wrapper Pointer to HAL wrapper context (ignored, kept for API compatibility)
  * @return 0 on success, -1 on failure
  */
 int eponMgr_rbus_init(const char* component_name, void *hal_wrapper);
+
+/**
+ * @brief Register TR-181 parameters
+ * 
+ * Call this after HAL is initialized
+ * 
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_rbus_register_tr181(void);
 
 /**
  * @brief Cleanup and close RBUS connection

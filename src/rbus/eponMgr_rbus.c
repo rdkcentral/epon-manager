@@ -14,13 +14,12 @@
 #include "eponMgr_rbus.h"
 #include "eponMgr_tr181.h"
 #include "eponMgr_logger.h"
-#include "eponMgr_hal_wrapper.h"
+#include "eponMgr_controller.h"
 #include <rbus/rbus.h>
 
 /* Global RBUS handle */
 static rbusHandle_t g_rbus_handle = NULL;
 static bool g_rbus_initialized = false;
-static eponMgr_hal_wrapper_t *g_hal_wrapper = NULL;
 
 
 
@@ -32,19 +31,17 @@ static eponMgr_hal_wrapper_t *g_hal_wrapper = NULL;
  * @return 0 on success, -1 on failure
  */
 int eponMgr_rbus_init(const char* component_name, void *hal_wrapper_ptr) {
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)hal_wrapper_ptr;
+    (void)hal_wrapper_ptr; // Not used anymore
     
     if (g_rbus_initialized) {
         EPONMGR_LOG_WARN("RBUS already initialized\n");
         return 0;
     }
     
-    if (!component_name || !hal_wrapper) {
-        EPONMGR_LOG_ERROR("Invalid parameters\n");
+    if (!component_name) {
+        EPONMGR_LOG_ERROR("Invalid component name\n");
         return -1;
     }
-    
-    g_hal_wrapper = hal_wrapper;
     
     EPONMGR_LOG_INFO("Initializing RBUS (component: %s)\n", component_name);
     
@@ -56,20 +53,7 @@ int eponMgr_rbus_init(const char* component_name, void *hal_wrapper_ptr) {
     }
     
     EPONMGR_LOG_INFO("RBUS connection opened successfully\n");
-    
-    /* Register TR-181 parameters */
-    if (eponMgr_tr181_init(g_rbus_handle, g_hal_wrapper) != 0) {
-        EPONMGR_LOG_ERROR("Failed to register TR-181 parameters\n");
-        rbus_close(g_rbus_handle);
-        g_rbus_handle = NULL;
-        g_hal_wrapper = NULL;
-        g_rbus_initialized = false;
-        return -1;
-    }
-    
     g_rbus_initialized = true;
-    EPONMGR_LOG_INFO("RBUS initialization complete (%d TR-181 parameters registered)\n", 
-                     eponMgr_tr181_get_param_count());
     
     return 0;
 }
@@ -96,9 +80,32 @@ void eponMgr_rbus_cleanup(void) {
         g_rbus_handle = NULL;
     }
     
-    g_hal_wrapper = NULL;
     g_rbus_initialized = false;
     EPONMGR_LOG_INFO("RBUS cleanup complete\n");
+}
+
+/**
+ * @brief Register TR-181 parameters
+ * Called after HAL is initialized
+ * 
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_rbus_register_tr181(void) {
+    if (!g_rbus_initialized) {
+        EPONMGR_LOG_ERROR("RBUS not initialized\n");
+        return -1;
+    }
+    
+    /* Register TR-181 parameters */
+    if (eponMgr_tr181_init(g_rbus_handle) != 0) {
+        EPONMGR_LOG_ERROR("Failed to register TR-181 parameters\n");
+        return -1;
+    }
+    
+    EPONMGR_LOG_INFO("TR-181 parameters registered (%d parameters)\n",
+                     eponMgr_tr181_get_param_count());
+    
+    return 0;
 }
 
 /**

@@ -79,4 +79,20 @@ bool eponMgr_controller_is_running(const eponMgr_controller_t *controller);
  */
 void* eponMgr_controller_get_hal_wrapper(eponMgr_controller_t *controller);
 
+
+/**
+ * @brief Lock and get HAL wrapper (thread-safe access)
+ * 
+ * Must be followed by eponMgr_controller_unlock_hal_wrapper()
+ * Uses global controller instance
+ * 
+ * @return HAL wrapper pointer or NULL
+ */
+void* eponMgr_controller_lock_hal_wrapper(void);
+
+/**
+ * @brief Unlock HAL wrapper after use
+ */
+void eponMgr_controller_unlock_hal_wrapper(void);
+
 #endif /* EPONMGR_CONTROLLER_H */
