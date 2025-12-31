@@ -27,10 +27,19 @@
 
 /* TR-181 Base Path */
 #define TR181_BASE_PATH "Device.Optical.Interface.1"
+#define MAX_LLID_INSTANCES 32
+
+/* Dynamic LLID table tracking */
+typedef struct {
+    uint32_t instance;  /* 1-based instance number */
+    bool registered;
+} llid_instance_t;
 
 /* Static state */
 static rbusHandle_t g_rbus_handle = NULL;
 static int g_param_count = 0;
+static llid_instance_t g_llid_instances[MAX_LLID_INSTANCES] = {{0}};
+static pthread_mutex_t g_llid_table_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Forward declarations for handlers */
 static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
@@ -117,9 +126,8 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.OLT.VendorOUI", RBUS_ELEMENT_TYPE_PROPERTY, {olt_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.OLT.VendorSpecificInfo", RBUS_ELEMENT_TYPE_PROPERTY, {olt_get_handler, NULL, NULL, NULL, NULL, NULL}},
 
-    /* Phase 7.1: LLID Dynamic Table (1 count + table) */
+    /* Phase 7.1: LLID Dynamic Table (count only - instances registered dynamically) */
     {TR181_BASE_PATH ".X_RDK_EPON.LLIDNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.LLID.", RBUS_ELEMENT_TYPE_TABLE, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
 
     /* Phase 7.2: DPoE/CPE Dynamic Table (4 stats + 1 count + table) */
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.MaxCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
@@ -150,6 +158,206 @@ int eponMgr_tr181_init(rbusHandle_t handle) {
     }
 
     EPONMGR_LOG_INFO("TR-181 parameter registration complete: %d parameters\n", g_param_count);
+    
+    /* Sync LLID table to register any existing LLIDs */
+    eponMgr_tr181_sync_llid_table();
+    
+    return 0;
+}
+
+/**
+ * @brief Register a single LLID instance dynamically
+ * 
+ * @param instance 1-based LLID instance number (1-32)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_register_llid_instance(uint32_t instance) {
+    if (!g_rbus_handle || instance == 0 || instance > MAX_LLID_INSTANCES) {
+        EPONMGR_LOG_ERROR("Invalid LLID instance: %u\n", instance);
+        return -1;
+    }
+
+    pthread_mutex_lock(&g_llid_table_mutex);
+
+    /* Check if already registered */
+    if (g_llid_instances[instance - 1].registered) {
+        pthread_mutex_unlock(&g_llid_table_mutex);
+        EPONMGR_LOG_DEBUG("LLID instance %u already registered\n", instance);
+        return 0;
+    }
+
+    /* Build RBUS data elements for this LLID instance */
+    char path_buf[256];
+    rbusDataElement_t llid_params[6];
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.LLID\", instance);
+    llid_params[0].name = strdup(path_buf);
+    llid_params[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    llid_params[0].cbTable.getHandler = llid_table_handler;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.Status\", instance);
+    llid_params[1].name = strdup(path_buf);
+    llid_params[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    llid_params[1].cbTable.getHandler = llid_table_handler;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.MACAddress\", instance);
+    llid_params[2].name = strdup(path_buf);
+    llid_params[2].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    llid_params[2].cbTable.getHandler = llid_table_handler;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.Mode\", instance);
+    llid_params[3].name = strdup(path_buf);
+    llid_params[3].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    llid_params[3].cbTable.getHandler = llid_table_handler;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.EncryptionEnabled\", instance);
+    llid_params[4].name = strdup(path_buf);
+    llid_params[4].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    llid_params[4].cbTable.getHandler = llid_table_handler;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.ForwardingState\", instance);
+    llid_params[5].name = strdup(path_buf);
+    llid_params[5].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    llid_params[5].cbTable.getHandler = llid_table_handler;
+
+    /* Register with RBUS */
+    rbusError_t rc = rbus_regDataElements(g_rbus_handle, 6, llid_params);
+    
+    /* Free allocated strings */
+    for (int i = 0; i < 6; i++) {
+        free((void*)llid_params[i].name);
+    }
+
+    if (rc != RBUS_ERROR_SUCCESS) {
+        pthread_mutex_unlock(&g_llid_table_mutex);
+        EPONMGR_LOG_ERROR("Failed to register LLID instance %u: %d\n", instance, rc);
+        return -1;
+    }
+
+    /* Mark as registered */
+    g_llid_instances[instance - 1].instance = instance;
+    g_llid_instances[instance - 1].registered = true;
+
+    pthread_mutex_unlock(&g_llid_table_mutex);
+    EPONMGR_LOG_INFO("Registered LLID instance %u\n", instance);
+    return 0;
+}
+
+/**
+ * @brief Unregister a single LLID instance dynamically
+ * 
+ * @param instance 1-based LLID instance number (1-32)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
+    if (!g_rbus_handle || instance == 0 || instance > MAX_LLID_INSTANCES) {
+        EPONMGR_LOG_ERROR("Invalid LLID instance: %u\n", instance);
+        return -1;
+    }
+
+    pthread_mutex_lock(&g_llid_table_mutex);
+
+    /* Check if registered */
+    if (!g_llid_instances[instance - 1].registered) {
+        pthread_mutex_unlock(&g_llid_table_mutex);
+        EPONMGR_LOG_DEBUG("LLID instance %u not registered\n", instance);
+        return 0;
+    }
+
+    /* Build RBUS data elements for this LLID instance */
+    char path_buf[256];
+    rbusDataElement_t llid_params[6];
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.LLID\", instance);
+    llid_params[0].name = strdup(path_buf);
+    llid_params[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.Status\", instance);
+    llid_params[1].name = strdup(path_buf);
+    llid_params[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.MACAddress\", instance);
+    llid_params[2].name = strdup(path_buf);
+    llid_params[2].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.Mode\", instance);
+    llid_params[3].name = strdup(path_buf);
+    llid_params[3].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.EncryptionEnabled\", instance);
+    llid_params[4].name = strdup(path_buf);
+    llid_params[4].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH \".X_RDK_EPON.LLID.%u.ForwardingState\", instance);
+    llid_params[5].name = strdup(path_buf);
+    llid_params[5].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    /* Unregister from RBUS */
+    rbusError_t rc = rbus_unregDataElements(g_rbus_handle, 6, llid_params);
+    
+    /* Free allocated strings */
+    for (int i = 0; i < 6; i++) {
+        free((void*)llid_params[i].name);
+    }
+
+    if (rc != RBUS_ERROR_SUCCESS) {
+        pthread_mutex_unlock(&g_llid_table_mutex);
+        EPONMGR_LOG_ERROR("Failed to unregister LLID instance %u: %d\n", instance, rc);
+        return -1;
+    }
+
+    /* Mark as unregistered */
+    g_llid_instances[instance - 1].registered = false;
+    g_llid_instances[instance - 1].instance = 0;
+
+    pthread_mutex_unlock(&g_llid_table_mutex);
+    EPONMGR_LOG_INFO("Unregistered LLID instance %u\n", instance);
+    return 0;
+}
+
+/**
+ * @brief Synchronize LLID table registrations with current LLID list
+ * 
+ * Compares current registrations with actual LLID list and registers/unregisters as needed.
+ * Should be called when LLID list changes.
+ * 
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_sync_llid_table(void) {
+    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
+    if (!hal_wrapper || !hal_wrapper->llid_list) {
+        eponMgr_controller_unlock_hal_wrapper();
+        EPONMGR_LOG_ERROR("HAL wrapper or LLID list not available\n");
+        return -1;
+    }
+
+    uint32_t llid_count = eponMgr_llid_list_count(hal_wrapper->llid_list);
+    
+    /* Get current LLID instances from list */
+    bool active_instances[MAX_LLID_INSTANCES] = {false};
+    for (uint32_t i = 0; i < llid_count && i < MAX_LLID_INSTANCES; i++) {
+        epon_llid_info_t llid_info;
+        if (eponMgr_llid_list_get_at(hal_wrapper->llid_list, i, &llid_info) == 0) {
+            /* Mark instance as active (1-based indexing) */
+            active_instances[i] = true;
+        }
+    }
+
+    eponMgr_controller_unlock_hal_wrapper();
+
+    /* Register new instances and unregister removed ones */
+    for (uint32_t i = 0; i < MAX_LLID_INSTANCES; i++) {
+        uint32_t instance = i + 1;  /* 1-based */
+        
+        if (active_instances[i] && !g_llid_instances[i].registered) {
+            /* New LLID - register it */
+            eponMgr_tr181_register_llid_instance(instance);
+        } else if (!active_instances[i] && g_llid_instances[i].registered) {
+            /* Removed LLID - unregister it */
+            eponMgr_tr181_unregister_llid_instance(instance);
+        }
+    }
+
     return 0;
 }
 
@@ -159,6 +367,13 @@ int eponMgr_tr181_init(rbusHandle_t handle) {
 void eponMgr_tr181_cleanup(rbusHandle_t handle) {
     if (!handle || g_param_count == 0) {
         return;
+    }
+
+    /* Unregister all dynamic LLID instances */
+    for (uint32_t i = 0; i < MAX_LLID_INSTANCES; i++) {
+        if (g_llid_instances[i].registered) {
+            eponMgr_tr181_unregister_llid_instance(i + 1);
+        }
     }
 
     EPONMGR_LOG_INFO("Unregistering %d TR-181 parameters from RBUS\n", g_param_count);

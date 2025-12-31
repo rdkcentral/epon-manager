@@ -38,4 +38,37 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle);
  */
 int eponMgr_tr181_get_param_count(void);
 
+/**
+ * @brief Register a single LLID instance dynamically
+ * 
+ * Registers all TR-181 parameters for a specific LLID.{i} instance.
+ * Called when a new LLID is discovered/added.
+ * 
+ * @param instance 1-based LLID instance number (1-32)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_register_llid_instance(uint32_t instance);
+
+/**
+ * @brief Unregister a single LLID instance dynamically
+ * 
+ * Unregisters all TR-181 parameters for a specific LLID.{i} instance.
+ * Called when a LLID is removed/deregistered.
+ * 
+ * @param instance 1-based LLID instance number (1-32)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_unregister_llid_instance(uint32_t instance);
+
+/**
+ * @brief Synchronize LLID table registrations with current LLID list
+ * 
+ * Compares current RBUS registrations with actual LLID list state
+ * and registers/unregisters instances as needed.
+ * Should be called when LLID list changes (add/remove events).
+ * 
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_sync_llid_table(void);
+
 #endif /* EPONMGR_TR181_H */

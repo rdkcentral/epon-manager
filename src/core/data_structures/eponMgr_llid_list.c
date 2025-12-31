@@ -4,6 +4,7 @@
  */
 
 #include "eponMgr_llid_list.h"
+#include "eponMgr_tr181.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -67,6 +68,10 @@ int eponMgr_llid_list_update(eponMgr_llid_list_t *list, const epon_llid_info_t *
     list->llid_list.llid_list[list->llid_list.llid_count++] = *llid_info;
     
     pthread_mutex_unlock(&list->mutex);
+    
+    /* Sync TR-181 table registrations */
+    eponMgr_tr181_sync_llid_table();
+    
     return 0;
 }
 
@@ -98,6 +103,10 @@ int eponMgr_llid_list_remove(eponMgr_llid_list_t *list, uint16_t llid_value)
             }
             
             pthread_mutex_unlock(&list->mutex);
+            
+            /* Sync TR-181 table registrations */
+            eponMgr_tr181_sync_llid_table();
+            
             return 0;
         }
     }
