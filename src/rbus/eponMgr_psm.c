@@ -48,11 +48,7 @@ int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
     rbusObject_Init(&inParams, NULL);
     
     rbusProperty_t prop;
-    rbusValue_t rbusVal;
-    rbusValue_Init(&rbusVal);
-    rbusValue_SetString(rbusVal, param);
-    rbusProperty_Init(&prop, "param0", rbusVal);
-    rbusValue_Release(rbusVal);
+    rbusProperty_Init(&prop, param, NULL);
     rbusObject_SetProperties(inParams, prop);
     rbusProperty_Release(prop);
     
@@ -81,7 +77,7 @@ int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
                 if (str_val) {
                     strncpy(value, str_val, value_size - 1);
                     value[value_size - 1] = '\0';
-                    EPONMGR_LOG_DEBUG("PSM get: %s = %s\n", param, value);
+                    EPONMGR_LOG_INFO("PSM get: %s = %s\n", param, value);
                     rbusObject_Release(outParams);
                     return 0;
                 }
@@ -138,19 +134,13 @@ int eponMgr_psm_set_string(const char *param, const char *value) {
     rbusObject_t inParams = NULL, outParams = NULL;
     rbusObject_Init(&inParams, NULL);
     
-    /* Create property for parameter */
-    rbusObject_t paramObj = NULL;
-    rbusObject_Init(&paramObj, param);
-    rbusObject_SetPropertyString(paramObj, "value", value);
-    rbusObject_SetPropertyString(paramObj, "type", "astr");
-    
+    /* Create property with typed value */
     rbusProperty_t prop;
     rbusValue_t rbusVal;
     rbusValue_Init(&rbusVal);
-    rbusValue_SetFromObject(rbusVal, paramObj);
-    rbusProperty_Init(&prop, "param0", rbusVal);
+    rbusValue_SetFromString(rbusVal, RBUS_STRING, value);
+    rbusProperty_Init(&prop, param, rbusVal);
     rbusValue_Release(rbusVal);
-    rbusObject_Release(paramObj);
     
     rbusObject_SetProperties(inParams, prop);
     rbusProperty_Release(prop);
@@ -171,7 +161,7 @@ int eponMgr_psm_set_string(const char *param, const char *value) {
         return -1;
     }
     
-    EPONMGR_LOG_DEBUG("PSM set: %s = %s\n", param, value);
+    EPONMGR_LOG_INFO("PSM set: %s = %s\n", param, value);
     return 0;
 }
 
