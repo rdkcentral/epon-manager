@@ -3,8 +3,8 @@
 noinst_LIBRARIES = libeponMgr_datastructures.a
 
 libeponMgr_datastructures_a_SOURCES = \
-    eponMgr_cache.c \
-    eponMgr_cache.h \
+    eponMgr_statsData.c \
+    eponMgr_statsData.h \
     eponMgr_queue.c \
     eponMgr_queue.h \
     eponMgr_onu_state.c \

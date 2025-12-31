@@ -22,18 +22,18 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include "epon_hal.h"
-#include "eponMgr_cache.h"
+#include "eponMgr_statsData.h"
 #include "eponMgr_interface_list.h"
 #include "eponMgr_llid_list.h"
 #include "eponMgr_cpe_list.h"
 #include "eponMgr_onu_state.h"
 
 /**
- * @brief HAL wrapper context with cache and data structures
+ * @brief HAL wrapper context with stats data storage and data structures
  */
 typedef struct {
-    // Statistics cache (with TTL)
-    eponMgr_cache_t *stats_cache;
+    // Statistics data storage (with TTL)
+    eponMgr_statsData_t *stats_data;
     
     // Data structures for state management
     eponMgr_interface_list_t *interface_list;

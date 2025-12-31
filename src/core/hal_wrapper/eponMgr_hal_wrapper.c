@@ -24,11 +24,11 @@ int eponMgr_hal_wrapper_init(eponMgr_hal_wrapper_t *wrapper,
     memset(wrapper, 0, sizeof(eponMgr_hal_wrapper_t));
     
     // Initialize cache
-    wrapper->stats_cache = (eponMgr_cache_t *)malloc(sizeof(eponMgr_cache_t));
-    if (!wrapper->stats_cache) return -1;
-    
-    if (eponMgr_cache_init(wrapper->stats_cache, cache_ttl) != 0) {
-        free(wrapper->stats_cache);
+    wrapper->stats_data = (eponMgr_statsData_t *)malloc(sizeof(eponMgr_statsData_t));
+    if (!wrapper->stats_data) return -1;
+
+    if (eponMgr_statsData_init(wrapper->stats_data, cache_ttl) != 0) {
+        free(wrapper->stats_data);
         return -1;
     }
     
@@ -74,9 +74,9 @@ error:
         eponMgr_interface_list_destroy(wrapper->interface_list);
         free(wrapper->interface_list);
     }
-    if (wrapper->stats_cache) {
-        eponMgr_cache_destroy(wrapper->stats_cache);
-        free(wrapper->stats_cache);
+    if (wrapper->stats_data) {
+        eponMgr_statsData_destroy(wrapper->stats_data);
+        free(wrapper->stats_data);
     }
     return -1;
 }
@@ -103,9 +103,9 @@ void eponMgr_hal_wrapper_destroy(eponMgr_hal_wrapper_t *wrapper)
         eponMgr_interface_list_destroy(wrapper->interface_list);
         free(wrapper->interface_list);
     }
-    if (wrapper->stats_cache) {
-        eponMgr_cache_destroy(wrapper->stats_cache);
-        free(wrapper->stats_cache);
+    if (wrapper->stats_data) {
+        eponMgr_statsData_destroy(wrapper->stats_data);
+        free(wrapper->stats_data);
     }
     
     pthread_mutex_unlock(&wrapper->mutex);
@@ -140,16 +140,16 @@ int eponMgr_hal_wrapper_get_link_stats(eponMgr_hal_wrapper_t *wrapper,
     
     pthread_mutex_lock(&wrapper->mutex);
     
-    // Try cache first
-    if (eponMgr_cache_get_link_stats(wrapper->stats_cache, stats) == 0) {
+    // Try stored data first
+    if (eponMgr_statsData_get_link_stats(wrapper->stats_data, stats) == 0) {
         pthread_mutex_unlock(&wrapper->mutex);
-        return EPON_HAL_SUCCESS;  // Cache hit
+        return EPON_HAL_SUCCESS;  // Data available
     }
     
-    // Cache miss - call HAL
+    // Data not available - call HAL
     int ret = epon_hal_get_link_stats(stats);
     if (ret == EPON_HAL_SUCCESS) {
-        eponMgr_cache_set_link_stats(wrapper->stats_cache, stats);
+        eponMgr_statsData_set_link_stats(wrapper->stats_data, stats);
     }
     
     pthread_mutex_unlock(&wrapper->mutex);
@@ -163,16 +163,16 @@ int eponMgr_hal_wrapper_get_transceiver_stats(eponMgr_hal_wrapper_t *wrapper,
     
     pthread_mutex_lock(&wrapper->mutex);
     
-    // Try cache first
-    if (eponMgr_cache_get_transceiver_stats(wrapper->stats_cache, stats)) {
+    // Try stored data first
+    if (eponMgr_statsData_get_transceiver_stats(wrapper->stats_data, stats)) {
         pthread_mutex_unlock(&wrapper->mutex);
         return EPON_HAL_SUCCESS;
     }
     
-    // Cache miss - call HAL
+    // Data not available - call HAL
     int ret = epon_hal_get_transceiver_stats(stats);
     if (ret == EPON_HAL_SUCCESS) {
-        eponMgr_cache_set_transceiver_stats(wrapper->stats_cache, stats);
+        eponMgr_statsData_set_transceiver_stats(wrapper->stats_data, stats);
     }
     
     pthread_mutex_unlock(&wrapper->mutex);
@@ -377,8 +377,8 @@ void eponMgr_hal_wrapper_invalidate_cache(eponMgr_hal_wrapper_t *wrapper)
     
     pthread_mutex_lock(&wrapper->mutex);
     
-    // Invalidate all cache entries (both statistics and info)
-    eponMgr_cache_invalidate_all(wrapper->stats_cache);
+    // Invalidate all storage entries (both statistics and info)
+    eponMgr_statsData_invalidate_all(wrapper->stats_data);
     eponMgr_onu_state_invalidate_all(wrapper->onu_state);
     
     pthread_mutex_unlock(&wrapper->mutex);
