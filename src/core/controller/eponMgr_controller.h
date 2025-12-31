@@ -17,16 +17,6 @@
 #include <stdint.h>
 
 /**
- * @brief Controller configuration
- */
-typedef struct {
-    const char *config_file;        /**< Path to configuration file */
-    bool enable_console_log;        /**< Enable console logging */
-    bool enable_file_log;           /**< Enable file logging */
-    uint32_t cache_ttl_seconds;     /**< Cache TTL in seconds (default 30) */
-} eponMgr_controller_config_t;
-
-/**
  * @brief Controller context
  */
 typedef struct eponMgr_controller_context eponMgr_controller_t;
@@ -36,14 +26,15 @@ typedef struct eponMgr_controller_context eponMgr_controller_t;
  * 
  * This initializes all subsystems in the correct order:
  * 1. Logger
- * 2. Configuration
+ * 2. Configuration (loads from default path /etc/epon_manager.conf)
  * 3. HAL wrapper with data structures
  * 4. HAL initialization
  * 
- * @param config Controller configuration
+ * Configuration values like cache_ttl are loaded from the config file.
+ * 
  * @return Pointer to controller context on success, NULL on failure
  */
-eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t *config);
+eponMgr_controller_t* eponMgr_controller_init(void);
 
 /**
  * @brief Run the main controller event loop
@@ -59,11 +50,9 @@ int eponMgr_controller_run(eponMgr_controller_t *controller);
  * @brief Request controller shutdown
  * 
  * This function can be called from signal handlers or other threads
- * to request a graceful shutdown.
- * 
- * @param controller Pointer to controller context
+ * to request a graceful shutdown. Uses the internal global controller.
  */
-void eponMgr_controller_shutdown(eponMgr_controller_t *controller);
+void eponMgr_controller_shutdown(void);
 
 /**
  * @brief Destroy controller and cleanup all resources

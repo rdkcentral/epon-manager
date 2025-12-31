@@ -157,6 +157,7 @@ int eponMgr_rbus_update_virtual_interface(const char* interface_name, bool is_up
         EPONMGR_LOG_WARN("Virtual interface '%s' not found in WanManager table.\n"
                         "Cannot update status. Table add logic would be needed here.\n", 
                         interface_name);
+        //TODO: Implement table entry addition, this needs support from the WanManager side too
         return -1;
     }
     

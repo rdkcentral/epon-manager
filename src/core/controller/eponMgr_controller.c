@@ -51,15 +51,7 @@ struct eponMgr_controller_context {
 // Global controller pointer for signal handler
 static eponMgr_controller_t *g_controller = NULL;
 
-/**
- * @brief Signal handler for graceful shutdown
- */
-static void signal_handler(int signum) {
-    if (g_controller) {
-        EPONMGR_LOG_INFO("Received signal %d, initiating shutdown...\n", signum);
-        eponMgr_controller_shutdown(g_controller);
-    }
-}
+
 
 /**
  * @brief HAL status callback - called when ONU status changes
@@ -301,12 +293,7 @@ static int process_one_event(eponMgr_controller_t *ctrl) {
     return 0;
 }
 
-eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t *config) {
-    if (!config) {
-        fprintf(stderr, "ERROR: NULL config provided to controller init\n");
-        return NULL;
-    }
-    
+eponMgr_controller_t* eponMgr_controller_init(void) {
     // Allocate controller context
     eponMgr_controller_t *ctrl = (eponMgr_controller_t *)calloc(1, sizeof(eponMgr_controller_t));
     if (!ctrl) {
@@ -359,11 +346,16 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
         goto error;
     }
     
-    if (config->config_file && eponMgr_config_load_file(ctrl->config, config->config_file) != 0) {
-        EPONMGR_LOG_WARN("Failed to load config file: %s, using defaults\n", config->config_file);
+    // Load configuration from default path
+    const char *config_file = "/etc/epon_manager.conf";
+    if (eponMgr_config_load_file(ctrl->config, config_file) != 0) {
+        EPONMGR_LOG_WARN("Failed to load config file: %s, using defaults\n", config_file);
     } else {
-        EPONMGR_LOG_INFO("Configuration loaded\n");
+        EPONMGR_LOG_INFO("Configuration loaded from %s\n", config_file);
     }
+    
+    // Override with environment variables if set
+    eponMgr_config_load_env(ctrl->config);
     
     // Step 3: Initialize event queue
     ctrl->event_queue = (eponMgr_queue_t *)malloc(sizeof(eponMgr_queue_t));
@@ -391,7 +383,8 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     hal_config.alarm_callback = hal_alarm_callback;
     hal_config.interface_status_callback = hal_interface_status_callback;
     
-    uint32_t cache_ttl = config->cache_ttl_seconds > 0 ? config->cache_ttl_seconds : 30;
+    // Use cache TTL from configuration
+    uint32_t cache_ttl = ctrl->config->cache_ttl_seconds;
     if (eponMgr_hal_wrapper_init(ctrl->hal_wrapper, &hal_config, cache_ttl) != 0) {
         EPONMGR_LOG_ERROR("Failed to initialize HAL wrapper\n");
         goto error;
@@ -414,11 +407,8 @@ eponMgr_controller_t* eponMgr_controller_init(const eponMgr_controller_config_t 
     ctrl->rbus_initialized = true;
     EPONMGR_LOG_INFO("RBUS initialized and TR-181 parameters registered\n");
     
-    // Set up signal handlers
+    // Set global controller for shutdown function
     g_controller = ctrl;
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-    EPONMGR_LOG_INFO("Signal handlers registered\n");
     
     ctrl->running = false;
     ctrl->shutdown_requested = false;
@@ -502,19 +492,19 @@ int eponMgr_controller_run(eponMgr_controller_t *controller) {
     return 0;
 }
 
-void eponMgr_controller_shutdown(eponMgr_controller_t *controller) {
-    if (!controller) return;
+void eponMgr_controller_shutdown(void) {
+    if (!g_controller) return;
     
-    pthread_mutex_lock(&controller->mutex);
-    if (controller->shutdown_requested) {
-        pthread_mutex_unlock(&controller->mutex);
+    pthread_mutex_lock(&g_controller->mutex);
+    if (g_controller->shutdown_requested) {
+        pthread_mutex_unlock(&g_controller->mutex);
         return;
     }
-    controller->shutdown_requested = true;
-    pthread_mutex_unlock(&controller->mutex);
+    g_controller->shutdown_requested = true;
+    pthread_mutex_unlock(&g_controller->mutex);
     
     // Wake up event loop if it's waiting
-    pthread_cond_signal(&controller->event_cond);
+    pthread_cond_signal(&g_controller->event_cond);
     
     EPONMGR_LOG_INFO("Shutdown requested\n");
 }

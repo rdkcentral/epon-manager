@@ -11,19 +11,19 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 static void print_usage(const char *program_name) {
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("\nOptions:\n");
     printf("  -c, --console        Run in console mode (don't daemonize)\n");
-    printf("  --config FILE        Configuration file path\n");
-    printf("  -v, --verbose        Enable console logging\n");
-    printf("  -f, --file-log       Enable file logging\n");
-    printf("  -t, --cache-ttl SEC  Cache TTL in seconds (default: 30)\n");
     printf("  -h, --help           Show this help message\n");
+    printf("\nConfiguration:\n");
+    printf("  Config file: /etc/epon_manager.conf\n");
+    printf("  Override with environment variables (EPON_CACHE_TTL, EPONMGR_LOG_LEVEL, etc.)\n");
     printf("\nExample:\n");
-    printf("  %s --config /etc/epon_manager.conf --verbose\n", program_name);
-    printf("  %s -c --verbose      # Run in foreground with logging\n", program_name);
+    printf("  %s                   # Run as daemon\n", program_name);
+    printf("  %s -c                # Run in foreground\n", program_name);
 }
 
 /**
@@ -71,6 +71,17 @@ static void daemonize(void) {
 /**
  * @brief Create PID file
  */
+/**
+ * @brief Signal handler for graceful shutdown
+ */
+static void signal_handler(int signum) {
+    printf("\nReceived signal %d, initiating shutdown...\n", signum);
+    eponMgr_controller_shutdown();
+}
+
+/**
+ * @brief Create PID file
+ */
 static int create_pid_file(void) {
     FILE *fd = fopen("/var/tmp/epon_manager.pid", "w+");
     if (!fd) {
@@ -84,13 +95,6 @@ static int create_pid_file(void) {
 }
 
 int main(int argc, char *argv[]) {
-    eponMgr_controller_config_t config = {
-        .config_file = NULL,
-        .enable_console_log = false,
-        .enable_file_log = true,
-        .cache_ttl_seconds = 30
-    };
-    
     bool run_as_daemon = true;
     
     // Parse command line arguments
@@ -100,25 +104,6 @@ int main(int argc, char *argv[]) {
             return 0;
         } else if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--console") == 0) {
             run_as_daemon = false;
-            config.enable_console_log = true;
-        } else if (strcmp(argv[i], "--config") == 0) {
-            if (i + 1 < argc) {
-                config.config_file = argv[++i];
-            } else {
-                fprintf(stderr, "Error: --config requires a file path\n");
-                return 1;
-            }
-        } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
-            config.enable_console_log = true;
-        } else if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--file-log") == 0) {
-            config.enable_file_log = true;
-        } else if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--cache-ttl") == 0) {
-            if (i + 1 < argc) {
-                config.cache_ttl_seconds = atoi(argv[++i]);
-            } else {
-                fprintf(stderr, "Error: --cache-ttl requires a value\n");
-                return 1;
-            }
         } else {
             fprintf(stderr, "Error: Unknown option '%s'\n", argv[i]);
             print_usage(argv[0]);
@@ -134,12 +119,7 @@ int main(int argc, char *argv[]) {
     printf("=== EPON Manager Starting ===\n");
     printf("Version: 1.0.0\n");
     printf("Mode: %s\n", run_as_daemon ? "daemon" : "console");
-    printf("Console logging: %s\n", config.enable_console_log ? "enabled" : "disabled");
-    printf("File logging: %s\n", config.enable_file_log ? "enabled" : "disabled");
-    printf("Cache TTL: %u seconds\n", config.cache_ttl_seconds);
-    if (config.config_file) {
-        printf("Config file: %s\n", config.config_file);
-    }
+    printf("Config: /etc/epon_manager.conf (override with env vars)\n");
     printf("\n");
     
     // Create PID file
@@ -147,8 +127,13 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Warning: Failed to create PID file\n");
     }
     
+    // Set up signal handlers for graceful shutdown
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+    printf("Signal handlers registered (SIGINT, SIGTERM)\n");
+    
     // Initialize controller
-    eponMgr_controller_t *controller = eponMgr_controller_init(&config);
+    eponMgr_controller_t *controller = eponMgr_controller_init();
     if (!controller) {
         fprintf(stderr, "FATAL: Failed to initialize EPON Manager controller\n");
         return 1;

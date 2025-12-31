@@ -1,0 +1,19 @@
+[Unit]
+Description=RDK EPON Manager service
+After=CcspCrSsp.service PsmSsp.service
+
+[Service]
+Type=forking
+Environment="Subsys=eRT."
+Environment="LOG4C_RCPATH=/etc"
+EnvironmentFile=/etc/device.properties
+WorkingDirectory=/usr/rdk/eponmanager
+ExecStartPre=/bin/touch /tmp/OS_EPONMANAGER_ENABLED
+ExecStart=/usr/bin/epon_manager -subsys $Subsys
+ExecStop=/bin/sh -c 'echo "`date`: Stopping/Restarting RdkEponManager" >> ${PROCESS_RESTART_LOG}'
+PIDFile=/var/tmp/epon_manager.pid
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
