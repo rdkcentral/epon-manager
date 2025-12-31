@@ -21,12 +21,14 @@ epon_manager_LDADD = \
     -lpthread
 
 if ENABLE_RBUS
-epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a
+epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a -lrbus
 endif
 
 if ENABLE_TESTS
 epon_manager_LDADD += $(top_builddir)/tests/hal_mock/libepon_hal_mock.la
 endif
+
+epon_manager_LDADD += -lpthread
 
 epon_manager_LDFLAGS = \
     -Wl,-rpath,$(libdir)
