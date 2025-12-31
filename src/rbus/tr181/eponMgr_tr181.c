@@ -19,15 +19,12 @@
 #include "eponMgr_controller.h"
 #include "eponMgr_persistence.h"
 
-#ifdef USE_DUMMY_RBUS
-#include "rbus/eponMgr_rbus_dummy.h"
-#else
 #include <rbus/rbus.h>
-#endif
 
 /* TR-181 Base Path */
 #define TR181_BASE_PATH "Device.Optical.Interface.1"
-#define MAX_LLID_INSTANCES 32
+#define MAX_LLID_INSTANCES 64
+#define MAX_CPE_INSTANCES 256
 
 /* Dynamic LLID table tracking */
 typedef struct {
@@ -35,11 +32,19 @@ typedef struct {
     bool registered;
 } llid_instance_t;
 
+/* Dynamic CPE table tracking */
+typedef struct {
+    uint32_t instance;  /* 1-based instance number */
+    bool registered;
+} cpe_instance_t;
+
 /* Static state */
 static rbusHandle_t g_rbus_handle = NULL;
 static int g_param_count = 0;
 static llid_instance_t g_llid_instances[MAX_LLID_INSTANCES] = {{0}};
 static pthread_mutex_t g_llid_table_mutex = PTHREAD_MUTEX_INITIALIZER;
+static cpe_instance_t g_cpe_instances[MAX_CPE_INSTANCES] = {{0}};
+static pthread_mutex_t g_cpe_table_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Forward declarations for handlers */
 static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
@@ -129,12 +134,11 @@ static rbusDataElement_t g_tr181_params[] = {
     /* Phase 7.1: LLID Dynamic Table (count only - instances registered dynamically) */
     {TR181_BASE_PATH ".X_RDK_EPON.LLIDNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
 
-    /* Phase 7.2: DPoE/CPE Dynamic Table (4 stats + 1 count + table) */
+    /* Phase 7.2: DPoE/CPE Dynamic Table (4 stats + 1 count, table is dynamically registered) */
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.MaxCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.StaticCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.DynamicCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPENumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.", RBUS_ELEMENT_TYPE_TABLE, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
 };
 
 /**
@@ -161,6 +165,9 @@ int eponMgr_tr181_init(rbusHandle_t handle) {
     
     /* Sync LLID table to register any existing LLIDs */
     eponMgr_tr181_sync_llid_table();
+    
+    /* Sync CPE table to register any existing CPEs */
+    eponMgr_tr181_sync_cpe_table();
     
     return 0;
 }
@@ -362,6 +369,175 @@ int eponMgr_tr181_sync_llid_table(void) {
 }
 
 /**
+ * @brief Register a single CPE instance dynamically
+ * 
+ * @param instance 1-based CPE instance number (1-256)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
+    if (!g_rbus_handle || instance == 0 || instance > MAX_CPE_INSTANCES) {
+        EPONMGR_LOG_ERROR("Invalid CPE instance: %u\n", instance);
+        return -1;
+    }
+
+    pthread_mutex_lock(&g_cpe_table_mutex);
+
+    /* Check if already registered */
+    if (g_cpe_instances[instance - 1].registered) {
+        pthread_mutex_unlock(&g_cpe_table_mutex);
+        EPONMGR_LOG_DEBUG("CPE instance %u already registered\n", instance);
+        return 0;
+    }
+
+    /* Build RBUS data elements for this CPE instance */
+    char path_buf[256];
+    rbusDataElement_t cpe_params[3];
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.MACAddress", instance);
+    cpe_params[0].name = strdup(path_buf);
+    cpe_params[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    cpe_params[0].cbTable.getHandler = cpe_table_handler;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.Type", instance);
+    cpe_params[1].name = strdup(path_buf);
+    cpe_params[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    cpe_params[1].cbTable.getHandler = cpe_table_handler;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.AgeTime", instance);
+    cpe_params[2].name = strdup(path_buf);
+    cpe_params[2].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    cpe_params[2].cbTable.getHandler = cpe_table_handler;
+
+    /* Register with RBUS */
+    rbusError_t rc = rbus_regDataElements(g_rbus_handle, 3, cpe_params);
+    
+    /* Free allocated strings */
+    for (int i = 0; i < 3; i++) {
+        free((void*)cpe_params[i].name);
+    }
+
+    if (rc != RBUS_ERROR_SUCCESS) {
+        pthread_mutex_unlock(&g_cpe_table_mutex);
+        EPONMGR_LOG_ERROR("Failed to register CPE instance %u: %d\n", instance, rc);
+        return -1;
+    }
+
+    /* Mark as registered */
+    g_cpe_instances[instance - 1].instance = instance;
+    g_cpe_instances[instance - 1].registered = true;
+
+    pthread_mutex_unlock(&g_cpe_table_mutex);
+    EPONMGR_LOG_INFO("Registered CPE instance %u\n", instance);
+    return 0;
+}
+
+/**
+ * @brief Unregister a single CPE instance dynamically
+ * 
+ * @param instance 1-based CPE instance number (1-256)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
+    if (!g_rbus_handle || instance == 0 || instance > MAX_CPE_INSTANCES) {
+        EPONMGR_LOG_ERROR("Invalid CPE instance: %u\n", instance);
+        return -1;
+    }
+
+    pthread_mutex_lock(&g_cpe_table_mutex);
+
+    /* Check if registered */
+    if (!g_cpe_instances[instance - 1].registered) {
+        pthread_mutex_unlock(&g_cpe_table_mutex);
+        EPONMGR_LOG_DEBUG("CPE instance %u not registered\n", instance);
+        return 0;
+    }
+
+    /* Build RBUS data elements for this CPE instance */
+    char path_buf[256];
+    rbusDataElement_t cpe_params[3];
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.MACAddress", instance);
+    cpe_params[0].name = strdup(path_buf);
+    cpe_params[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.Type", instance);
+    cpe_params[1].name = strdup(path_buf);
+    cpe_params[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    snprintf(path_buf, sizeof(path_buf), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.AgeTime", instance);
+    cpe_params[2].name = strdup(path_buf);
+    cpe_params[2].type = RBUS_ELEMENT_TYPE_PROPERTY;
+
+    /* Unregister from RBUS */
+    rbusError_t rc = rbus_unregDataElements(g_rbus_handle, 3, cpe_params);
+    
+    /* Free allocated strings */
+    for (int i = 0; i < 3; i++) {
+        free((void*)cpe_params[i].name);
+    }
+
+    if (rc != RBUS_ERROR_SUCCESS) {
+        pthread_mutex_unlock(&g_cpe_table_mutex);
+        EPONMGR_LOG_ERROR("Failed to unregister CPE instance %u: %d\n", instance, rc);
+        return -1;
+    }
+
+    /* Mark as unregistered */
+    g_cpe_instances[instance - 1].registered = false;
+    g_cpe_instances[instance - 1].instance = 0;
+
+    pthread_mutex_unlock(&g_cpe_table_mutex);
+    EPONMGR_LOG_INFO("Unregistered CPE instance %u\n", instance);
+    return 0;
+}
+
+/**
+ * @brief Synchronize CPE table registrations with current CPE list
+ * 
+ * Compares current registrations with actual CPE list and registers/unregisters as needed.
+ * Should be called when CPE list changes.
+ * 
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_sync_cpe_table(void) {
+    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
+    if (!hal_wrapper || !hal_wrapper->cpe_list) {
+        eponMgr_controller_unlock_hal_wrapper();
+        EPONMGR_LOG_ERROR("HAL wrapper or CPE list not available\n");
+        return -1;
+    }
+
+    uint32_t cpe_count = eponMgr_cpe_list_count(hal_wrapper->cpe_list);
+    
+    /* Get current CPE instances from list */
+    bool active_instances[MAX_CPE_INSTANCES] = {false};
+    for (uint32_t i = 0; i < cpe_count && i < MAX_CPE_INSTANCES; i++) {
+        dpoe_cpe_mac_entry_t cpe_entry;
+        if (eponMgr_cpe_list_get_at(hal_wrapper->cpe_list, i, &cpe_entry) == 0) {
+            /* Mark instance as active (1-based indexing) */
+            active_instances[i] = true;
+        }
+    }
+
+    eponMgr_controller_unlock_hal_wrapper();
+
+    /* Register new instances and unregister removed ones */
+    for (uint32_t i = 0; i < MAX_CPE_INSTANCES; i++) {
+        uint32_t instance = i + 1;  /* 1-based */
+        
+        if (active_instances[i] && !g_cpe_instances[i].registered) {
+            /* New CPE - register it */
+            eponMgr_tr181_register_cpe_instance(instance);
+        } else if (!active_instances[i] && g_cpe_instances[i].registered) {
+            /* Removed CPE - unregister it */
+            eponMgr_tr181_unregister_cpe_instance(instance);
+        }
+    }
+
+    return 0;
+}
+
+/**
  * @brief Cleanup TR-181 parameter handlers
  */
 void eponMgr_tr181_cleanup(rbusHandle_t handle) {
@@ -373,6 +549,13 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle) {
     for (uint32_t i = 0; i < MAX_LLID_INSTANCES; i++) {
         if (g_llid_instances[i].registered) {
             eponMgr_tr181_unregister_llid_instance(i + 1);
+        }
+    }
+
+    /* Unregister all dynamic CPE instances */
+    for (uint32_t i = 0; i < MAX_CPE_INSTANCES; i++) {
+        if (g_cpe_instances[i].registered) {
+            eponMgr_tr181_unregister_cpe_instance(i + 1);
         }
     }
 

@@ -4,6 +4,7 @@
  */
 
 #include "eponMgr_cpe_list.h"
+#include "eponMgr_tr181.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -63,7 +64,7 @@ int eponMgr_cpe_list_update(eponMgr_cpe_list_t *list, const dpoe_cpe_mac_entry_t
             }
             list->cpe_table.cpe_list[i] = *cpe_entry;
             pthread_mutex_unlock(&list->mutex);
-            return 0;
+            return 0;  // Updated existing entry
         }
     }
     
@@ -90,7 +91,7 @@ int eponMgr_cpe_list_update(eponMgr_cpe_list_t *list, const dpoe_cpe_mac_entry_t
     }
     
     pthread_mutex_unlock(&list->mutex);
-    return 0;
+    return 1;  // Added new entry
 }
 
 int eponMgr_cpe_list_remove(eponMgr_cpe_list_t *list, const uint8_t *mac_address)
@@ -131,6 +132,10 @@ int eponMgr_cpe_list_remove(eponMgr_cpe_list_t *list, const uint8_t *mac_address
             }
             
             pthread_mutex_unlock(&list->mutex);
+            
+            /* Sync TR-181 table after removal */
+            eponMgr_tr181_sync_cpe_table();
+            
             return 0;
         }
     }

@@ -12,7 +12,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../src/core/hal_wrapper/eponMgr_hal_wrapper.h"
-#include <rbus/rbus.h>
+
+/* Forward declaration for RBUS handle */
+typedef void* rbusHandle_t;
 
 /**
  * @brief Initialize TR-181 parameter handlers and register with RBUS
@@ -70,5 +72,38 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance);
  * @return 0 on success, -1 on failure
  */
 int eponMgr_tr181_sync_llid_table(void);
+
+/**
+ * @brief Register a single CPE instance dynamically
+ * 
+ * Registers all TR-181 parameters for a specific DPoE.CPE.{i} instance.
+ * Called when a new CPE is discovered/added.
+ * 
+ * @param instance 1-based CPE instance number (1-256)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_register_cpe_instance(uint32_t instance);
+
+/**
+ * @brief Unregister a single CPE instance dynamically
+ * 
+ * Unregisters all TR-181 parameters for a specific DPoE.CPE.{i} instance.
+ * Called when a CPE is removed/aged out.
+ * 
+ * @param instance 1-based CPE instance number (1-256)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_unregister_cpe_instance(uint32_t instance);
+
+/**
+ * @brief Synchronize CPE table registrations with current CPE list
+ * 
+ * Compares current RBUS registrations with actual CPE list state
+ * and registers/unregisters instances as needed.
+ * Should be called when CPE list changes (add/remove events).
+ * 
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_sync_cpe_table(void);
 
 #endif /* EPONMGR_TR181_H */

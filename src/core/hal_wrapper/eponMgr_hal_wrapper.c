@@ -327,15 +327,34 @@ int eponMgr_hal_wrapper_get_cpe_mac_table(eponMgr_hal_wrapper_t *wrapper,
     
     pthread_mutex_lock(&wrapper->mutex);
     
+    /* Save old count for change detection */
+    uint32_t old_count = eponMgr_cpe_list_count(wrapper->cpe_list);
+    
+    /* Clear list before populating with fresh data */
+    eponMgr_cpe_list_clear(wrapper->cpe_list);
+    
     // Call HAL to get current CPE table
     int ret = dpoe_hal_get_cpe_mac_table(cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
         // Update internal CPE list data structure
-        eponMgr_cpe_list_clear(wrapper->cpe_list);
-        
+        bool has_new_cpes = false;
         uint32_t total = cpe_table->static_cpe_count + cpe_table->dynamic_cpe_count;
+        
         for (uint32_t i = 0; i < total; i++) {
-            eponMgr_cpe_list_update(wrapper->cpe_list, &cpe_table->cpe_list[i]);
+            int update_ret = eponMgr_cpe_list_update(wrapper->cpe_list, &cpe_table->cpe_list[i]);
+            if (update_ret == 1) {
+                has_new_cpes = true;  /* New CPE added */
+            }
+        }
+        
+        /* Get new count */
+        uint32_t new_count = eponMgr_cpe_list_count(wrapper->cpe_list);
+        
+        /* Only sync if count changed or new CPEs added */
+        if (new_count != old_count || has_new_cpes) {
+            pthread_mutex_unlock(&wrapper->mutex);
+            eponMgr_tr181_sync_cpe_table();
+            return ret;
         }
     }
     
