@@ -28,7 +28,7 @@ if ENABLE_TESTS
 epon_manager_LDADD += $(top_builddir)/tests/hal_mock/libepon_hal_mock.la
 endif
 
-epon_manager_LDADD += -lpthread
+epon_manager_LDADD += -lrdkloggers -lpthread
 
 epon_manager_LDFLAGS = \
     -Wl,-rpath,$(libdir)
