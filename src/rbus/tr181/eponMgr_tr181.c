@@ -25,6 +25,7 @@
 #define TR181_BASE_PATH "Device.Optical.Interface.1"
 #define MAX_LLID_INSTANCES 64
 #define MAX_CPE_INSTANCES 256
+#define MAX_VEIP_INSTANCES 16
 
 /* Dynamic LLID table tracking */
 typedef struct {
@@ -38,6 +39,13 @@ typedef struct {
     bool registered;
 } cpe_instance_t;
 
+/* Dynamic VEIP Interface table tracking */
+typedef struct {
+    uint32_t instance;  /* 1-based instance number */
+    char name[64];      /* Interface name (e.g., veip0) */
+    bool registered;
+} veip_instance_t;
+
 /* Static state */
 static rbusHandle_t g_rbus_handle = NULL;
 static int g_param_count = 0;
@@ -45,6 +53,8 @@ static llid_instance_t g_llid_instances[MAX_LLID_INSTANCES] = {{0}};
 static pthread_mutex_t g_llid_table_mutex = PTHREAD_MUTEX_INITIALIZER;
 static cpe_instance_t g_cpe_instances[MAX_CPE_INSTANCES] = {{0}};
 static pthread_mutex_t g_cpe_table_mutex = PTHREAD_MUTEX_INITIALIZER;
+static veip_instance_t g_veip_instances[MAX_VEIP_INSTANCES] = {{0}};
+static pthread_mutex_t g_veip_table_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Forward declarations for handlers */
 static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
@@ -57,6 +67,7 @@ static rbusError_t manufacturer_get_handler(rbusHandle_t handle, rbusProperty_t 
 static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
+static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 
 /**
  * @brief TR-181 Parameter Registration Table
@@ -543,6 +554,13 @@ int eponMgr_tr181_sync_cpe_table(void) {
 void eponMgr_tr181_cleanup(rbusHandle_t handle) {
     if (!handle || g_param_count == 0) {
         return;
+    }
+
+    /* Unregister all dynamic VEIP instances */
+    for (uint32_t i = 0; i < MAX_VEIP_INSTANCES; i++) {
+        if (g_veip_instances[i].registered) {
+            eponMgr_tr181_unregister_veip_instance(i + 1);
+        }
     }
 
     /* Unregister all dynamic LLID instances */
@@ -1359,6 +1377,217 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
         rbusValue_SetString(value, type_str);
     }
 
+    rbusProperty_SetValue(property, value);
+    rbusValue_Release(value);
+    eponMgr_controller_unlock_hal_wrapper();
+    return RBUS_ERROR_SUCCESS;
+}
+
+/* ============================================================================
+ * VEIP Interface Dynamic Table Support (Phase 7.3)
+ * ========================================================================== */
+
+/**
+ * @brief Register a VEIP interface instance
+ * @param instance 1-based instance number
+ * @param name Interface name (e.g., "veip0")
+ * @return 0 on success, -1 on error
+ */
+int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name) {
+    if (instance == 0 || instance > MAX_VEIP_INSTANCES || !name) {
+        EPONMGR_LOG_ERROR("Invalid VEIP instance: %u or name: %p\n", instance, name);
+        return -1;
+    }
+    
+    pthread_mutex_lock(&g_veip_table_mutex);
+    
+    uint32_t idx = instance - 1;
+    
+    // Check if already registered
+    if (g_veip_instances[idx].registered) {
+        pthread_mutex_unlock(&g_veip_table_mutex);
+        EPONMGR_LOG_WARN("VEIP instance %u already registered\n", instance);
+        return 0;
+    }
+    
+    // Build parameter paths
+    char path[256];
+    rbusDataElement_t elements[2];
+    
+    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Name", instance);
+    elements[0].name = strdup(path);
+    elements[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    elements[0].cbTable.getHandler = veip_table_handler;
+    elements[0].cbTable.setHandler = NULL;
+    
+    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Status", instance);
+    elements[1].name = strdup(path);
+    elements[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
+    elements[1].cbTable.getHandler = veip_table_handler;
+    elements[1].cbTable.setHandler = NULL;
+    
+    rbusError_t rc = rbus_regDataElements(g_rbus_handle, 2, elements);
+    
+    free((void*)elements[0].name);
+    free((void*)elements[1].name);
+    
+    if (rc != RBUS_ERROR_SUCCESS) {
+        pthread_mutex_unlock(&g_veip_table_mutex);
+        EPONMGR_LOG_ERROR("Failed to register VEIP instance %u: %d\n", instance, rc);
+        return -1;
+    }
+    
+    g_veip_instances[idx].instance = instance;
+    strncpy(g_veip_instances[idx].name, name, sizeof(g_veip_instances[idx].name) - 1);
+    g_veip_instances[idx].name[sizeof(g_veip_instances[idx].name) - 1] = '\0';
+    g_veip_instances[idx].registered = true;
+    
+    pthread_mutex_unlock(&g_veip_table_mutex);
+    
+    EPONMGR_LOG_INFO("Registered VEIP instance %u (%s)\n", instance, name);
+    return 0;
+}
+
+/**
+ * @brief Unregister a VEIP interface instance
+ */
+int eponMgr_tr181_unregister_veip_instance(uint32_t instance) {
+    if (instance == 0 || instance > MAX_VEIP_INSTANCES) return -1;
+    
+    pthread_mutex_lock(&g_veip_table_mutex);
+    
+    uint32_t idx = instance - 1;
+    if (!g_veip_instances[idx].registered) {
+        pthread_mutex_unlock(&g_veip_table_mutex);
+        return 0;
+    }
+    
+    char path[256];
+    rbusDataElement_t elements[2];
+    
+    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Name", instance);
+    elements[0].name = strdup(path);
+    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Status", instance);
+    elements[1].name = strdup(path);
+    
+    rbus_unregDataElements(g_rbus_handle, 2, elements);
+    
+    free((void*)elements[0].name);
+    free((void*)elements[1].name);
+    
+    g_veip_instances[idx].registered = false;
+    g_veip_instances[idx].instance = 0;
+    memset(g_veip_instances[idx].name, 0, sizeof(g_veip_instances[idx].name));
+    
+    pthread_mutex_unlock(&g_veip_table_mutex);
+    
+    EPONMGR_LOG_INFO("Unregistered VEIP instance %u\n", instance);
+    return 0;
+}
+
+/**
+ * @brief Synchronize VEIP interface table with HAL interface list
+ */
+int eponMgr_tr181_sync_veip_table(void) {
+    eponMgr_hal_wrapper_t *wrapper = eponMgr_controller_lock_hal_wrapper();
+    if (!wrapper || !wrapper->interface_list) {
+        eponMgr_controller_unlock_hal_wrapper();
+        return -1;
+    }
+    
+    bool active_instances[MAX_VEIP_INSTANCES] = {false};
+    uint32_t count = eponMgr_interface_list_count(wrapper->interface_list);
+    
+    for (uint32_t i = 0; i < count && i < MAX_VEIP_INSTANCES; i++) {
+        epon_onu_interface_info_t info;
+        if (eponMgr_interface_list_get_at(wrapper->interface_list, i, &info) == 0) {
+            active_instances[i] = true;
+        }
+    }
+    
+    eponMgr_controller_unlock_hal_wrapper();
+    
+    pthread_mutex_lock(&g_veip_table_mutex);
+    
+    for (uint32_t i = 0; i < MAX_VEIP_INSTANCES; i++) {
+        uint32_t instance = i + 1;
+        
+        if (active_instances[i] && !g_veip_instances[i].registered) {
+            eponMgr_hal_wrapper_t *w2 = eponMgr_controller_lock_hal_wrapper();
+            if (w2 && w2->interface_list) {
+                epon_onu_interface_info_t info;
+                if (eponMgr_interface_list_get_at(w2->interface_list, i, &info) == 0) {
+                    pthread_mutex_unlock(&g_veip_table_mutex);
+                    eponMgr_tr181_register_veip_instance(instance, info.name);
+                    pthread_mutex_lock(&g_veip_table_mutex);
+                }
+            }
+            eponMgr_controller_unlock_hal_wrapper();
+        } else if (!active_instances[i] && g_veip_instances[i].registered) {
+            pthread_mutex_unlock(&g_veip_table_mutex);
+            eponMgr_tr181_unregister_veip_instance(instance);
+            pthread_mutex_lock(&g_veip_table_mutex);
+        }
+    }
+    
+    pthread_mutex_unlock(&g_veip_table_mutex);
+    return 0;
+}
+
+/**
+ * @brief RBUS GET handler for VEIP Interface table parameters
+ */
+static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts) {
+    (void)handle;
+    (void)opts;
+    
+    const char *param_name = rbusProperty_GetName(property);
+    if (!param_name) return RBUS_ERROR_INVALID_INPUT;
+    
+    uint32_t instance = 0;
+    if (sscanf(param_name, TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u", &instance) != 1) {
+        EPONMGR_LOG_ERROR("Failed to parse VEIP instance from: %s\n", param_name);
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    if (instance == 0 || instance > MAX_VEIP_INSTANCES) {
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    uint32_t idx = instance - 1;
+    
+    pthread_mutex_lock(&g_veip_table_mutex);
+    if (!g_veip_instances[idx].registered) {
+        pthread_mutex_unlock(&g_veip_table_mutex);
+        return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+    }
+    
+    const char *iface_name = g_veip_instances[idx].name;
+    pthread_mutex_unlock(&g_veip_table_mutex);
+    
+    eponMgr_hal_wrapper_t *wrapper = eponMgr_controller_lock_hal_wrapper();
+    if (!wrapper || !wrapper->interface_list) {
+        eponMgr_controller_unlock_hal_wrapper();
+        return RBUS_ERROR_BUS_ERROR;
+    }
+    
+    epon_onu_interface_info_t info;
+    if (eponMgr_interface_list_get(wrapper->interface_list, iface_name, &info) != 0) {
+        eponMgr_controller_unlock_hal_wrapper();
+        return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+    }
+    
+    rbusValue_t value;
+    rbusValue_Init(&value);
+    
+    if (strstr(param_name, ".Name")) {
+        rbusValue_SetString(value, info.name);
+    }
+    else if (strstr(param_name, ".Status")) {
+        const char *status_str = (info.status == EPON_LINK_STATUS_UP) ? "Up" : "Down";
+        rbusValue_SetString(value, status_str);
+    }
+    
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
     eponMgr_controller_unlock_hal_wrapper();

@@ -104,4 +104,38 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance);
  */
 int eponMgr_tr181_sync_cpe_table(void);
 
+/**
+ * @brief Register a single VEIP Interface instance dynamically
+ * 
+ * Registers all TR-181 parameters for a specific VEIP_Interface.{i} instance.
+ * Called when a new virtual interface is discovered/added.
+ * 
+ * @param instance 1-based VEIP instance number (1-16)
+ * @param name Interface name (e.g., "veip0")
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name);
+
+/**
+ * @brief Unregister a single VEIP Interface instance dynamically
+ * 
+ * Unregisters all TR-181 parameters for a specific VEIP_Interface.{i} instance.
+ * Called when a virtual interface is removed.
+ * 
+ * @param instance 1-based VEIP instance number (1-16)
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_unregister_veip_instance(uint32_t instance);
+
+/**
+ * @brief Synchronize VEIP Interface table registrations with current interface list
+ * 
+ * Compares current RBUS registrations with actual interface list state
+ * and registers/unregisters instances as needed.
+ * Should be called when interface list changes (add/remove/status change events).
+ * 
+ * @return 0 on success, -1 on failure
+ */
+int eponMgr_tr181_sync_veip_table(void);
+
 #endif /* EPONMGR_TR181_H */

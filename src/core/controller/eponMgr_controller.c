@@ -12,6 +12,7 @@
 #include "eponMgr_queue.h"
 #include "eponMgr_rbus.h"
 #include "eponMgr_psm.h"
+#include "eponMgr_tr181.h"
 #include <rbus/rbus.h>
 
 #include <stdio.h>
@@ -190,8 +191,11 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     if (eponMgr_rbus_notify_wanmanager_phy_status(phy_is_up) != 0) {
         EPONMGR_LOG_WARN("Failed to notify WanManager of PHY status change\n");
     }
-    
-    EPONMGR_LOG_INFO("WanManager updated: interface=%s, PHY status=%s\n", 
+        // Step 3: Sync VEIP Interface table with updated interface list
+    if (eponMgr_tr181_sync_veip_table() != 0) {
+        EPONMGR_LOG_WARN("Failed to sync VEIP Interface table\n");
+    }
+        EPONMGR_LOG_INFO("WanManager updated: interface=%s, PHY status=%s\n", 
                     info->name, phy_is_up ? "UP" : "DOWN");
     
     // TODO: Phase 7 - Report telemetry event for interface status change
