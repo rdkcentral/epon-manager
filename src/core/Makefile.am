@@ -17,7 +17,7 @@ epon_manager_LDADD = \
     $(top_builddir)/src/core/controller/libeponMgr_controller.a \
     $(top_builddir)/src/core/hal_wrapper/libeponMgr_hal_wrapper.a \
     $(top_builddir)/src/core/data_structures/libeponMgr_datastructures.a \
-    $(top_builddir)/src/core/config/libeponMgr_config.a \
+    $(top_builddir)/src/core/config/libeponMgr_persistence.a \
     -lpthread
 
 if ENABLE_RBUS

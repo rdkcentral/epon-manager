@@ -6,6 +6,8 @@ noinst_LIBRARIES = libeponMgr_rbus.a
 
 libeponMgr_rbus_a_SOURCES = \
     eponMgr_rbus.c \
+    eponMgr_psm.c \
+    eponMgr_psm.h \
     tr181/eponMgr_tr181.c \
     tr181/eponMgr_tr181.h \
     wanmanager/eponMgr_wanmanager.c

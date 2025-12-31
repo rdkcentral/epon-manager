@@ -6,11 +6,12 @@
 #include "eponMgr_controller.h"
 #include "epon_hal.h"
 #include "eponMgr_logger.h"
-#include "eponMgr_config.h"
+#include "eponMgr_persistence.h"
 #include "eponMgr_hal_wrapper.h"
 #include "eponMgr_onu_state.h"
 #include "eponMgr_queue.h"
 #include "eponMgr_rbus.h"
+#include "eponMgr_psm.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +24,8 @@
  * @brief Controller context structure
  */
 struct eponMgr_controller_context {
-    // Configuration
-    eponMgr_config_t *config;
+    // Persistent configuration
+    eponMgr_persistence_t *config;
     
     // HAL wrapper with all data structures
     eponMgr_hal_wrapper_t *hal_wrapper;
@@ -334,30 +335,39 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     ctrl->logger_initialized = true;
     EPONMGR_LOG_INFO("Logger initialized\n");
     
-    // Step 2: Load configuration
-    ctrl->config = (eponMgr_config_t *)malloc(sizeof(eponMgr_config_t));
+    // Step 2: Initialize PSM interface
+    if (eponMgr_psm_init() != 0) {
+        EPONMGR_LOG_ERROR("Failed to initialize PSM\n");
+        goto error;
+    }
+    EPONMGR_LOG_INFO("PSM interface initialized\n");
+    
+    // Step 3: Load persistent configuration
+    ctrl->config = (eponMgr_persistence_t *)malloc(sizeof(eponMgr_persistence_t));
     if (!ctrl->config) {
-        EPONMGR_LOG_ERROR("Failed to allocate config structure\n");
+        EPONMGR_LOG_ERROR("Failed to allocate persistence structure\n");
         goto error;
     }
     
-    if (eponMgr_config_init_defaults(ctrl->config) != 0) {
-        EPONMGR_LOG_ERROR("Failed to initialize config\n");
+    if (eponMgr_persistence_init_defaults(ctrl->config) != 0) {
+        EPONMGR_LOG_ERROR("Failed to initialize persistence\n");
         goto error;
     }
     
-    // Load configuration from default path
-    const char *config_file = "/etc/epon_manager.conf";
-    if (eponMgr_config_load_file(ctrl->config, config_file) != 0) {
-        EPONMGR_LOG_WARN("Failed to load config file: %s, using defaults\n", config_file);
+    // Load configuration from PSM
+    if (eponMgr_persistence_load(ctrl->config) != 0) {
+        EPONMGR_LOG_WARN("Failed to load persistence from PSM, using defaults\n");
     } else {
-        EPONMGR_LOG_INFO("Configuration loaded from %s\n", config_file);
+        EPONMGR_LOG_INFO("Persistent configuration loaded from PSM\n");
     }
     
     // Override with environment variables if set
-    eponMgr_config_load_env(ctrl->config);
+    eponMgr_persistence_load_env(ctrl->config);
     
-    // Step 3: Initialize event queue
+    // Print configuration
+    eponMgr_persistence_print(ctrl->config);
+    
+    // Step 4: Initialize event queue (hardcoded to 100)
     ctrl->event_queue = (eponMgr_queue_t *)malloc(sizeof(eponMgr_queue_t));
     if (!ctrl->event_queue) {
         EPONMGR_LOG_ERROR("Failed to allocate event queue\n");
@@ -369,7 +379,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("Event queue initialized (capacity: 100)\n");
     
-    // Step 4: Initialize HAL wrapper with data structures
+    // Step 5: Initialize HAL wrapper with data structures
     ctrl->hal_wrapper = (eponMgr_hal_wrapper_t *)malloc(sizeof(eponMgr_hal_wrapper_t));
     if (!ctrl->hal_wrapper) {
         EPONMGR_LOG_ERROR("Failed to allocate HAL wrapper\n");
@@ -391,7 +401,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("HAL wrapper initialized with %us cache TTL\n", cache_ttl);
     
-    // Step 5: Initialize HAL
+    // Step 6: Initialize HAL
     int ret = eponMgr_hal_wrapper_hal_init(ctrl->hal_wrapper);
     if (ret != EPON_HAL_SUCCESS) {
         EPONMGR_LOG_ERROR("Failed to initialize EPON HAL: %d\n", ret);
@@ -399,7 +409,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("EPON HAL initialized successfully\n");
     
-    // Step 6: Initialize RBUS
+    // Step 7: Initialize RBUS
     if (eponMgr_rbus_init("epon_manager", ctrl->hal_wrapper) != 0) {
         EPONMGR_LOG_ERROR("Failed to initialize RBUS\n");
         goto error;
@@ -545,7 +555,6 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
     // Destroy configuration
     if (controller->config) {
         EPONMGR_LOG_INFO("Destroying configuration...\n");
-        eponMgr_config_destroy(controller->config);
         free(controller->config);
         controller->config = NULL;
     }
