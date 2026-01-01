@@ -203,11 +203,8 @@ int eponMgr_tr181_register_llid_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_llid_table_mutex);
-
     /* Check if already registered */
     if (g_llid_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_DEBUG("LLID instance %u already registered\n", instance);
         return 0;
     }
@@ -255,7 +252,6 @@ int eponMgr_tr181_register_llid_instance(uint32_t instance) {
     }
 
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_ERROR("Failed to register LLID instance %u: %d\n", instance, rc);
         return -1;
     }
@@ -264,7 +260,6 @@ int eponMgr_tr181_register_llid_instance(uint32_t instance) {
     g_llid_instances[instance - 1].instance = instance;
     g_llid_instances[instance - 1].registered = true;
 
-    pthread_mutex_unlock(&g_llid_table_mutex);
     EPONMGR_LOG_INFO("Registered LLID instance %u\n", instance);
     return 0;
 }
@@ -281,11 +276,8 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_llid_table_mutex);
-
     /* Check if registered */
     if (!g_llid_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_DEBUG("LLID instance %u not registered\n", instance);
         return 0;
     }
@@ -327,7 +319,6 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
     }
 
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_ERROR("Failed to unregister LLID instance %u: %d\n", instance, rc);
         return -1;
     }
@@ -336,7 +327,6 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
     g_llid_instances[instance - 1].registered = false;
     g_llid_instances[instance - 1].instance = 0;
 
-    pthread_mutex_unlock(&g_llid_table_mutex);
     EPONMGR_LOG_INFO("Unregistered LLID instance %u\n", instance);
     return 0;
 }
@@ -399,11 +389,8 @@ int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_cpe_table_mutex);
-
     /* Check if already registered */
     if (g_cpe_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_cpe_table_mutex);
         EPONMGR_LOG_DEBUG("CPE instance %u already registered\n", instance);
         return 0;
     }
@@ -436,7 +423,6 @@ int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
     }
 
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_cpe_table_mutex);
         EPONMGR_LOG_ERROR("Failed to register CPE instance %u: %d\n", instance, rc);
         return -1;
     }
@@ -445,7 +431,6 @@ int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
     g_cpe_instances[instance - 1].instance = instance;
     g_cpe_instances[instance - 1].registered = true;
 
-    pthread_mutex_unlock(&g_cpe_table_mutex);
     EPONMGR_LOG_INFO("Registered CPE instance %u\n", instance);
     return 0;
 }
@@ -462,11 +447,8 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_cpe_table_mutex);
-
     /* Check if registered */
     if (!g_cpe_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_cpe_table_mutex);
         EPONMGR_LOG_DEBUG("CPE instance %u not registered\n", instance);
         return 0;
     }
@@ -1407,13 +1389,10 @@ int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name) {
         return -1;
     }
     
-    pthread_mutex_lock(&g_veip_table_mutex);
-    
     uint32_t idx = instance - 1;
     
     // Check if already registered
     if (g_veip_instances[idx].registered) {
-        pthread_mutex_unlock(&g_veip_table_mutex);
         EPONMGR_LOG_WARN("VEIP instance %u already registered\n", instance);
         return 0;
     }
@@ -1440,7 +1419,6 @@ int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name) {
     free((void*)elements[1].name);
     
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_veip_table_mutex);
         EPONMGR_LOG_ERROR("Failed to register VEIP instance %u: %d\n", instance, rc);
         return -1;
     }
@@ -1449,8 +1427,6 @@ int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name) {
     strncpy(g_veip_instances[idx].name, name, sizeof(g_veip_instances[idx].name) - 1);
     g_veip_instances[idx].name[sizeof(g_veip_instances[idx].name) - 1] = '\0';
     g_veip_instances[idx].registered = true;
-    
-    pthread_mutex_unlock(&g_veip_table_mutex);
     
     EPONMGR_LOG_INFO("Registered VEIP instance %u (%s)\n", instance, name);
     return 0;
@@ -1462,11 +1438,8 @@ int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name) {
 int eponMgr_tr181_unregister_veip_instance(uint32_t instance) {
     if (instance == 0 || instance > MAX_VEIP_INSTANCES) return -1;
     
-    pthread_mutex_lock(&g_veip_table_mutex);
-    
     uint32_t idx = instance - 1;
     if (!g_veip_instances[idx].registered) {
-        pthread_mutex_unlock(&g_veip_table_mutex);
         return 0;
     }
     
@@ -1486,8 +1459,6 @@ int eponMgr_tr181_unregister_veip_instance(uint32_t instance) {
     g_veip_instances[idx].registered = false;
     g_veip_instances[idx].instance = 0;
     memset(g_veip_instances[idx].name, 0, sizeof(g_veip_instances[idx].name));
-    
-    pthread_mutex_unlock(&g_veip_table_mutex);
     
     EPONMGR_LOG_INFO("Unregistered VEIP instance %u\n", instance);
     return 0;
@@ -1515,8 +1486,7 @@ int eponMgr_tr181_sync_veip_table(void) {
     
     eponMgr_controller_unlock_hal_wrapper();
     
-    pthread_mutex_lock(&g_veip_table_mutex);
-    
+    /* Refactored: no mutex needed, just iterate and register/unregister */
     for (uint32_t i = 0; i < MAX_VEIP_INSTANCES; i++) {
         uint32_t instance = i + 1;
         
@@ -1525,20 +1495,15 @@ int eponMgr_tr181_sync_veip_table(void) {
             if (w2 && w2->interface_list) {
                 epon_onu_interface_info_t info;
                 if (eponMgr_interface_list_get_at(w2->interface_list, i, &info) == 0) {
-                    pthread_mutex_unlock(&g_veip_table_mutex);
                     eponMgr_tr181_register_veip_instance(instance, info.name);
-                    pthread_mutex_lock(&g_veip_table_mutex);
                 }
             }
             eponMgr_controller_unlock_hal_wrapper();
         } else if (!active_instances[i] && g_veip_instances[i].registered) {
-            pthread_mutex_unlock(&g_veip_table_mutex);
             eponMgr_tr181_unregister_veip_instance(instance);
-            pthread_mutex_lock(&g_veip_table_mutex);
         }
     }
     
-    pthread_mutex_unlock(&g_veip_table_mutex);
     return 0;
 }
 
@@ -1564,14 +1529,11 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
     
     uint32_t idx = instance - 1;
     
-    pthread_mutex_lock(&g_veip_table_mutex);
     if (!g_veip_instances[idx].registered) {
-        pthread_mutex_unlock(&g_veip_table_mutex);
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
     
     const char *iface_name = g_veip_instances[idx].name;
-    pthread_mutex_unlock(&g_veip_table_mutex);
     
     eponMgr_hal_wrapper_t *wrapper = eponMgr_controller_lock_hal_wrapper();
     if (!wrapper || !wrapper->interface_list) {

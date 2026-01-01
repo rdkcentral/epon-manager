@@ -97,21 +97,26 @@ int eponMgr_queue_pop(eponMgr_queue_t *queue, eponMgr_event_t *event) {
 bool eponMgr_queue_is_empty(const eponMgr_queue_t *queue) {
     if (!queue) return true;
     
-    /* Note: Reading count is atomic on most platforms, but for strict thread safety
-     * we should lock. However, for simple empty check, this is usually safe. */
-    return (queue->count == 0);
+    pthread_mutex_lock((pthread_mutex_t*)&queue->mutex);
+    bool empty = (queue->count == 0);
+    pthread_mutex_unlock((pthread_mutex_t*)&queue->mutex);
+    return empty;
 }
 
 bool eponMgr_queue_is_full(const eponMgr_queue_t *queue) {
     if (!queue) return true;
     
-    /* Note: Reading count is atomic on most platforms */
-    return (queue->count >= queue->capacity);
+    pthread_mutex_lock((pthread_mutex_t*)&queue->mutex);
+    bool full = (queue->count >= queue->capacity);
+    pthread_mutex_unlock((pthread_mutex_t*)&queue->mutex);
+    return full;
 }
 
 uint32_t eponMgr_queue_size(const eponMgr_queue_t *queue) {
     if (!queue) return 0;
     
-    /* Note: Reading count is atomic on most platforms */
-    return queue->count;
+    pthread_mutex_lock((pthread_mutex_t*)&queue->mutex);
+    uint32_t size = queue->count;
+    pthread_mutex_unlock((pthread_mutex_t*)&queue->mutex);
+    return size;
 }
