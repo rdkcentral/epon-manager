@@ -1108,6 +1108,14 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
+    /* Query HAL to get fresh LLID data */
+    epon_llid_list_t llid_list;
+    int ret = eponMgr_data_get_llid_info(eponData, &llid_list);
+    if (ret != 0) {
+        EPONMGR_LOG_WARN("Failed to sync LLID info from HAL, using cached data\n");
+        /* Continue with cached data */
+    }
+
     // Handle count parameter
     if (strstr(param_name, "LLIDNumberOfEntries")) {
         uint32_t count = eponMgr_llid_list_count(eponData->llid_list);
@@ -1214,6 +1222,14 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     rbusValue_Init(&value);
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
+
+    /* Query HAL to get fresh CPE MAC table data */
+    dpoe_cpe_mac_table_t cpe_table;
+    int ret = eponMgr_data_get_cpe_mac_table(eponData, &cpe_table);
+    if (ret != 0) {
+        EPONMGR_LOG_WARN("Failed to sync CPE MAC table from HAL, using cached data\n");
+        /* Continue with cached data */
+    }
 
     // Handle DPoE statistics
     if (strstr(param_name, "MaxCPECount")) {
