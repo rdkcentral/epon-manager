@@ -828,13 +828,12 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
-    // Get link stats from HAL wrapper (with 30s caching)
+    // Get link stats directly from cache (already locked)
     epon_hal_link_stats_t link_stats;
-    link_stats.struct_size = sizeof(epon_hal_link_stats_t);
+    bool has_stats = eponMgr_statsData_get_link_stats(eponData->stats_data, &link_stats);
     
-    int ret = eponMgr_data_get_link_stats(eponData, &link_stats);
-    if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get link stats: %d\n", ret);
+    if (!has_stats) {
+        EPONMGR_LOG_WARN("Link statistics not available or expired\n");
         rbusValue_Release(value);
         eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
@@ -936,13 +935,12 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
-    // Get transceiver stats from HAL wrapper
+    // Get transceiver stats directly from cache (already locked)
     epon_hal_transceiver_stats_t trans_stats;
-    trans_stats.struct_size = sizeof(epon_hal_transceiver_stats_t);
+    bool has_stats = eponMgr_statsData_get_transceiver_stats(eponData->stats_data, &trans_stats);
     
-    int ret = eponMgr_data_get_transceiver_stats(eponData, &trans_stats);
-    if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d\n", ret);
+    if (!has_stats) {
+        EPONMGR_LOG_WARN("Transceiver statistics not available or expired\n");
         rbusValue_Release(value);
         eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
@@ -986,11 +984,9 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     if (strstr(param_name, "OperationalMode")) {
-        // Get link info from HAL wrapper
+        // Get link info directly from ONU state cache (already locked)
         epon_hal_link_info_t link_info;
-        link_info.mode[0] = '\0';
-        
-        if (eponMgr_data_get_link_info(eponData, &link_info) == 0) {
+        if (eponMgr_onu_state_get_link_info(eponData->onu_state, &link_info) == 0) {
             rbusValue_SetString(value, link_info.mode);
         } else {
             rbusValue_SetString(value, "1G-EPON");  // Default
@@ -999,7 +995,7 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
     else if (strstr(param_name, "EncryptionMode")) {
         epon_hal_link_info_t link_info;
         
-        if (eponMgr_data_get_link_info(eponData, &link_info) == 0) {
+        if (eponMgr_onu_state_get_link_info(eponData->onu_state, &link_info) == 0) {
             const char *enc_str = encryption_mode_to_string(link_info.encryption);
             rbusValue_SetString(value, enc_str);
         } else {
