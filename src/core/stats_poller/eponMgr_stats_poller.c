@@ -18,7 +18,7 @@
  * @return 0 on success, -1 on error
  */
 static int collect_all_stats(eponMgr_stats_poller_t *poller) {
-    if (!poller || !poller->hal_wrapper) {
+    if (!poller || !poller->eponData) {
         return -1;
     }
     
@@ -26,7 +26,7 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     
     /* Collect link statistics */
     epon_hal_link_stats_t link_stats;
-    if (eponMgr_hal_wrapper_get_link_stats(poller->hal_wrapper, &link_stats) == EPON_HAL_SUCCESS) {
+    if (eponMgr_eponData_get_link_stats(poller->eponData, &link_stats) == EPON_HAL_SUCCESS) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected link stats (TX: %llu bytes, RX: %llu bytes)\n",
                          (unsigned long long)link_stats.bytes_sent,
                          (unsigned long long)link_stats.bytes_received);
@@ -40,7 +40,7 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     
     /* Collect transceiver statistics */
     epon_hal_transceiver_stats_t transceiver_stats;
-    if (eponMgr_hal_wrapper_get_transceiver_stats(poller->hal_wrapper, &transceiver_stats) == EPON_HAL_SUCCESS) {
+    if (eponMgr_eponData_get_transceiver_stats(poller->eponData, &transceiver_stats) == EPON_HAL_SUCCESS) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected transceiver stats (RX power: %.2f dBm, TX power: %.2f dBm)\n",
                          transceiver_stats.optical_signal_level,
                          transceiver_stats.transmit_optical_level);
@@ -129,17 +129,17 @@ static void* stats_poller_thread(void *arg) {
 }
 
 int eponMgr_stats_poller_init(eponMgr_stats_poller_t *poller,
-                               eponMgr_hal_wrapper_t *hal_wrapper,
+                               eponMgr_data_t *eponData,
                                bool enabled,
                                uint32_t interval_seconds) {
-    if (!poller || !hal_wrapper) {
+    if (!poller || !eponData) {
         EPONMGR_LOG_ERROR("Invalid arguments to stats_poller_init\n");
         return -1;
     }
     
     memset(poller, 0, sizeof(eponMgr_stats_poller_t));
     
-    poller->hal_wrapper = hal_wrapper;
+    poller->eponData = eponData;
     poller->enabled = enabled;
     poller->interval_seconds = interval_seconds;
     poller->running = false;

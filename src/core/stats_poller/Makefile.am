@@ -7,7 +7,6 @@ libeponMgr_stats_poller_a_SOURCES = \
 libeponMgr_stats_poller_a_CFLAGS = \
     -I$(top_srcdir)/include \
     -I$(top_srcdir)/src/logger \
-    -I$(top_srcdir)/src/core/hal_wrapper \
     -I$(top_srcdir)/src/core/data_structures \
     $(RBUS_CFLAGS)
 

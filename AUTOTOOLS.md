@@ -85,7 +85,7 @@ epon-manager/
 │   │   ├── Makefile.am
 │   │   ├── config/Makefile.am
 │   │   ├── data_structures/Makefile.am
-│   │   ├── hal_wrapper/Makefile.am
+│   │   ├── stats_poller/Makefile.am
 │   │   └── controller/Makefile.am
 │   ├── rbus/
 │   │   └── Makefile.am

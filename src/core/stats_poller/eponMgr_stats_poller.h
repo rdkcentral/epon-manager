@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include "../hal_wrapper/eponMgr_hal_wrapper.h"
+#include "../data_structures/eponMgr_data.h"
 
 /**
  * @brief Stats poller context structure
@@ -30,19 +30,19 @@ typedef struct {
     pthread_t thread;                    /**< Poller thread handle */
     pthread_mutex_t mutex;               /**< Mutex for thread control */
     pthread_cond_t cond;                 /**< Condition variable for wake/sleep */
-    eponMgr_hal_wrapper_t *hal_wrapper;  /**< HAL wrapper for stats queries */
+    eponMgr_data_t *eponData;            /**< EPON data context for stats queries */
 } eponMgr_stats_poller_t;
 
 /**
  * @brief Initialize stats poller
  * @param poller Pointer to stats poller structure
- * @param hal_wrapper Pointer to HAL wrapper for stats queries
+ * @param eponData Pointer to EPON data context for stats queries
  * @param enabled Enable/disable polling
  * @param interval_seconds Polling interval in seconds
  * @return 0 on success, -1 on error
  */
 int eponMgr_stats_poller_init(eponMgr_stats_poller_t *poller,
-                               eponMgr_hal_wrapper_t *hal_wrapper,
+                               eponMgr_data_t *eponData,
                                bool enabled,
                                uint32_t interval_seconds);
 

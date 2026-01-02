@@ -72,30 +72,6 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller);
 bool eponMgr_controller_is_running(const eponMgr_controller_t *controller);
 
 /**
- * @brief Get HAL wrapper from controller
- * 
- * @param controller Pointer to controller context
- * @return Pointer to HAL wrapper context, NULL on error
- */
-void* eponMgr_controller_get_hal_wrapper(eponMgr_controller_t *controller);
-
-
-/**
- * @brief Lock and get HAL wrapper (thread-safe access)
- * 
- * Must be followed by eponMgr_controller_unlock_hal_wrapper()
- * Uses global controller instance
- * 
- * @return HAL wrapper pointer or NULL
- */
-void* eponMgr_controller_lock_hal_wrapper(void);
-
-/**
- * @brief Unlock HAL wrapper after use
- */
-void eponMgr_controller_unlock_hal_wrapper(void);
-
-/**
  * @brief Get stats poller from controller
  * 
  * @param controller Pointer to controller context

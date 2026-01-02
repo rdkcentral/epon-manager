@@ -340,26 +340,30 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
  * @return 0 on success, -1 on failure
  */
 int eponMgr_tr181_sync_llid_table(void) {
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper || !hal_wrapper->llid_list) {
-        eponMgr_controller_unlock_hal_wrapper();
-        EPONMGR_LOG_ERROR("HAL wrapper or LLID list not available\n");
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) {
+        return -1;
+    }
+    
+    if (!eponData->llid_list) {
+        eponMgr_data_unlock();
+        EPONMGR_LOG_ERROR("LLID list not available\n");
         return -1;
     }
 
-    uint32_t llid_count = eponMgr_llid_list_count(hal_wrapper->llid_list);
+    uint32_t llid_count = eponMgr_llid_list_count(eponData->llid_list);
     
     /* Get current LLID instances from list */
     bool active_instances[MAX_LLID_INSTANCES] = {false};
     for (uint32_t i = 0; i < llid_count && i < MAX_LLID_INSTANCES; i++) {
         epon_llid_info_t llid_info;
-        if (eponMgr_llid_list_get_at(hal_wrapper->llid_list, i, &llid_info) == 0) {
+        if (eponMgr_llid_list_get_at(eponData->llid_list, i, &llid_info) == 0) {
             /* Mark instance as active (1-based indexing) */
             active_instances[i] = true;
         }
     }
 
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
 
     /* Register new instances and unregister removed ones */
     for (uint32_t i = 0; i < MAX_LLID_INSTANCES; i++) {
@@ -501,26 +505,30 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
  * @return 0 on success, -1 on failure
  */
 int eponMgr_tr181_sync_cpe_table(void) {
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper || !hal_wrapper->cpe_list) {
-        eponMgr_controller_unlock_hal_wrapper();
-        EPONMGR_LOG_ERROR("HAL wrapper or CPE list not available\n");
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) {
+        return -1;
+    }
+    
+    if (!eponData->cpe_list) {
+        eponMgr_data_unlock();
+        EPONMGR_LOG_ERROR("CPE list not available\n");
         return -1;
     }
 
-    uint32_t cpe_count = eponMgr_cpe_list_count(hal_wrapper->cpe_list);
+    uint32_t cpe_count = eponMgr_cpe_list_count(eponData->cpe_list);
     
     /* Get current CPE instances from list */
     bool active_instances[MAX_CPE_INSTANCES] = {false};
     for (uint32_t i = 0; i < cpe_count && i < MAX_CPE_INSTANCES; i++) {
         dpoe_cpe_mac_entry_t cpe_entry;
-        if (eponMgr_cpe_list_get_at(hal_wrapper->cpe_list, i, &cpe_entry) == 0) {
+        if (eponMgr_cpe_list_get_at(eponData->cpe_list, i, &cpe_entry) == 0) {
             /* Mark instance as active (1-based indexing) */
             active_instances[i] = true;
         }
     }
 
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
 
     /* Register new instances and unregister removed ones */
     for (uint32_t i = 0; i < MAX_CPE_INSTANCES; i++) {
@@ -640,10 +648,8 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper) {
-        return RBUS_ERROR_BUS_ERROR;
-    }
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) return RBUS_ERROR_BUS_ERROR;
 
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
@@ -658,10 +664,10 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
     else if (strstr(param_name, ".Status")) {
         // Get status from ONU state
         epon_onu_status_t onu_status;
-        if (hal_wrapper->onu_state) {
-            pthread_mutex_lock(&hal_wrapper->onu_state->mutex);
-            onu_status = hal_wrapper->onu_state->current_status;
-            pthread_mutex_unlock(&hal_wrapper->onu_state->mutex);
+        if (eponData->onu_state) {
+            pthread_mutex_lock(&eponData->onu_state->mutex);
+            onu_status = eponData->onu_state->current_status;
+            pthread_mutex_unlock(&eponData->onu_state->mutex);
             
             // Map ONU status to TR-181 status
             const char *status_str;
@@ -687,11 +693,11 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
         rbusValue_SetString(value, "veip0");
     }
     else if (strstr(param_name, ".LastChange")) {
-        if (hal_wrapper->onu_state) {
-            pthread_mutex_lock(&hal_wrapper->onu_state->mutex);
+        if (eponData->onu_state) {
+            pthread_mutex_lock(&eponData->onu_state->mutex);
             time_t now = time(NULL);
-            uint32_t last_change = (uint32_t)(now - hal_wrapper->onu_state->last_status_change);
-            pthread_mutex_unlock(&hal_wrapper->onu_state->mutex);
+            uint32_t last_change = (uint32_t)(now - eponData->onu_state->last_status_change);
+            pthread_mutex_unlock(&eponData->onu_state->mutex);
             rbusValue_SetUInt32(value, last_change);
         } else {
             rbusValue_SetUInt32(value, 0);
@@ -706,7 +712,7 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
 
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -751,10 +757,8 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper) {
-        return RBUS_ERROR_BUS_ERROR;
-    }
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) return RBUS_ERROR_BUS_ERROR;
 
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
@@ -766,10 +770,12 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
     epon_hal_transceiver_stats_t trans_stats;
     trans_stats.struct_size = sizeof(epon_hal_transceiver_stats_t);
     
-    int ret = eponMgr_hal_wrapper_get_transceiver_stats(hal_wrapper, &trans_stats);
+    int ret = eponMgr_data_get_transceiver_stats(eponData, &trans_stats);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d\n", ret);
-        rbusValue_Release(value);        eponMgr_controller_unlock_hal_wrapper();        return RBUS_ERROR_BUS_ERROR;
+        rbusValue_Release(value);
+        eponMgr_data_unlock();
+        return RBUS_ERROR_BUS_ERROR;
     }
     
     /* All optical values are in 0.1 dBm units (int32) */
@@ -800,7 +806,7 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -813,10 +819,8 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper) {
-        return RBUS_ERROR_BUS_ERROR;
-    }
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) return RBUS_ERROR_BUS_ERROR;
 
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
@@ -828,10 +832,12 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     epon_hal_link_stats_t link_stats;
     link_stats.struct_size = sizeof(epon_hal_link_stats_t);
     
-    int ret = eponMgr_hal_wrapper_get_link_stats(hal_wrapper, &link_stats);
+    int ret = eponMgr_data_get_link_stats(eponData, &link_stats);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("Failed to get link stats: %d\n", ret);
-        rbusValue_Release(value);        eponMgr_controller_unlock_hal_wrapper();        return RBUS_ERROR_BUS_ERROR;
+        rbusValue_Release(value);
+        eponMgr_data_unlock();
+        return RBUS_ERROR_BUS_ERROR;
     }
     
     /* Standard Statistics */
@@ -908,7 +914,7 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -921,10 +927,8 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper) {
-        return RBUS_ERROR_BUS_ERROR;
-    }
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) return RBUS_ERROR_BUS_ERROR;
 
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
@@ -936,10 +940,12 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
     epon_hal_transceiver_stats_t trans_stats;
     trans_stats.struct_size = sizeof(epon_hal_transceiver_stats_t);
     
-    int ret = eponMgr_hal_wrapper_get_transceiver_stats(hal_wrapper, &trans_stats);
+    int ret = eponMgr_data_get_transceiver_stats(eponData, &trans_stats);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d\n", ret);
-        rbusValue_Release(value);        eponMgr_controller_unlock_hal_wrapper();        return RBUS_ERROR_BUS_ERROR;
+        rbusValue_Release(value);
+        eponMgr_data_unlock();
+        return RBUS_ERROR_BUS_ERROR;
     }
     
     if (strstr(param_name, "Temperature")) {
@@ -957,7 +963,7 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -970,10 +976,8 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper) {
-        return RBUS_ERROR_BUS_ERROR;
-    }
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) return RBUS_ERROR_BUS_ERROR;
 
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
@@ -986,7 +990,7 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
         epon_hal_link_info_t link_info;
         link_info.mode[0] = '\0';
         
-        if (eponMgr_hal_wrapper_get_link_info(hal_wrapper, &link_info) == 0) {
+        if (eponMgr_data_get_link_info(eponData, &link_info) == 0) {
             rbusValue_SetString(value, link_info.mode);
         } else {
             rbusValue_SetString(value, "1G-EPON");  // Default
@@ -995,7 +999,7 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
     else if (strstr(param_name, "EncryptionMode")) {
         epon_hal_link_info_t link_info;
         
-        if (eponMgr_hal_wrapper_get_link_info(hal_wrapper, &link_info) == 0) {
+        if (eponMgr_data_get_link_info(eponData, &link_info) == 0) {
             const char *enc_str = encryption_mode_to_string(link_info.encryption);
             rbusValue_SetString(value, enc_str);
         } else {
@@ -1003,23 +1007,23 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
         }
     }
     else if (strstr(param_name, "ONUStatus")) {
-        if (hal_wrapper->onu_state) {
-            pthread_mutex_lock(&hal_wrapper->onu_state->mutex);
-            const char *status_str = onu_status_to_string(hal_wrapper->onu_state->current_status);
-            pthread_mutex_unlock(&hal_wrapper->onu_state->mutex);
+        if (eponData->onu_state) {
+            pthread_mutex_lock(&eponData->onu_state->mutex);
+            const char *status_str = onu_status_to_string(eponData->onu_state->current_status);
+            pthread_mutex_unlock(&eponData->onu_state->mutex);
             rbusValue_SetString(value, status_str);
         } else {
             rbusValue_SetString(value, "Unregistered");
         }
     }
     else if (strstr(param_name, "DPoESupported")) {
-        rbusValue_SetBoolean(value, hal_wrapper->hal_config.dpoe_supported);
+        rbusValue_SetBoolean(value, eponData->hal_config.dpoe_supported);
     }
     else if (strstr(param_name, "MaxLLIDSupported")) {
-        if (hal_wrapper->llid_list) {
-            pthread_mutex_lock(&hal_wrapper->llid_list->mutex);
-            uint32_t max_llid = hal_wrapper->llid_list->llid_list.max_llid_count;
-            pthread_mutex_unlock(&hal_wrapper->llid_list->mutex);
+        if (eponData->llid_list) {
+            pthread_mutex_lock(&eponData->llid_list->mutex);
+            uint32_t max_llid = eponData->llid_list->llid_list.max_llid_count;
+            pthread_mutex_unlock(&eponData->llid_list->mutex);
             rbusValue_SetUInt32(value, max_llid);
         } else {
             rbusValue_SetUInt32(value, 1);  // Default single LLID
@@ -1028,7 +1032,7 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1041,10 +1045,8 @@ static rbusError_t manufacturer_get_handler(rbusHandle_t handle, rbusProperty_t 
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper) {
-        return RBUS_ERROR_BUS_ERROR;
-    }
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) return RBUS_ERROR_BUS_ERROR;
 
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
@@ -1056,11 +1058,11 @@ static rbusError_t manufacturer_get_handler(rbusHandle_t handle, rbusProperty_t 
     epon_onu_manufacturer_info_t mfr_info;
     mfr_info.struct_size = sizeof(epon_onu_manufacturer_info_t);
     
-    int ret = eponMgr_hal_wrapper_get_onu_manufacturer_info(hal_wrapper, &mfr_info);
+    int ret = eponMgr_data_get_onu_manufacturer_info(eponData, &mfr_info);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("Failed to get manufacturer info: %d\n", ret);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
     }
     
@@ -1088,7 +1090,7 @@ static rbusError_t manufacturer_get_handler(rbusHandle_t handle, rbusProperty_t 
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1101,10 +1103,8 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper) {
-        return RBUS_ERROR_BUS_ERROR;
-    }
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) return RBUS_ERROR_BUS_ERROR;
 
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
@@ -1116,10 +1116,12 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
     epon_olt_info_t olt_info;
     olt_info.struct_size = sizeof(epon_olt_info_t);
     
-    int ret = eponMgr_hal_wrapper_get_olt_info(hal_wrapper, &olt_info);
+    int ret = eponMgr_data_get_olt_info(eponData, &olt_info);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("Failed to get OLT info: %d\n", ret);
-        rbusValue_Release(value);        eponMgr_controller_unlock_hal_wrapper();        return RBUS_ERROR_BUS_ERROR;
+        rbusValue_Release(value);
+        eponMgr_data_unlock();
+        return RBUS_ERROR_BUS_ERROR;
     }
     
     if (strstr(param_name, "MACAddress")) {
@@ -1141,7 +1143,7 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1158,9 +1160,9 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper || !hal_wrapper->llid_list) {
-        eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData || !eponData->llid_list) {
+        if (eponData) eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -1172,11 +1174,11 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
 
     // Handle count parameter
     if (strstr(param_name, "LLIDNumberOfEntries")) {
-        uint32_t count = eponMgr_llid_list_count(hal_wrapper->llid_list);
+        uint32_t count = eponMgr_llid_list_count(eponData->llid_list);
         rbusValue_SetUInt32(value, count);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_SUCCESS;
     }
 
@@ -1186,7 +1188,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     const char *instance_start = strstr(param_name, llid_prefix);
     if (!instance_start) {
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_INVALID_INPUT;
     }
 
@@ -1197,17 +1199,17 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     if (instance == 0 || instance > 32) {
         EPONMGR_LOG_ERROR("Invalid LLID instance: %u\n", instance);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_INVALID_INPUT;
     }
 
     // Get LLID info from list (instance is 1-based)
     epon_llid_info_t llid_info;
-    int ret = eponMgr_llid_list_get_at(hal_wrapper->llid_list, instance - 1, &llid_info);
+    int ret = eponMgr_llid_list_get_at(eponData->llid_list, instance - 1, &llid_info);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("LLID instance %u not found\n", instance);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
 
@@ -1248,7 +1250,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
 
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1265,9 +1267,9 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     (void)handle;
     (void)opts;
 
-    eponMgr_hal_wrapper_t *hal_wrapper = (eponMgr_hal_wrapper_t *)eponMgr_controller_lock_hal_wrapper();
-    if (!hal_wrapper || !hal_wrapper->cpe_list) {
-        eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData || !eponData->cpe_list) {
+        if (eponData) eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -1279,41 +1281,41 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
 
     // Handle DPoE statistics
     if (strstr(param_name, "MaxCPECount")) {
-        pthread_mutex_lock(&hal_wrapper->cpe_list->mutex);
-        uint32_t max_cpe = hal_wrapper->cpe_list->cpe_table.max_cpe;
-        pthread_mutex_unlock(&hal_wrapper->cpe_list->mutex);
+        pthread_mutex_lock(&eponData->cpe_list->mutex);
+        uint32_t max_cpe = eponData->cpe_list->cpe_table.max_cpe;
+        pthread_mutex_unlock(&eponData->cpe_list->mutex);
         rbusValue_SetUInt32(value, max_cpe);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_SUCCESS;
     }
     else if (strstr(param_name, "StaticCPECount")) {
-        pthread_mutex_lock(&hal_wrapper->cpe_list->mutex);
-        uint32_t static_cpe = hal_wrapper->cpe_list->cpe_table.static_cpe_count;
-        pthread_mutex_unlock(&hal_wrapper->cpe_list->mutex);
+        pthread_mutex_lock(&eponData->cpe_list->mutex);
+        uint32_t static_cpe = eponData->cpe_list->cpe_table.static_cpe_count;
+        pthread_mutex_unlock(&eponData->cpe_list->mutex);
         rbusValue_SetUInt32(value, static_cpe);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_SUCCESS;
     }
     else if (strstr(param_name, "DynamicCPECount")) {
-        pthread_mutex_lock(&hal_wrapper->cpe_list->mutex);
-        uint32_t dynamic_cpe = hal_wrapper->cpe_list->cpe_table.dynamic_cpe_count;
-        pthread_mutex_unlock(&hal_wrapper->cpe_list->mutex);
+        pthread_mutex_lock(&eponData->cpe_list->mutex);
+        uint32_t dynamic_cpe = eponData->cpe_list->cpe_table.dynamic_cpe_count;
+        pthread_mutex_unlock(&eponData->cpe_list->mutex);
         rbusValue_SetUInt32(value, dynamic_cpe);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_SUCCESS;
     }
     else if (strstr(param_name, "CPENumberOfEntries")) {
-        uint32_t count = eponMgr_cpe_list_count(hal_wrapper->cpe_list);
+        uint32_t count = eponMgr_cpe_list_count(eponData->cpe_list);
         rbusValue_SetUInt32(value, count);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_SUCCESS;
     }
 
@@ -1322,7 +1324,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     const char *instance_start = strstr(param_name, cpe_prefix);
     if (!instance_start) {
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_INVALID_INPUT;
     }
 
@@ -1333,17 +1335,17 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     if (instance == 0 || instance > 256) {
         EPONMGR_LOG_ERROR("Invalid CPE instance: %u\n", instance);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_INVALID_INPUT;
     }
 
     // Get CPE entry from list (instance is 1-based)
     dpoe_cpe_mac_entry_t cpe_entry;
-    int ret = eponMgr_cpe_list_get_at(hal_wrapper->cpe_list, instance - 1, &cpe_entry);
+    int ret = eponMgr_cpe_list_get_at(eponData->cpe_list, instance - 1, &cpe_entry);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("CPE instance %u not found\n", instance);
         rbusValue_Release(value);
-        eponMgr_controller_unlock_hal_wrapper();
+        eponMgr_data_unlock();
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
 
@@ -1369,7 +1371,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
 
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1468,37 +1470,30 @@ int eponMgr_tr181_unregister_veip_instance(uint32_t instance) {
  * @brief Synchronize VEIP interface table with HAL interface list
  */
 int eponMgr_tr181_sync_veip_table(void) {
-    eponMgr_hal_wrapper_t *wrapper = eponMgr_controller_lock_hal_wrapper();
-    if (!wrapper || !wrapper->interface_list) {
-        eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData || !eponData->interface_list) {
+        if (eponData) eponMgr_data_unlock();
         return -1;
     }
     
     bool active_instances[MAX_VEIP_INSTANCES] = {false};
-    uint32_t count = eponMgr_interface_list_count(wrapper->interface_list);
+    uint32_t count = eponMgr_interface_list_count(eponData->interface_list);
+    epon_onu_interface_info_t interface_names[MAX_VEIP_INSTANCES];
     
     for (uint32_t i = 0; i < count && i < MAX_VEIP_INSTANCES; i++) {
-        epon_onu_interface_info_t info;
-        if (eponMgr_interface_list_get_at(wrapper->interface_list, i, &info) == 0) {
+        if (eponMgr_interface_list_get_at(eponData->interface_list, i, &interface_names[i]) == 0) {
             active_instances[i] = true;
         }
     }
     
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     
-    /* Refactored: no mutex needed, just iterate and register/unregister */
+    /* Register new instances and unregister removed ones */
     for (uint32_t i = 0; i < MAX_VEIP_INSTANCES; i++) {
         uint32_t instance = i + 1;
         
         if (active_instances[i] && !g_veip_instances[i].registered) {
-            eponMgr_hal_wrapper_t *w2 = eponMgr_controller_lock_hal_wrapper();
-            if (w2 && w2->interface_list) {
-                epon_onu_interface_info_t info;
-                if (eponMgr_interface_list_get_at(w2->interface_list, i, &info) == 0) {
-                    eponMgr_tr181_register_veip_instance(instance, info.name);
-                }
-            }
-            eponMgr_controller_unlock_hal_wrapper();
+            eponMgr_tr181_register_veip_instance(instance, interface_names[i].name);
         } else if (!active_instances[i] && g_veip_instances[i].registered) {
             eponMgr_tr181_unregister_veip_instance(instance);
         }
@@ -1535,15 +1530,15 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
     
     const char *iface_name = g_veip_instances[idx].name;
     
-    eponMgr_hal_wrapper_t *wrapper = eponMgr_controller_lock_hal_wrapper();
-    if (!wrapper || !wrapper->interface_list) {
-        eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData || !eponData->interface_list) {
+        if (eponData) eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
     }
     
     epon_onu_interface_info_t info;
-    if (eponMgr_interface_list_get(wrapper->interface_list, iface_name, &info) != 0) {
-        eponMgr_controller_unlock_hal_wrapper();
+    if (eponMgr_interface_list_get(eponData->interface_list, iface_name, &info) != 0) {
+        eponMgr_data_unlock();
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
     
@@ -1560,7 +1555,7 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
-    eponMgr_controller_unlock_hal_wrapper();
+    eponMgr_data_unlock();
     return RBUS_ERROR_SUCCESS;
 }
 /**

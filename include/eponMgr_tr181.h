@@ -3,7 +3,7 @@
  * @brief TR-181 Parameter Handler for EPON Manager
  * 
  * This module provides TR-181 Device.Optical.Interface parameter handlers
- * for RBUS integration. Maps TR-181 parameters to HAL wrapper APIs.
+ * for RBUS integration. Maps TR-181 parameters to EPON data context APIs.
  */
 
 #ifndef EPONMGR_TR181_H
@@ -11,13 +11,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../src/core/hal_wrapper/eponMgr_hal_wrapper.h"
+#include "../src/core/data_structures/eponMgr_data.h"
 #include <rbus/rbus.h>
 
 /**
  * @brief Initialize TR-181 parameter handlers and register with RBUS
  * 
- * Uses controller lock/unlock functions for thread-safe HAL wrapper access.
+ * Uses data context lock/unlock functions for thread-safe access.
  * 
  * @param handle RBUS handle from eponMgr_rbus_init()
  * @return 0 on success, -1 on failure

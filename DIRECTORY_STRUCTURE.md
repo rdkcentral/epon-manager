@@ -11,10 +11,9 @@ epon-manager/
 ├── src/
 │   ├── core/                       # Core components (built together)
 │   │   ├── controller/             # Main controller & initialization
-│   │   ├── hal_wrapper/            # HAL wrapper with caching
-│   │   ├── event_listener/         # Event processing thread
-│   │   ├── data_structures/        # Cache & queue implementations
-│   │   └── config/                 # Configuration management
+│   │   ├── data_structures/        # Core data structures with HAL abstraction
+│   │   ├── config/                 # Configuration management
+│   │   └── stats_poller/           # Periodic statistics polling thread
 │   │
 │   ├── logger/                     # Logger wrapper (separate)
 │   │   ├── epon_logger.c
@@ -59,16 +58,12 @@ epon-manager/
 │   ├── unit/                       # Unit tests
 │   │   ├── test_logger.c
 │   │   ├── test_config.c
-│   │   ├── test_cache.c
-│   │   ├── test_queue.c
-│   │   ├── test_hal_wrapper.c
-│   │   ├── test_event_listener.c
+│   │   ├── test_data_structures.c
 │   │   └── Makefile
 │   │
 │   ├── integration/                # Integration tests
-│   │   ├── test_event_flow.c
-│   │   ├── test_multi_interface.c
-│   │   ├── test_cache_timing.c
+│   │   ├── test_controller.c
+│   │   ├── test_tr181_handlers.c
 │   │   ├── test_alarm_handling.c
 │   │   └── Makefile
 │   │
@@ -120,20 +115,14 @@ These components are tightly coupled and built together:
   - Signal handling
   - Shutdown coordination
 
-- **hal_wrapper/** - HAL abstraction layer
+- **data_structures/** - Core data structures and HAL abstraction
+  - Core data context (eponMgr_data_t)
   - HAL API wrappers
   - Simple timestamp-based caching
   - Cache management
   - Thread-safe HAL access
+  - List management (LLIDs, CPEs, interfaces)
 
-- **event_listener/** - Event processing
-  - Event queue management
-  - Event dispatching
-  - ONU status handling
-  - Interface status handling
-  - Alarm handling
-
-- **data_structures/** - Shared data structures
   - Cache implementation
   - Queue implementation
   - Thread-safe operations
@@ -288,18 +277,18 @@ Testing:    tests/unit/test_config.c, test_cache.c, test_queue.c
 Output:     Core data structures working
 ```
 
-### Phase 4: HAL Wrapper & Controller (Weeks 6-7)
+### Phase 4: Data Structures & Controller (Weeks 6-7)
 ```
-Working in: src/core/hal_wrapper/, src/core/controller/
-Testing:    tests/unit/test_hal_wrapper.c
-Output:     Controller + HAL wrapper running with mock
+Working in: src/core/data_structures/, src/core/controller/
+Testing:    tests/unit/test_data_structures.c
+Output:     Controller running with core data structures
 ```
 
-### Phase 5: Event Listener (Weeks 8-9)
+### Phase 5: Stats Poller (Weeks 8-9)
 ```
-Working in: src/core/event_listener/
-Testing:    tests/unit/test_event_listener.c
-Output:     Events flowing: mock → listener → processing
+Working in: src/core/stats_poller/
+Testing:    tests/unit/test_stats_poller.c
+Output:     Stats poller thread collecting HAL data
 ```
 
 ### Phase 6-7: RBUS (Weeks 10-13)

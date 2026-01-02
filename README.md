@@ -59,8 +59,7 @@ epon-manager/
 │   ├── telemetry/             # Telemetry subsystem
 │   └── core/
 │       ├── config/            # Configuration management
-│       ├── data_structures/   # Core data structures
-│       ├── hal_wrapper/       # HAL abstraction layer
+│       ├── data_structures/   # Core data structures (includes HAL abstraction)
 │       ├── controller/        # Main controller logic
 │       └── epon_manager_main.c
 ├── tests/

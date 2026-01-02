@@ -7,7 +7,7 @@
 #include "epon_hal.h"
 #include "eponMgr_logger.h"
 #include "eponMgr_persistence.h"
-#include "eponMgr_hal_wrapper.h"
+#include "../data_structures/eponMgr_data.h"
 #include "eponMgr_onu_state.h"
 #include "eponMgr_queue.h"
 #include "eponMgr_rbus.h"
@@ -30,8 +30,8 @@ struct eponMgr_controller_context {
     // Persistent configuration
     eponMgr_persistence_t *config;
     
-    // HAL wrapper with all data structures
-    eponMgr_hal_wrapper_t *hal_wrapper;
+    // Core EPON Manager data context
+    eponMgr_data_t *data;
     
     // Stats poller thread
     eponMgr_stats_poller_t *stats_poller;
@@ -130,10 +130,10 @@ static void hal_interface_status_callback(epon_onu_interface_info_t status) {
 static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status_t status) {
     EPONMGR_LOG_INFO("Processing ONU Status Event: status=%d\n", status);
     
-    if (!ctrl || !ctrl->hal_wrapper) return;
+    if (!ctrl || !ctrl->data) return;
     
     // Update ONU state
-    eponMgr_onu_state_t *onu_state = ctrl->hal_wrapper->onu_state;
+    eponMgr_onu_state_t *onu_state = ctrl->data->onu_state;
     if (onu_state) {
         eponMgr_onu_state_update_status(onu_state, status);
         
@@ -166,10 +166,10 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     EPONMGR_LOG_INFO("Processing Interface Status Event: interface=%s, status=%d\n", 
                      info->name, info->status);
     
-    if (!ctrl || !ctrl->hal_wrapper) return;
+    if (!ctrl || !ctrl->data) return;
     
     // Update interface list in data structures
-    eponMgr_interface_list_t *iface_list = ctrl->hal_wrapper->interface_list;
+    eponMgr_interface_list_t *iface_list = ctrl->data->interface_list;
     if (iface_list) {
         if (info->status == EPON_ONU_INTF_STATUS_LINK_UP) {
             eponMgr_interface_list_update(iface_list, info);
@@ -391,10 +391,10 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     EPONMGR_LOG_INFO("Event queue initialized (capacity: 100)\n");
     
-    // Step 6: Initialize HAL wrapper with data structures
-    ctrl->hal_wrapper = (eponMgr_hal_wrapper_t *)malloc(sizeof(eponMgr_hal_wrapper_t));
-    if (!ctrl->hal_wrapper) {
-        EPONMGR_LOG_ERROR("Failed to allocate HAL wrapper\n");
+    // Step 6: Initialize EPON Manager data context
+    ctrl->data = (eponMgr_data_t *)malloc(sizeof(eponMgr_data_t));
+    if (!ctrl->data) {
+        EPONMGR_LOG_ERROR("Failed to allocate EPON data context\n");
         goto error;
     }
     
@@ -407,14 +407,14 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     
     // Use cache TTL from configuration
     uint32_t cache_ttl = ctrl->config->cache_ttl_seconds;
-    if (eponMgr_hal_wrapper_init(ctrl->hal_wrapper, &hal_config, cache_ttl) != 0) {
-        EPONMGR_LOG_ERROR("Failed to initialize HAL wrapper\n");
+    if (eponMgr_data_init(ctrl->data, &hal_config, cache_ttl) != 0) {
+        EPONMGR_LOG_ERROR("Failed to initialize EPON data context\n");
         goto error;
     }
-    EPONMGR_LOG_INFO("HAL wrapper initialized with %us cache TTL\n", cache_ttl);
+    EPONMGR_LOG_INFO("EPON data context initialized with %us cache TTL\n", cache_ttl);
     
     // Step 7: Initialize HAL
-    int ret = eponMgr_hal_wrapper_hal_init(ctrl->hal_wrapper);
+    int ret = eponMgr_data_hal_init(ctrl->data);
     if (ret != EPON_HAL_SUCCESS) {
         EPONMGR_LOG_ERROR("Failed to initialize EPON HAL: %d\n", ret);
         goto error;
@@ -429,7 +429,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     }
     
     if (eponMgr_stats_poller_init(ctrl->stats_poller, 
-                                   ctrl->hal_wrapper,
+                                   ctrl->data,
                                    ctrl->config->stats_poller_enabled,
                                    ctrl->config->stats_poller_interval_seconds) != 0) {
         EPONMGR_LOG_ERROR("Failed to initialize stats poller\n");
@@ -441,7 +441,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
                      ctrl->config->stats_poller_enabled ? "true" : "false",
                      ctrl->config->stats_poller_interval_seconds);
     
-    // Step 9: Register TR-181 parameters (now HAL wrapper is available)
+    // Step 9: Register TR-181 parameters (now data context is available)
     if (eponMgr_rbus_register_tr181() != 0) {
         EPONMGR_LOG_ERROR("Failed to register TR-181 parameters\n");
         goto error;
@@ -588,12 +588,12 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
         controller->stats_poller = NULL;
     }
     
-    // Destroy HAL wrapper (this also destroys all data structures)
-    if (controller->hal_wrapper) {
-        EPONMGR_LOG_INFO("Destroying HAL wrapper...\n");
-        eponMgr_hal_wrapper_destroy(controller->hal_wrapper);
-        free(controller->hal_wrapper);
-        controller->hal_wrapper = NULL;
+    // Destroy EPON data context (this also destroys all data structures)
+    if (controller->data) {
+        EPONMGR_LOG_INFO("Destroying EPON data context...\n");
+        eponMgr_data_destroy(controller->data);
+        free(controller->data);
+        controller->data = NULL;
     }
     
     // Destroy event queue
@@ -632,22 +632,6 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
 bool eponMgr_controller_is_running(const eponMgr_controller_t *controller) {
     if (!controller) return false;
     return controller->running;
-}
-
-void* eponMgr_controller_get_hal_wrapper(eponMgr_controller_t *controller) {
-    if (!controller) return NULL;
-    return controller->hal_wrapper;
-}
-
-void* eponMgr_controller_lock_hal_wrapper(void) {
-    if (!g_controller) return NULL;
-    pthread_mutex_lock(&g_controller->mutex);
-    return g_controller->hal_wrapper;
-}
-
-void eponMgr_controller_unlock_hal_wrapper(void) {
-    if (!g_controller) return;
-    pthread_mutex_unlock(&g_controller->mutex);
 }
 
 void* eponMgr_controller_get_stats_poller(eponMgr_controller_t *controller) {
