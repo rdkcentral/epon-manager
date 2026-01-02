@@ -186,6 +186,8 @@ int eponMgr_data_get_link_stats(eponMgr_data_t *eponData,
     }
     
     // Data not available - call HAL
+    memset(stats, 0, sizeof(epon_hal_link_stats_t));
+    stats->struct_size = sizeof(epon_hal_link_stats_t);
     int ret = epon_hal_get_link_stats(stats);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_statsData_set_link_stats(eponData->stats_data, stats);
@@ -215,6 +217,8 @@ int eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData,
     }
     
     // Data not available - call HAL
+    memset(stats, 0, sizeof(epon_hal_transceiver_stats_t));
+    stats->struct_size = sizeof(epon_hal_transceiver_stats_t);
     int ret = epon_hal_get_transceiver_stats(stats);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_statsData_set_transceiver_stats(eponData->stats_data, stats);
@@ -312,6 +316,8 @@ int eponMgr_data_get_olt_info(eponMgr_data_t *eponData,
     }
     
     // Cache miss - call HAL
+    memset(olt_info, 0, sizeof(epon_olt_info_t));
+    olt_info->struct_size = sizeof(epon_olt_info_t);
     int ret = epon_hal_get_olt_info(olt_info);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_onu_state_update_olt_info(eponData->onu_state, olt_info);
@@ -341,6 +347,8 @@ int eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData,
     }
     
     // Cache miss - call HAL
+    memset(mfr_info, 0, sizeof(epon_onu_manufacturer_info_t));
+    mfr_info->struct_size = sizeof(epon_onu_manufacturer_info_t);
     int ret = epon_hal_get_manufacturer_info(mfr_info);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_onu_state_update_manufacturer_info(eponData->onu_state, mfr_info);
@@ -370,6 +378,8 @@ int eponMgr_data_get_link_info(eponMgr_data_t *eponData,
     }
     
     // Cache miss - call HAL
+    memset(link_info, 0, sizeof(epon_hal_link_info_t));
+    link_info->struct_size = sizeof(epon_hal_link_info_t);
     int ret = epon_hal_get_link_info(link_info);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_onu_state_update_link_info(eponData->onu_state, link_info);
