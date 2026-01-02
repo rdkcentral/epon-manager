@@ -57,7 +57,13 @@ int eponMgr_data_init(eponMgr_data_t *eponData,
     // Store HAL config
     memcpy(&eponData->hal_config, config, sizeof(epon_hal_config_t));
     
-    pthread_mutex_init(&eponData->mutex, NULL);
+    // Initialize recursive mutex to allow nested locks from same thread
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&eponData->mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+    
     eponData->hal_initialized = false;
     
     // Store global reference
