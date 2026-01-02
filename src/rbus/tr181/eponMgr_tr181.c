@@ -304,14 +304,9 @@ int eponMgr_tr181_sync_llid_table(void) {
         return -1;
     }
 
-    /* Query HAL to sync LLID list */
-    epon_llid_list_t llid_list;
-    int ret = eponMgr_data_get_llid_info(eponData, &llid_list);
-    if (ret != 0) {
-        eponMgr_data_unlock();
-        EPONMGR_LOG_WARN("Failed to query LLID info from HAL\n");
-        /* Continue with cached data */
-    }
+    /* Use cached LLID data - DO NOT query HAL here to avoid circular dependency
+     * Handlers are on the query path (fast) and must NOT call data APIs
+     * Data APIs query HAL and trigger syncs - handlers should only read cache */
 
     uint32_t llid_count = eponMgr_llid_list_count(eponData->llid_list);
     
@@ -445,14 +440,9 @@ int eponMgr_tr181_sync_cpe_table(void) {
         return -1;
     }
 
-    /* Query HAL to sync CPE MAC table */
-    dpoe_cpe_mac_table_t cpe_table;
-    int ret = eponMgr_data_get_cpe_mac_table(eponData, &cpe_table);
-    if (ret != 0) {
-        eponMgr_data_unlock();
-        EPONMGR_LOG_WARN("Failed to query CPE MAC table from HAL\n");
-        /* Continue with cached data */
-    }
+    /* Use cached CPE data - DO NOT query HAL here to avoid circular dependency
+     * Handlers are on the query path (fast) and must NOT call data APIs
+     * Data APIs query HAL and trigger syncs - handlers should only read cache */
 
     uint32_t cpe_count = eponMgr_cpe_list_count(eponData->cpe_list);
     
@@ -1108,7 +1098,8 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
-    /* Query HAL to get fresh LLID data */
+    /* Sync LLID data from HAL to ensure cache is current
+     * Safe now that sync functions don't call back into data APIs */
     epon_llid_list_t llid_list;
     int ret = eponMgr_data_get_llid_info(eponData, &llid_list);
     if (ret != 0) {
@@ -1223,7 +1214,8 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
-    /* Query HAL to get fresh CPE MAC table data */
+    /* Sync CPE data from HAL to ensure cache is current
+     * Safe now that sync functions don't call back into data APIs */
     dpoe_cpe_mac_table_t cpe_table;
     int ret = eponMgr_data_get_cpe_mac_table(eponData, &cpe_table);
     if (ret != 0) {
