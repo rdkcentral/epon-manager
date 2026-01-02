@@ -1149,7 +1149,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
 
     // Get LLID info from list (instance is 1-based)
     epon_llid_info_t llid_info;
-    int ret = eponMgr_llid_list_get_at(eponData->llid_list, instance - 1, &llid_info);
+    ret = eponMgr_llid_list_get_at(eponData->llid_list, instance - 1, &llid_info);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("LLID instance %u not found\n", instance);
         rbusValue_Release(value);
@@ -1293,7 +1293,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
 
     // Get CPE entry from list (instance is 1-based)
     dpoe_cpe_mac_entry_t cpe_entry;
-    int ret = eponMgr_cpe_list_get_at(eponData->cpe_list, instance - 1, &cpe_entry);
+    ret = eponMgr_cpe_list_get_at(eponData->cpe_list, instance - 1, &cpe_entry);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("CPE instance %u not found\n", instance);
         rbusValue_Release(value);
