@@ -8,10 +8,13 @@
  */
 
 #include "eponMgr_statsData.h"
+#include "eponMgr_logger.h"
 #include <string.h>
 
 int eponMgr_statsData_init(eponMgr_statsData_t *stats_data, uint32_t ttl_seconds) {
     if (!stats_data) return -1;
+    
+    EPONMGR_LOG_INFO("Initializing stats data storage with TTL: %u seconds\n", ttl_seconds);
     
     memset(stats_data, 0, sizeof(eponMgr_statsData_t));
     stats_data->ttl_seconds = ttl_seconds;
@@ -25,6 +28,9 @@ int eponMgr_statsData_init(eponMgr_statsData_t *stats_data, uint32_t ttl_seconds
 
 void eponMgr_statsData_destroy(eponMgr_statsData_t *stats_data) {
     if (!stats_data) return;
+    
+    EPONMGR_LOG_INFO("Destroying stats data storage\n");
+    
     pthread_mutex_destroy(&stats_data->mutex);
 }
 

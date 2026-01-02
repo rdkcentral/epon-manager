@@ -5,6 +5,7 @@
 
 #include "eponMgr_cpe_list.h"
 #include "eponMgr_tr181.h"
+#include "eponMgr_logger.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -16,6 +17,8 @@ static int mac_equal(const uint8_t *mac1, const uint8_t *mac2)
 int eponMgr_cpe_list_init(eponMgr_cpe_list_t *list, uint32_t max_cpe)
 {
     if (!list) return -1;
+    
+    EPONMGR_LOG_INFO("Initializing CPE list with max CPE: %u\n", max_cpe);
     
     memset(&list->cpe_table, 0, sizeof(dpoe_cpe_mac_table_t));
     list->cpe_table.max_cpe = max_cpe;
@@ -30,6 +33,8 @@ int eponMgr_cpe_list_init(eponMgr_cpe_list_t *list, uint32_t max_cpe)
 void eponMgr_cpe_list_destroy(eponMgr_cpe_list_t *list)
 {
     if (!list) return;
+    
+    EPONMGR_LOG_INFO("Destroying CPE list\n");
     
     pthread_mutex_lock(&list->mutex);
     if (list->cpe_table.cpe_list) {

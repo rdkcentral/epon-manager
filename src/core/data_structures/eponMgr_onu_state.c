@@ -4,6 +4,7 @@
  */
 
 #include "eponMgr_onu_state.h"
+#include "eponMgr_logger.h"
 #include <string.h>
 
 int eponMgr_onu_state_init(eponMgr_onu_state_t *state, bool dpoe_supported)
@@ -12,6 +13,8 @@ int eponMgr_onu_state_init(eponMgr_onu_state_t *state, bool dpoe_supported)
         return -1;
     }
 
+    EPONMGR_LOG_INFO("Initializing ONU state (DPoE %s)\n", dpoe_supported ? "enabled" : "disabled");
+    
     memset(state, 0, sizeof(eponMgr_onu_state_t));
     
     state->current_status = EPON_ONU_STATUS_LOS;
@@ -32,6 +35,8 @@ void eponMgr_onu_state_destroy(eponMgr_onu_state_t *state)
         return;
     }
 
+    EPONMGR_LOG_INFO("Destroying ONU state\n");
+    
     pthread_mutex_destroy(&state->mutex);
     memset(state, 0, sizeof(eponMgr_onu_state_t));
 }

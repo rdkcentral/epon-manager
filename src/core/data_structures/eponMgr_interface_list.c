@@ -4,11 +4,14 @@
  */
 
 #include "eponMgr_interface_list.h"
+#include "eponMgr_logger.h"
 #include <string.h>
 
 int eponMgr_interface_list_init(eponMgr_interface_list_t *list)
 {
     if (!list) return -1;
+    
+    EPONMGR_LOG_INFO("Initializing interface list\n");
     
     memset(&list->if_list, 0, sizeof(epon_interface_list_t));
     list->if_list.interface_count = 0;
@@ -20,6 +23,9 @@ int eponMgr_interface_list_init(eponMgr_interface_list_t *list)
 void eponMgr_interface_list_destroy(eponMgr_interface_list_t *list)
 {
     if (!list) return;
+    
+    EPONMGR_LOG_INFO("Destroying interface list\n");
+    
     pthread_mutex_destroy(&list->mutex);
 }
 

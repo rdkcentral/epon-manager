@@ -5,12 +5,15 @@
 
 #include "eponMgr_llid_list.h"
 #include "eponMgr_tr181.h"
+#include "eponMgr_logger.h"
 #include <string.h>
 #include <stdlib.h>
 
 int eponMgr_llid_list_init(eponMgr_llid_list_t *list, uint32_t max_llid_count)
 {
     if (!list) return -1;
+    
+    EPONMGR_LOG_INFO("Initializing LLID list with max count: %u\n", max_llid_count);
     
     memset(&list->llid_list, 0, sizeof(epon_llid_list_t));
     list->llid_list.max_llid_count = max_llid_count;
@@ -24,6 +27,8 @@ int eponMgr_llid_list_init(eponMgr_llid_list_t *list, uint32_t max_llid_count)
 void eponMgr_llid_list_destroy(eponMgr_llid_list_t *list)
 {
     if (!list) return;
+    
+    EPONMGR_LOG_INFO("Destroying LLID list\n");
     
     pthread_mutex_lock(&list->mutex);
     if (list->llid_list.llid_list) {

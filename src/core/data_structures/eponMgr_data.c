@@ -24,6 +24,8 @@ int eponMgr_data_init(eponMgr_data_t *eponData,
 {
     if (!eponData || !config) return -1;
     
+    EPONMGR_LOG_INFO("Initializing core data context with cache TTL: %u seconds\n", cache_ttl);
+    
     memset(eponData, 0, sizeof(eponMgr_data_t));
     
     // Initialize cache
@@ -61,6 +63,7 @@ int eponMgr_data_init(eponMgr_data_t *eponData,
     // Store global reference
     g_eponData = eponData;
     
+    EPONMGR_LOG_INFO("Core data context initialized successfully\n");
     return 0;
 
 error:
@@ -90,6 +93,8 @@ error:
 void eponMgr_data_destroy(eponMgr_data_t *eponData)
 {
     if (!eponData) return;
+    
+    EPONMGR_LOG_INFO("Destroying core data context\n");
     
     // Clear global reference
     if (g_eponData == eponData) {
@@ -121,6 +126,8 @@ void eponMgr_data_destroy(eponMgr_data_t *eponData)
     
     pthread_mutex_unlock(&eponData->mutex);
     pthread_mutex_destroy(&eponData->mutex);
+    
+    EPONMGR_LOG_INFO("Core data context destroyed\n");
 }
 
 eponMgr_data_t* eponMgr_data_lock(void)
@@ -145,12 +152,17 @@ int eponMgr_data_hal_init(eponMgr_data_t *eponData)
 {
     if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Initializing EPON HAL\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     int ret = epon_hal_init(&eponData->hal_config);
     if (ret == EPON_HAL_SUCCESS) {
         eponData->hal_initialized = true;
         eponMgr_onu_state_set_hal_initialized(eponData->onu_state);
+        EPONMGR_LOG_INFO("EPON HAL initialized successfully\n");
+    } else {
+        EPONMGR_LOG_INFO("EPON HAL initialization failed with error code: %d\n", ret);
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -162,11 +174,14 @@ int eponMgr_data_get_link_stats(eponMgr_data_t *eponData,
 {
     if (!eponData || !stats) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Getting link statistics\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try stored data first
     if (eponMgr_statsData_get_link_stats(eponData->stats_data, stats) == 0) {
         pthread_mutex_unlock(&eponData->mutex);
+        EPONMGR_LOG_INFO("Link statistics retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Data available
     }
     
@@ -174,6 +189,9 @@ int eponMgr_data_get_link_stats(eponMgr_data_t *eponData,
     int ret = epon_hal_get_link_stats(stats);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_statsData_set_link_stats(eponData->stats_data, stats);
+        EPONMGR_LOG_INFO("Link statistics retrieved from HAL and cached\n");
+    } else {
+        EPONMGR_LOG_INFO("Failed to get link statistics from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -185,11 +203,14 @@ int eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData,
 {
     if (!eponData || !stats) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Getting transceiver statistics\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try stored data first
     if (eponMgr_statsData_get_transceiver_stats(eponData->stats_data, stats)) {
         pthread_mutex_unlock(&eponData->mutex);
+        EPONMGR_LOG_INFO("Transceiver statistics retrieved from cache\n");
         return EPON_HAL_SUCCESS;
     }
     
@@ -197,6 +218,9 @@ int eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData,
     int ret = epon_hal_get_transceiver_stats(stats);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_statsData_set_transceiver_stats(eponData->stats_data, stats);
+        EPONMGR_LOG_INFO("Transceiver statistics retrieved from HAL and cached\n");
+    } else {
+        EPONMGR_LOG_INFO("Failed to get transceiver statistics from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -207,6 +231,8 @@ int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
                                 epon_llid_list_t *llid_list)
 {
     if (!eponData || !llid_list) return EPON_HAL_ERROR_INVALID_PARAM;
+    
+    EPONMGR_LOG_INFO("Getting LLID information\n");
     
     pthread_mutex_lock(&eponData->mutex);
     
@@ -230,9 +256,12 @@ int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
         // Only sync TR-181 if LLID list changed
         if (changed) {
             pthread_mutex_unlock(&eponData->mutex);
+            EPONMGR_LOG_INFO("LLID list changed, updating TR-181\n");
             eponMgr_tr181_sync_llid_table();
             return ret;
         }
+    } else {
+        EPONMGR_LOG_INFO("Failed to get LLID information from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -244,17 +273,22 @@ int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
 {
     if (!eponData || !if_list) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Getting interface list\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     // Call HAL to get current interface list
     int ret = epon_hal_get_interface_list(if_list);
     if (ret == EPON_HAL_SUCCESS) {
+        EPONMGR_LOG_INFO("Retrieved %u interface(s) from HAL\n", if_list->interface_count);
         // Update internal interface list data structure
         eponMgr_interface_list_clear(eponData->interface_list);
         
         for (uint32_t i = 0; i < if_list->interface_count; i++) {
             eponMgr_interface_list_update(eponData->interface_list, &if_list->interface[i]);
         }
+    } else {
+        EPONMGR_LOG_INFO("Failed to get interface list from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -266,11 +300,14 @@ int eponMgr_data_get_olt_info(eponMgr_data_t *eponData,
 {
     if (!eponData || !olt_info) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Getting OLT information\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try cached version first (validity flag, no TTL)
     if (eponMgr_onu_state_get_olt_info(eponData->onu_state, olt_info) == 0) {
         pthread_mutex_unlock(&eponData->mutex);
+        EPONMGR_LOG_INFO("OLT information retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Cache hit
     }
     
@@ -278,6 +315,9 @@ int eponMgr_data_get_olt_info(eponMgr_data_t *eponData,
     int ret = epon_hal_get_olt_info(olt_info);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_onu_state_update_olt_info(eponData->onu_state, olt_info);
+        EPONMGR_LOG_INFO("OLT information retrieved from HAL and cached\n");
+    } else {
+        EPONMGR_LOG_INFO("Failed to get OLT information from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -289,11 +329,14 @@ int eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData,
 {
     if (!eponData || !mfr_info) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Getting ONU manufacturer information\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try cached version first (validity flag, no TTL)
     if (eponMgr_onu_state_get_manufacturer_info(eponData->onu_state, mfr_info) == 0) {
         pthread_mutex_unlock(&eponData->mutex);
+        EPONMGR_LOG_INFO("ONU manufacturer information retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Cache hit
     }
     
@@ -301,6 +344,9 @@ int eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData,
     int ret = epon_hal_get_manufacturer_info(mfr_info);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_onu_state_update_manufacturer_info(eponData->onu_state, mfr_info);
+        EPONMGR_LOG_INFO("ONU manufacturer information retrieved from HAL and cached\n");
+    } else {
+        EPONMGR_LOG_INFO("Failed to get ONU manufacturer information from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -312,11 +358,14 @@ int eponMgr_data_get_link_info(eponMgr_data_t *eponData,
 {
     if (!eponData || !link_info) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Getting link information\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try cached version first (validity flag, no TTL)
     if (eponMgr_onu_state_get_link_info(eponData->onu_state, link_info) == 0) {
         pthread_mutex_unlock(&eponData->mutex);
+        EPONMGR_LOG_INFO("Link information retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Cache hit
     }
     
@@ -324,6 +373,9 @@ int eponMgr_data_get_link_info(eponMgr_data_t *eponData,
     int ret = epon_hal_get_link_info(link_info);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_onu_state_update_link_info(eponData->onu_state, link_info);
+        EPONMGR_LOG_INFO("Link information retrieved from HAL and cached\n");
+    } else {
+        EPONMGR_LOG_INFO("Failed to get link information from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -335,10 +387,14 @@ int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,
 {
     if (!eponData || !max_cpe) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Getting maximum CPE count\n");
+    
     pthread_mutex_lock(&eponData->mutex);
     
     // Return from internal CPE list structure
     *max_cpe = eponData->cpe_list->cpe_table.max_cpe;
+    
+    EPONMGR_LOG_INFO("Maximum CPE count: %u\n", *max_cpe);
     
     pthread_mutex_unlock(&eponData->mutex);
     return EPON_HAL_SUCCESS;
@@ -348,6 +404,8 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
                                     dpoe_cpe_mac_table_t *cpe_table)
 {
     if (!eponData || !cpe_table) return EPON_HAL_ERROR_INVALID_PARAM;
+    
+    EPONMGR_LOG_INFO("Getting CPE MAC address table\n");
     
     pthread_mutex_lock(&eponData->mutex);
     
@@ -360,6 +418,8 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
     // Call HAL to get current CPE table
     int ret = dpoe_hal_get_cpe_mac_table(cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
+        EPONMGR_LOG_INFO("Retrieved CPE MAC table: %u static, %u dynamic entries\n",
+                        cpe_table->static_cpe_count, cpe_table->dynamic_cpe_count);
         // Update internal CPE list data structure
         bool has_new_cpes = false;
         uint32_t total = cpe_table->static_cpe_count + cpe_table->dynamic_cpe_count;
@@ -377,9 +437,12 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
         /* Only sync if count changed or new CPEs added */
         if (new_count != old_count || has_new_cpes) {
             pthread_mutex_unlock(&eponData->mutex);
+            EPONMGR_LOG_INFO("CPE table changed, updating TR-181\n");
             eponMgr_tr181_sync_cpe_table();
             return ret;
         }
+    } else {
+        EPONMGR_LOG_INFO("Failed to get CPE MAC table from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
@@ -391,6 +454,8 @@ int eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
 {
     if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
     
+    EPONMGR_LOG_INFO("Setting OAM log level: 0x%08x\n", log_level);
+    
     // No caching for log level settings
     return epon_hal_set_oam_log_mask(log_level);
 }
@@ -398,6 +463,8 @@ int eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
 void eponMgr_data_invalidate_cache(eponMgr_data_t *eponData)
 {
     if (!eponData) return;
+    
+    EPONMGR_LOG_INFO("Invalidating all cached data\n");
     
     pthread_mutex_lock(&eponData->mutex);
     

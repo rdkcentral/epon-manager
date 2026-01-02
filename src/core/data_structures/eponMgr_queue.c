@@ -4,6 +4,7 @@
  */
 
 #include "eponMgr_queue.h"
+#include "eponMgr_logger.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,6 +12,8 @@ int eponMgr_queue_init(eponMgr_queue_t *queue, uint32_t capacity) {
     if (!queue || capacity == 0) {
         return -1;
     }
+    
+    EPONMGR_LOG_INFO("Initializing event queue with capacity: %u\n", capacity);
     
     memset(queue, 0, sizeof(eponMgr_queue_t));
     
@@ -35,6 +38,8 @@ int eponMgr_queue_init(eponMgr_queue_t *queue, uint32_t capacity) {
 void eponMgr_queue_destroy(eponMgr_queue_t *queue) {
     if (!queue) return;
     
+    EPONMGR_LOG_INFO("Destroying event queue (capacity: %u)\n", queue->capacity);
+    
     pthread_mutex_destroy(&queue->mutex);
     
     if (queue->events) {
@@ -57,6 +62,7 @@ int eponMgr_queue_push(eponMgr_queue_t *queue, const eponMgr_event_t *event) {
     
     if (queue->count >= queue->capacity) {
         pthread_mutex_unlock(&queue->mutex);
+        EPONMGR_LOG_INFO("Event queue is full, discarding event\n");
         return -1; /* Queue full */
     }
     
@@ -66,6 +72,8 @@ int eponMgr_queue_push(eponMgr_queue_t *queue, const eponMgr_event_t *event) {
     /* Advance head (circular) */
     queue->head = (queue->head + 1) % queue->capacity;
     queue->count++;
+    
+    EPONMGR_LOG_INFO("Event pushed to queue (count: %u/%u)\n", queue->count, queue->capacity);
     
     pthread_mutex_unlock(&queue->mutex);
     return 0;
@@ -89,6 +97,8 @@ int eponMgr_queue_pop(eponMgr_queue_t *queue, eponMgr_event_t *event) {
     /* Advance tail (circular) */
     queue->tail = (queue->tail + 1) % queue->capacity;
     queue->count--;
+    
+    EPONMGR_LOG_INFO("Event popped from queue (count: %u/%u)\n", queue->count, queue->capacity);
     
     pthread_mutex_unlock(&queue->mutex);
     return 0;
