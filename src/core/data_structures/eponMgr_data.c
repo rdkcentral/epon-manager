@@ -379,7 +379,6 @@ int eponMgr_data_get_link_info(eponMgr_data_t *eponData,
     
     // Cache miss - call HAL
     memset(link_info, 0, sizeof(epon_hal_link_info_t));
-    link_info->struct_size = sizeof(epon_hal_link_info_t);
     int ret = epon_hal_get_link_info(link_info);
     if (ret == EPON_HAL_SUCCESS) {
         eponMgr_onu_state_update_link_info(eponData->onu_state, link_info);
