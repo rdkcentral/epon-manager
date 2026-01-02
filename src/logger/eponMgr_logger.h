@@ -28,21 +28,21 @@ static inline void eponMgr_logger_close(void) {
 }
 
 /**
- * Logging macros - directly map to RDK_LOG for efficiency
+ * Logging macros - include function name and line number for better debugging
  */
 #define EPONMGR_LOG_FATAL(fmt, ...) \
-    RDK_LOG(RDK_LOG_FATAL, EPONMGR_LOG_MODULE, fmt, ##__VA_ARGS__)
+    RDK_LOG(RDK_LOG_FATAL, EPONMGR_LOG_MODULE, "[%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define EPONMGR_LOG_ERROR(fmt, ...) \
-    RDK_LOG(RDK_LOG_ERROR, EPONMGR_LOG_MODULE, fmt, ##__VA_ARGS__)
+    RDK_LOG(RDK_LOG_ERROR, EPONMGR_LOG_MODULE, "[%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define EPONMGR_LOG_WARN(fmt, ...) \
-    RDK_LOG(RDK_LOG_WARN, EPONMGR_LOG_MODULE, fmt, ##__VA_ARGS__)
+    RDK_LOG(RDK_LOG_WARN, EPONMGR_LOG_MODULE, "[%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define EPONMGR_LOG_INFO(fmt, ...) \
-    RDK_LOG(RDK_LOG_INFO, EPONMGR_LOG_MODULE, fmt, ##__VA_ARGS__)
+    RDK_LOG(RDK_LOG_INFO, EPONMGR_LOG_MODULE, "[%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define EPONMGR_LOG_DEBUG(fmt, ...) \
-    RDK_LOG(RDK_LOG_DEBUG, EPONMGR_LOG_MODULE, fmt, ##__VA_ARGS__)
+    RDK_LOG(RDK_LOG_DEBUG, EPONMGR_LOG_MODULE, "[%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #endif /* EPONMGR_LOGGER_H */
