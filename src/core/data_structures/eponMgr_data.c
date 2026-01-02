@@ -287,6 +287,9 @@ int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
+    /* Save old count for change detection */
+    uint32_t old_count = eponMgr_interface_list_count(eponData->interface_list);
+    
     // Call HAL to get current interface list
     int ret = epon_hal_get_interface_list(if_list);
     if (ret == EPON_HAL_SUCCESS) {
@@ -294,8 +297,21 @@ int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
         // Update internal interface list data structure
         eponMgr_interface_list_clear(eponData->interface_list);
         
+        bool changed = (old_count != if_list->interface_count);
+        
         for (uint32_t i = 0; i < if_list->interface_count; i++) {
-            eponMgr_interface_list_update(eponData->interface_list, &if_list->interface[i]);
+            int update_ret = eponMgr_interface_list_update(eponData->interface_list, &if_list->interface[i]);
+            if (update_ret == 1) {
+                changed = true;  /* New interface added */
+            }
+        }
+        
+        /* Only sync TR-181 if interface list changed */
+        if (changed) {
+            pthread_mutex_unlock(&eponData->mutex);
+            EPONMGR_LOG_INFO("Interface list changed, updating TR-181\n");
+            eponMgr_tr181_sync_veip_table();
+            return ret;
         }
     } else {
         EPONMGR_LOG_INFO("Failed to get interface list from HAL\n");

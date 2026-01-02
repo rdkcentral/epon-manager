@@ -1416,19 +1416,17 @@ int eponMgr_tr181_unregister_veip_instance(uint32_t instance) {
  * Queries HAL for interface list, updates internal list, then syncs TR-181 table.
  */
 int eponMgr_tr181_sync_veip_table(void) {
+    EPONMGR_LOG_INFO("Entering eponMgr_tr181_sync_veip_table");
+
     eponMgr_data_t *eponData = eponMgr_data_lock();
     if (!eponData || !eponData->interface_list) {
         if (eponData) eponMgr_data_unlock();
         return -1;
     }
     
-    /* Query HAL to sync interface list */
-    epon_interface_list_t if_list;
-    int ret = eponMgr_data_get_interface_list(eponData, &if_list);
-    if (ret != 0) {
-        EPONMGR_LOG_WARN("Failed to query interface list from HAL\n");
-        /* Continue with cached data */
-    }
+    /* Use cached interface data - DO NOT query HAL here
+     * Sync is called AFTER the interface list is already updated by controller
+     * Querying HAL again would cause circular dependencies and missed updates */
     
     bool active_instances[MAX_VEIP_INSTANCES] = {false};
     uint32_t count = eponMgr_interface_list_count(eponData->interface_list);
