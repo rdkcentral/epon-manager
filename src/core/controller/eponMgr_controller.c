@@ -136,10 +136,7 @@ static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status
     eponMgr_onu_state_t *onu_state = ctrl->data->onu_state;
     if (onu_state) {
         eponMgr_onu_state_update_status(onu_state, status);
-        
-        // Invalidate cache on status change
-        eponMgr_hal_wrapper_invalidate_cache(ctrl->hal_wrapper);
-        EPONMGR_LOG_INFO("Cache invalidated due to ONU status change\n");
+        EPONMGR_LOG_INFO("ONU status changed to: %d\n", status);
     }
     
     // TODO: Phase 7 - Report telemetry event for ONU status change
@@ -464,10 +461,7 @@ error:
             eponMgr_stats_poller_destroy(ctrl->stats_poller);
             free(ctrl->stats_poller);
         }
-        if (ctrl->hal_wrapper) {
-            eponMgr_hal_wrapper_destroy(ctrl->hal_wrapper);
-            free(ctrl->hal_wrapper);
-        }
+        // hal_wrapper is now part of global eponData - no separate cleanup needed
         if (ctrl->config) {
             free(ctrl->config);
         }
