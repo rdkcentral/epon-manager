@@ -272,6 +272,47 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
 }
 
 /**
+ * @brief Ensure all LLID instances are registered (called from handlers on-demand)
+ * 
+ * @return 0 on success, -1 on failure
+ */
+static int ensure_llid_instances_registered(void) {
+    if (!g_rbus_handle) {
+        return -1;
+    }
+
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData || !eponData->llid_list) {
+        if (eponData) eponMgr_data_unlock();
+        return -1;
+    }
+
+    uint32_t llid_count = eponMgr_llid_list_count(eponData->llid_list);
+    
+    /* Register LLID instances (1-based indexing) */
+    for (uint32_t i = 0; i < llid_count && i < MAX_LLID_INSTANCES; i++) {
+        uint32_t instance = i + 1;
+        if (!g_llid_instances[instance - 1].registered) {
+            epon_llid_info_t llid_info;
+            if (eponMgr_llid_list_get_at(eponData->llid_list, i, &llid_info) == 0) {
+                /* Register this LLID instance */
+                char row_name[256];
+                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.", instance);
+                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
+                if (rc == RBUS_ERROR_SUCCESS) {
+                    g_llid_instances[instance - 1].instance = instance;
+                    g_llid_instances[instance - 1].registered = true;
+                    EPONMGR_LOG_DEBUG("Registered LLID table row %u on-demand\n", instance);
+                }
+            }
+        }
+    }
+
+    eponMgr_data_unlock();
+    return 0;
+}
+
+/**
  * @brief Synchronize LLID table registrations with current LLID list from HAL
  * 
  * Queries HAL for current LLID info, updates internal list, then syncs TR-181 table.
@@ -280,49 +321,7 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
  * @return 0 on success, -1 on failure
  */
 int eponMgr_tr181_sync_llid_table(void) {
-    eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData) {
-        return -1;
-    }
-    
-    if (!eponData->llid_list) {
-        eponMgr_data_unlock();
-        EPONMGR_LOG_ERROR("LLID list not available\n");
-        return -1;
-    }
-
-    /* Use cached LLID data - DO NOT query HAL here to avoid circular dependency
-     * Handlers are on the query path (fast) and must NOT call data APIs
-     * Data APIs query HAL and trigger syncs - handlers should only read cache */
-
-    uint32_t llid_count = eponMgr_llid_list_count(eponData->llid_list);
-    
-    /* Get current LLID instances from list */
-    bool active_instances[MAX_LLID_INSTANCES] = {false};
-    for (uint32_t i = 0; i < llid_count && i < MAX_LLID_INSTANCES; i++) {
-        epon_llid_info_t llid_info;
-        if (eponMgr_llid_list_get_at(eponData->llid_list, i, &llid_info) == 0) {
-            /* Mark instance as active (1-based indexing) */
-            active_instances[i] = true;
-        }
-    }
-
-    eponMgr_data_unlock();
-
-    /* Register new instances and unregister removed ones */
-    for (uint32_t i = 0; i < MAX_LLID_INSTANCES; i++) {
-        uint32_t instance = i + 1;  /* 1-based */
-        
-        if (active_instances[i] && !g_llid_instances[i].registered) {
-            /* New LLID - register it */
-            eponMgr_tr181_register_llid_instance(instance);
-        } else if (!active_instances[i] && g_llid_instances[i].registered) {
-            /* Removed LLID - unregister it */
-            eponMgr_tr181_unregister_llid_instance(instance);
-        }
-    }
-
-    return 0;
+    return ensure_llid_instances_registered();
 }
 
 /**
@@ -398,6 +397,47 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
 }
 
 /**
+ * @brief Ensure all CPE instances are registered (called from handlers on-demand)
+ * 
+ * @return 0 on success, -1 on failure
+ */
+static int ensure_cpe_instances_registered(void) {
+    if (!g_rbus_handle) {
+        return -1;
+    }
+
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData || !eponData->cpe_list) {
+        if (eponData) eponMgr_data_unlock();
+        return -1;
+    }
+
+    uint32_t cpe_count = eponMgr_cpe_list_count(eponData->cpe_list);
+    
+    /* Register CPE instances (1-based indexing) */
+    for (uint32_t i = 0; i < cpe_count && i < MAX_CPE_INSTANCES; i++) {
+        uint32_t instance = i + 1;
+        if (!g_cpe_instances[instance - 1].registered) {
+            dpoe_cpe_mac_entry_t cpe_entry;
+            if (eponMgr_cpe_list_get_at(eponData->cpe_list, i, &cpe_entry) == 0) {
+                /* Register this CPE instance */
+                char row_name[256];
+                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.", instance);
+                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
+                if (rc == RBUS_ERROR_SUCCESS) {
+                    g_cpe_instances[instance - 1].instance = instance;
+                    g_cpe_instances[instance - 1].registered = true;
+                    EPONMGR_LOG_DEBUG("Registered CPE table row %u on-demand\n", instance);
+                }
+            }
+        }
+    }
+
+    eponMgr_data_unlock();
+    return 0;
+}
+
+/**
  * @brief Synchronize CPE table registrations with current CPE list from HAL
  * 
  * Queries HAL for current CPE MAC table, updates internal list, then syncs TR-181 table.
@@ -406,49 +446,7 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
  * @return 0 on success, -1 on failure
  */
 int eponMgr_tr181_sync_cpe_table(void) {
-    eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData) {
-        return -1;
-    }
-    
-    if (!eponData->cpe_list) {
-        eponMgr_data_unlock();
-        EPONMGR_LOG_ERROR("CPE list not available\n");
-        return -1;
-    }
-
-    /* Use cached CPE data - DO NOT query HAL here to avoid circular dependency
-     * Handlers are on the query path (fast) and must NOT call data APIs
-     * Data APIs query HAL and trigger syncs - handlers should only read cache */
-
-    uint32_t cpe_count = eponMgr_cpe_list_count(eponData->cpe_list);
-    
-    /* Get current CPE instances from list */
-    bool active_instances[MAX_CPE_INSTANCES] = {false};
-    for (uint32_t i = 0; i < cpe_count && i < MAX_CPE_INSTANCES; i++) {
-        dpoe_cpe_mac_entry_t cpe_entry;
-        if (eponMgr_cpe_list_get_at(eponData->cpe_list, i, &cpe_entry) == 0) {
-            /* Mark instance as active (1-based indexing) */
-            active_instances[i] = true;
-        }
-    }
-
-    eponMgr_data_unlock();
-
-    /* Register new instances and unregister removed ones */
-    for (uint32_t i = 0; i < MAX_CPE_INSTANCES; i++) {
-        uint32_t instance = i + 1;  /* 1-based */
-        
-        if (active_instances[i] && !g_cpe_instances[i].registered) {
-            /* New CPE - register it */
-            eponMgr_tr181_register_cpe_instance(instance);
-        } else if (!active_instances[i] && g_cpe_instances[i].registered) {
-            /* Removed CPE - unregister it */
-            eponMgr_tr181_unregister_cpe_instance(instance);
-        }
-    }
-
-    return 0;
+    return ensure_cpe_instances_registered();
 }
 
 /**
@@ -1084,6 +1082,9 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
         /* Continue with cached data */
     }
 
+    /* Ensure all LLID instances are registered after syncing fresh data */
+    ensure_llid_instances_registered();
+
     // Handle count parameter
     if (strstr(param_name, "LLIDNumberOfEntries")) {
         uint32_t count = eponMgr_llid_list_count(eponData->llid_list);
@@ -1199,6 +1200,9 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
         EPONMGR_LOG_WARN("Failed to sync CPE MAC table from HAL, using cached data\n");
         /* Continue with cached data */
     }
+
+    /* Ensure all CPE instances are registered after syncing fresh data */
+    ensure_cpe_instances_registered();
 
     // Handle DPoE statistics
     if (strstr(param_name, "MaxCPECount")) {

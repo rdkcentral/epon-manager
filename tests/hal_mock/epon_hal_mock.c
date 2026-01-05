@@ -31,6 +31,11 @@ static epon_hal_link_info_t g_link_info = {0};
 static epon_interface_list_t g_interface_list = {0};
 static epon_olt_info_t g_olt_info = {0};
 static epon_llid_list_t g_llid_list = {0};
+static epon_llid_info_t g_llid_entries[8] = {0};
+static uint32_t g_llid_count = 0;
+static dpoe_cpe_mac_entry_t g_cpe_entries[32] = {0};
+static uint32_t g_static_cpe_count = 0;
+static uint32_t g_dynamic_cpe_count = 0;
 
 /* Initialize default mock data */
 static void init_default_data(void) {
@@ -88,10 +93,113 @@ static void init_default_data(void) {
     g_interface_list.interface[0].status = EPON_ONU_INTF_STATUS_LINK_UP;
     g_interface_list.interface_count = 1;
     
-    /* Default LLID list */
+    /* Default LLID list - 4 LLIDs with various states */
+    memset(g_llid_entries, 0, sizeof(g_llid_entries));
+    
+    /* LLID 1 - Unicast, Registered, Encryption enabled */
+    g_llid_entries[0].llid_value = 1;
+    g_llid_entries[0].mode = EPON_LLID_MODE_UNICAST;
+    g_llid_entries[0].state = EPON_LLID_STATE_REGISTERED;
+    g_llid_entries[0].forwarding_state = EPON_LLID_FORWARDING_ENABLED;
+    g_llid_entries[0].encryption_enabled = true;
+    g_llid_entries[0].local_mac_address[0] = 0x00;
+    g_llid_entries[0].local_mac_address[1] = 0x11;
+    g_llid_entries[0].local_mac_address[2] = 0x22;
+    g_llid_entries[0].local_mac_address[3] = 0x33;
+    g_llid_entries[0].local_mac_address[4] = 0x44;
+    g_llid_entries[0].local_mac_address[5] = 0x55;
+    
+    /* LLID 2 - Multicast, Registered, Encryption disabled */
+    g_llid_entries[1].llid_value = 32767; /* Multicast LLID */
+    g_llid_entries[1].mode = EPON_LLID_MODE_BROADCAST;
+    g_llid_entries[1].state = EPON_LLID_STATE_REGISTERED;
+    g_llid_entries[1].forwarding_state = EPON_LLID_FORWARDING_ENABLED;
+    g_llid_entries[1].encryption_enabled = false;
+    g_llid_entries[1].local_mac_address[0] = 0xFF;
+    g_llid_entries[1].local_mac_address[1] = 0xFF;
+    g_llid_entries[1].local_mac_address[2] = 0xFF;
+    g_llid_entries[1].local_mac_address[3] = 0xFF;
+    g_llid_entries[1].local_mac_address[4] = 0xFF;
+    g_llid_entries[1].local_mac_address[5] = 0xFF;
+    
+    /* LLID 3 - Unicast, Registered, In learning state */
+    g_llid_entries[2].llid_value = 2;
+    g_llid_entries[2].mode = EPON_LLID_MODE_UNICAST;
+    g_llid_entries[2].state = EPON_LLID_STATE_REGISTERED;
+    g_llid_entries[2].forwarding_state = EPON_LLID_FORWARDING_LEARNING;
+    g_llid_entries[2].encryption_enabled = true;
+    g_llid_entries[2].local_mac_address[0] = 0x00;
+    g_llid_entries[2].local_mac_address[1] = 0xAA;
+    g_llid_entries[2].local_mac_address[2] = 0xBB;
+    g_llid_entries[2].local_mac_address[3] = 0xCC;
+    g_llid_entries[2].local_mac_address[4] = 0xDD;
+    g_llid_entries[2].local_mac_address[5] = 0xEE;
+    
+    /* LLID 4 - Unicast, Deregistering state */
+    g_llid_entries[3].llid_value = 3;
+    g_llid_entries[3].mode = EPON_LLID_MODE_UNICAST;
+    g_llid_entries[3].state = EPON_LLID_STATE_DEREGISTERING;
+    g_llid_entries[3].forwarding_state = EPON_LLID_FORWARDING_DISABLED;
+    g_llid_entries[3].encryption_enabled = true;
+    g_llid_entries[3].local_mac_address[0] = 0x00;
+    g_llid_entries[3].local_mac_address[1] = 0x99;
+    g_llid_entries[3].local_mac_address[2] = 0x88;
+    g_llid_entries[3].local_mac_address[3] = 0x77;
+    g_llid_entries[3].local_mac_address[4] = 0x66;
+    g_llid_entries[3].local_mac_address[5] = 0x55;
+    
+    g_llid_count = 4;
+    
     g_llid_list.max_llid_count = 8;
-    g_llid_list.llid_count = 1;
+    g_llid_list.llid_count = g_llid_count;
     g_llid_list.llid_list = NULL; /* Will be allocated in get_llid_info */
+    
+    /* Default CPE list - 2 static, 2 dynamic */
+    memset(g_cpe_entries, 0, sizeof(g_cpe_entries));
+    
+    /* Static CPE 1 */
+    g_cpe_entries[0].mac_address[0] = 0x00;
+    g_cpe_entries[0].mac_address[1] = 0x1A;
+    g_cpe_entries[0].mac_address[2] = 0x2B;
+    g_cpe_entries[0].mac_address[3] = 0x3C;
+    g_cpe_entries[0].mac_address[4] = 0x4D;
+    g_cpe_entries[0].mac_address[5] = 0x5E;
+    g_cpe_entries[0].type = DPOE_CPE_MAC_STATIC;
+    g_cpe_entries[0].age_time = 0; /* Static entries have 0 age time */
+    
+    /* Static CPE 2 */
+    g_cpe_entries[1].mac_address[0] = 0x00;
+    g_cpe_entries[1].mac_address[1] = 0x2B;
+    g_cpe_entries[1].mac_address[2] = 0x3C;
+    g_cpe_entries[1].mac_address[3] = 0x4D;
+    g_cpe_entries[1].mac_address[4] = 0x5E;
+    g_cpe_entries[1].mac_address[5] = 0x6F;
+    g_cpe_entries[1].type = DPOE_CPE_MAC_STATIC;
+    g_cpe_entries[1].age_time = 0;
+    
+    g_static_cpe_count = 2;
+    
+    /* Dynamic CPE 1 */
+    g_cpe_entries[2].mac_address[0] = 0x00;
+    g_cpe_entries[2].mac_address[1] = 0x3C;
+    g_cpe_entries[2].mac_address[2] = 0x4D;
+    g_cpe_entries[2].mac_address[3] = 0x5E;
+    g_cpe_entries[2].mac_address[4] = 0x6F;
+    g_cpe_entries[2].mac_address[5] = 0x70;
+    g_cpe_entries[2].type = DPOE_CPE_MAC_DYNAMIC;
+    g_cpe_entries[2].age_time = 3600; /* 1 hour */
+    
+    /* Dynamic CPE 2 */
+    g_cpe_entries[3].mac_address[0] = 0x00;
+    g_cpe_entries[3].mac_address[1] = 0x4D;
+    g_cpe_entries[3].mac_address[2] = 0x5E;
+    g_cpe_entries[3].mac_address[3] = 0x6F;
+    g_cpe_entries[3].mac_address[4] = 0x70;
+    g_cpe_entries[3].mac_address[5] = 0x81;
+    g_cpe_entries[3].type = DPOE_CPE_MAC_DYNAMIC;
+    g_cpe_entries[3].age_time = 7200; /* 2 hours */
+    
+    g_dynamic_cpe_count = 2;
 }
 
 /**
@@ -417,7 +525,7 @@ int epon_hal_get_llid_info(epon_llid_list_t *llid_list) {
     
     /* Allocate LLID array */
     llid_list->max_llid_count = g_llid_list.max_llid_count;
-    llid_list->llid_count = g_llid_list.llid_count;
+    llid_list->llid_count = g_llid_count;
     
     if (llid_list->llid_count > 0) {
         llid_list->llid_list = (epon_llid_info_t *)malloc(llid_list->llid_count * sizeof(epon_llid_info_t));
@@ -425,18 +533,8 @@ int epon_hal_get_llid_info(epon_llid_list_t *llid_list) {
             return EPON_HAL_ERROR_MEMORY;
         }
         
-        /* Fill default LLID info */
-        llid_list->llid_list[0].llid_value = 1;
-        llid_list->llid_list[0].mode = EPON_LLID_MODE_UNICAST;
-        llid_list->llid_list[0].state = EPON_LLID_STATE_REGISTERED;
-        llid_list->llid_list[0].forwarding_state = EPON_LLID_FORWARDING_ENABLED;
-        llid_list->llid_list[0].encryption_enabled = true;
-        llid_list->llid_list[0].local_mac_address[0] = 0x00;
-        llid_list->llid_list[0].local_mac_address[1] = 0x11;
-        llid_list->llid_list[0].local_mac_address[2] = 0x22;
-        llid_list->llid_list[0].local_mac_address[3] = 0x33;
-        llid_list->llid_list[0].local_mac_address[4] = 0x44;
-        llid_list->llid_list[0].local_mac_address[5] = 0x55;
+        /* Copy all LLID entries */
+        memcpy(llid_list->llid_list, g_llid_entries, llid_list->llid_count * sizeof(epon_llid_info_t));
     }
     
     return EPON_HAL_SUCCESS;
@@ -578,11 +676,22 @@ int dpoe_hal_get_cpe_mac_table(dpoe_cpe_mac_table_t *cpe_table) {
         return EPON_HAL_ERROR_NOT_INITIALIZED;
     }
     
-    /* Return empty table for now */
+    /* Populate CPE table */
     cpe_table->max_cpe = 32;
-    cpe_table->static_cpe_count = 0;
-    cpe_table->dynamic_cpe_count = 0;
-    cpe_table->cpe_list = NULL;
+    cpe_table->static_cpe_count = g_static_cpe_count;
+    cpe_table->dynamic_cpe_count = g_dynamic_cpe_count;
+    
+    /* Allocate and copy CPE entries */
+    uint32_t total_cpe = g_static_cpe_count + g_dynamic_cpe_count;
+    if (total_cpe > 0) {
+        cpe_table->cpe_list = (dpoe_cpe_mac_entry_t *)malloc(total_cpe * sizeof(dpoe_cpe_mac_entry_t));
+        if (!cpe_table->cpe_list) {
+            return EPON_HAL_ERROR_MEMORY;
+        }
+        memcpy(cpe_table->cpe_list, g_cpe_entries, total_cpe * sizeof(dpoe_cpe_mac_entry_t));
+    } else {
+        cpe_table->cpe_list = NULL;
+    }
     
     return EPON_HAL_SUCCESS;
 }
