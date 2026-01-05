@@ -52,11 +52,8 @@ typedef struct {
 static rbusHandle_t g_rbus_handle = NULL;
 static int g_param_count = 0;
 static llid_instance_t g_llid_instances[MAX_LLID_INSTANCES] = {{0}};
-static pthread_mutex_t g_llid_table_mutex = PTHREAD_MUTEX_INITIALIZER;
 static cpe_instance_t g_cpe_instances[MAX_CPE_INSTANCES] = {{0}};
-static pthread_mutex_t g_cpe_table_mutex = PTHREAD_MUTEX_INITIALIZER;
 static veip_instance_t g_veip_instances[MAX_VEIP_INSTANCES] = {{0}};
-static pthread_mutex_t g_veip_table_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Forward declarations for handlers */
 static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
@@ -214,11 +211,8 @@ int eponMgr_tr181_register_llid_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_llid_table_mutex);
-
     /* Check if already registered */
     if (g_llid_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_DEBUG("LLID instance %u already registered\n", instance);
         return 0;
     }
@@ -229,7 +223,6 @@ int eponMgr_tr181_register_llid_instance(uint32_t instance) {
 
     rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_ERROR("Failed to register LLID table row %u: %d\n", instance, rc);
         return -1;
     }
@@ -238,7 +231,6 @@ int eponMgr_tr181_register_llid_instance(uint32_t instance) {
     g_llid_instances[instance - 1].instance = instance;
     g_llid_instances[instance - 1].registered = true;
 
-    pthread_mutex_unlock(&g_llid_table_mutex);
     EPONMGR_LOG_INFO("Registered LLID table row %u\n", instance);
     return 0;
 }
@@ -255,11 +247,8 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_llid_table_mutex);
-
     /* Check if registered */
     if (!g_llid_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_DEBUG("LLID instance %u not registered\n", instance);
         return 0;
     }
@@ -270,7 +259,6 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
 
     rbusError_t rc = rbusTable_unregisterRow(g_rbus_handle, row_name);
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_llid_table_mutex);
         EPONMGR_LOG_ERROR("Failed to unregister LLID table row %u: %d\n", instance, rc);
         return -1;
     }
@@ -279,7 +267,6 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
     g_llid_instances[instance - 1].registered = false;
     g_llid_instances[instance - 1].instance = 0;
 
-    pthread_mutex_unlock(&g_llid_table_mutex);
     EPONMGR_LOG_INFO("Unregistered LLID table row %u\n", instance);
     return 0;
 }
@@ -350,11 +337,8 @@ int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_cpe_table_mutex);
-
     /* Check if already registered */
     if (g_cpe_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_cpe_table_mutex);
         EPONMGR_LOG_DEBUG("CPE instance %u already registered\n", instance);
         return 0;
     }
@@ -365,7 +349,6 @@ int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
 
     rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_cpe_table_mutex);
         EPONMGR_LOG_ERROR("Failed to register CPE table row %u: %d\n", instance, rc);
         return -1;
     }
@@ -374,7 +357,6 @@ int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
     g_cpe_instances[instance - 1].instance = instance;
     g_cpe_instances[instance - 1].registered = true;
 
-    pthread_mutex_unlock(&g_cpe_table_mutex);
     EPONMGR_LOG_INFO("Registered CPE table row %u\n", instance);
     return 0;
 }
@@ -391,11 +373,8 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
         return -1;
     }
 
-    pthread_mutex_lock(&g_cpe_table_mutex);
-
     /* Check if registered */
     if (!g_cpe_instances[instance - 1].registered) {
-        pthread_mutex_unlock(&g_cpe_table_mutex);
         EPONMGR_LOG_DEBUG("CPE instance %u not registered\n", instance);
         return 0;
     }
@@ -406,7 +385,6 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
 
     rbusError_t rc = rbusTable_unregisterRow(g_rbus_handle, row_name);
     if (rc != RBUS_ERROR_SUCCESS) {
-        pthread_mutex_unlock(&g_cpe_table_mutex);
         EPONMGR_LOG_ERROR("Failed to unregister CPE table row %u: %d\n", instance, rc);
         return -1;
     }
@@ -415,7 +393,6 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
     g_cpe_instances[instance - 1].registered = false;
     g_cpe_instances[instance - 1].instance = 0;
 
-    pthread_mutex_unlock(&g_cpe_table_mutex);
     EPONMGR_LOG_INFO("Unregistered CPE table row %u\n", instance);
     return 0;
 }
