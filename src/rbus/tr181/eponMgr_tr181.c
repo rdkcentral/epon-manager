@@ -144,8 +144,8 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.OLT.VendorSpecificInfo", RBUS_ELEMENT_TYPE_PROPERTY, {olt_get_handler, NULL, NULL, NULL, NULL, NULL}},
 
     /* Phase 7.1: LLID Dynamic Table (table + count + row parameters) */
-    {TR181_BASE_PATH ".X_RDK_EPON.LLID.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.LLIDNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
+   // {TR181_BASE_PATH ".X_RDK_EPON.LLIDNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.LLID", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.Status", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.MACAddress", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
@@ -154,7 +154,7 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.ForwardingState", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
 
     /* Phase 7.2: DPoE/CPE Dynamic Table (table + stats + row parameters) */
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.MaxCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.StaticCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.DynamicCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
@@ -277,6 +277,7 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
  * @return 0 on success, -1 on failure
  */
 static int ensure_llid_instances_registered(void) {
+    EPONMGR_LOG_INFO("DEBUG Ensuring LLID instances are registered...\n");
     if (!g_rbus_handle) {
         return -1;
     }
@@ -288,25 +289,29 @@ static int ensure_llid_instances_registered(void) {
     }
 
     uint32_t llid_count = eponMgr_llid_list_count(eponData->llid_list);
-    
+    EPONMGR_LOG_INFO("DEBUG Ensuring LLID instances are registered... Count: %u\n", llid_count);
     /* Register LLID instances (1-based indexing) */
     for (uint32_t i = 0; i < llid_count && i < MAX_LLID_INSTANCES; i++) {
         uint32_t instance = i + 1;
         if (!g_llid_instances[instance - 1].registered) {
             epon_llid_info_t llid_info;
             if (eponMgr_llid_list_get_at(eponData->llid_list, i, &llid_info) == 0) {
+                
                 /* Register this LLID instance */
                 char row_name[256];
-                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.", instance);
+                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.LLID.");
                 rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
+                EPONMGR_LOG_INFO("DEBUG  LLID instances  registering %s ... Instance: %u\n", row_name, instance );
                 if (rc == RBUS_ERROR_SUCCESS) {
                     g_llid_instances[instance - 1].instance = instance;
                     g_llid_instances[instance - 1].registered = true;
-                    EPONMGR_LOG_DEBUG("Registered LLID table row %u on-demand\n", instance);
+                    EPONMGR_LOG_INFO("Registered LLID table row %u on-demand\n", instance);
+                } else {
+                    EPONMGR_LOG_ERROR("Failed to register LLID table row %u: %d (Row Name: %s)\n", instance, rc, row_name);
                 }
             }
         }
-    }
+    }   
 
     eponMgr_data_unlock();
     return 0;
@@ -422,7 +427,7 @@ static int ensure_cpe_instances_registered(void) {
             if (eponMgr_cpe_list_get_at(eponData->cpe_list, i, &cpe_entry) == 0) {
                 /* Register this CPE instance */
                 char row_name[256];
-                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.", instance);
+                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.");
                 rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
                 if (rc == RBUS_ERROR_SUCCESS) {
                     g_cpe_instances[instance - 1].instance = instance;
@@ -1071,7 +1076,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
+    EPONMGR_LOG_INFO("TR-181 GET: %s\n", param_name);
 
     /* Sync LLID data from HAL to ensure cache is current
      * Safe now that sync functions don't call back into data APIs */
@@ -1081,6 +1086,8 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
         EPONMGR_LOG_WARN("Failed to sync LLID info from HAL, using cached data\n");
         /* Continue with cached data */
     }
+
+        EPONMGR_LOG_INFO("TR-181 GET: %s DEBUG\n", param_name);
 
     /* Ensure all LLID instances are registered after syncing fresh data */
     ensure_llid_instances_registered();

@@ -335,7 +335,7 @@ static void print_stats_table(const epon_hal_link_stats_t *link_stats,
     snprintf(line, sizeof(line), "%-79s", "                          LINK STATISTICS                            ");
     EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
     
-    snprintf(line, sizeof(line), "%-79s", "  ───────────────────────────────────────────────────────────────────  ");
+    snprintf(line, sizeof(line), "%-79s", "  ───────────────────────────────────────────────────────────────────          ");
     EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
     
     snprintf(line, sizeof(line), "   %-32s : %20llu %-20s", "Bytes Sent (TX)", 
@@ -412,7 +412,7 @@ static void print_stats_table(const epon_hal_link_stats_t *link_stats,
     snprintf(line, sizeof(line), "%-79s", "                       TRANSCEIVER STATISTICS                        ");
     EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
     
-    snprintf(line, sizeof(line), "%-79s", "  ───────────────────────────────────────────────────────────────────  ");
+    snprintf(line, sizeof(line), "%-79s", "  ───────────────────────────────────────────────────────────────────          ");
     EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
     
     snprintf(line, sizeof(line), "   %-32s : %20.2f %-20s", "Optical Signal Level (RX)", 
@@ -441,7 +441,7 @@ static void print_stats_table(const epon_hal_link_stats_t *link_stats,
     
     snprintf(line, sizeof(line), "   %-32s : %20.2f %-20s", "Transceiver Temperature", 
              transceiver_stats->temperature, "°C");
-    EPONMGR_LOG_INFO("%s%-79s%s\n", box_v, line, box_v);
+    EPONMGR_LOG_INFO("%s%-80s%s\n", box_v, line, box_v);
     
     snprintf(line, sizeof(line), "   %-32s : %20.3f %-20s", "Supply Voltage", 
              transceiver_stats->supply_voltage, "V");
@@ -457,31 +457,31 @@ static void print_stats_table(const epon_hal_link_stats_t *link_stats,
     snprintf(line, sizeof(line), "%-79s", "                        VEIP INTERFACE LIST                         ");
     EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
     
-    snprintf(line, sizeof(line), "%-79s", "  ───────────────────────────────────────────────────────────────────  ");
+    snprintf(line, sizeof(line), "%-79s", "  ───────────────────────────────────────────────────────────────────          ");
     EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
     
     if (if_list && if_list->interface_count > 0) {
         snprintf(line, sizeof(line), "   Total Interfaces: %-57u", if_list->interface_count);
         EPONMGR_LOG_INFO("%s%-79s%s\n", box_v, line, box_v);
         
-        snprintf(line, sizeof(line), "%-79s", "   ┌──────┬──────────────────────────────┬──────────┐                  ");
+        snprintf(line, sizeof(line), "%-79s", "   ┌──────┬──────────────────────────────┬──────────┐                          ");
         EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
         
-        snprintf(line, sizeof(line), "%-79s", "   │ Idx  │ Interface Name               │ Status   │                  ");
+        snprintf(line, sizeof(line), "%-79s", "   │ Idx  │ Interface Name               │ Status   │                          ");
         EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
         
-        snprintf(line, sizeof(line), "%-79s", "   ├──────┼──────────────────────────────┼──────────┤                  ");
+        snprintf(line, sizeof(line), "%-79s", "   ├──────┼──────────────────────────────┼──────────┤                          ");
         EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
         
         for (uint32_t i = 0; i < if_list->interface_count; i++) {
             const char *status_str = (if_list->interface[i].status == EPON_ONU_INTF_STATUS_LINK_UP) 
                                      ? "UP" : "DOWN";
-            snprintf(line, sizeof(line), "   │ %2u   │ %-28s │ %-8s │                  ", i + 1,
+            snprintf(line, sizeof(line), "   │ %2u   │ %-28s │ %-8s │                         ", i + 1,
                     if_list->interface[i].name, status_str);
-            EPONMGR_LOG_INFO("%s%-79s%s\n", box_v, line, box_v);
+            EPONMGR_LOG_INFO("%s%-81s%s\n", box_v, line, box_v);
         }
         
-        snprintf(line, sizeof(line), "%-79s", "   └──────┴──────────────────────────────┴──────────┘                  ");
+        snprintf(line, sizeof(line), "%-79s", "   └──────┴──────────────────────────────┴──────────┘                          ");
         EPONMGR_LOG_INFO("%s%s%s\n", box_v, line, box_v);
     } else {
         snprintf(line, sizeof(line), "%-79s", "   No interfaces configured                                            ");
