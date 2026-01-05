@@ -79,10 +79,14 @@ static void init_default_data(void) {
     g_olt_info.vendor_oui[1] = 0x01;
     g_olt_info.vendor_oui[2] = 0x02;
     
-    /* Default interface list - single interface */
-    g_interface_list.interface_count = 1;
+    /* Default interface list - use static array from structure */
+    memset(&g_interface_list, 0, sizeof(g_interface_list));
+    
+    /* Add initial veip0 interface */
     strncpy(g_interface_list.interface[0].name, "veip0", EPON_HAL_INTERFACE_NAME_LEN - 1);
+    g_interface_list.interface[0].name[EPON_HAL_INTERFACE_NAME_LEN - 1] = '\0';
     g_interface_list.interface[0].status = EPON_ONU_INTF_STATUS_LINK_UP;
+    g_interface_list.interface_count = 1;
     
     /* Default LLID list */
     g_llid_list.max_llid_count = 8;
@@ -134,6 +138,32 @@ static void process_command(const char *cmd) {
         
         int status = atoi(if_status);
         printf("EPON HAL Mock: Processing INTERFACE command: %s, status=%d\n", if_name, status);
+        
+        /* Update local mock data - find existing or add new interface */
+        int found_index = -1;
+        for (uint32_t i = 0; i < g_interface_list.interface_count; i++) {
+            if (strncmp(g_interface_list.interface[i].name, if_name, EPON_HAL_INTERFACE_NAME_LEN) == 0) {
+                found_index = i;
+                break;
+            }
+        }
+        
+        if (found_index >= 0) {
+            /* Update existing interface */
+            g_interface_list.interface[found_index].status = (epon_interface_link_status_t)status;
+            printf("EPON HAL Mock: Updated interface[%d].status to %d\n", found_index, status);
+        } else if (g_interface_list.interface_count < EPON_HAL_MAX_INTERFACES) {
+            /* Add new interface */
+            uint32_t new_index = g_interface_list.interface_count;
+            strncpy(g_interface_list.interface[new_index].name, if_name, EPON_HAL_INTERFACE_NAME_LEN - 1);
+            g_interface_list.interface[new_index].name[EPON_HAL_INTERFACE_NAME_LEN - 1] = '\0';
+            g_interface_list.interface[new_index].status = (epon_interface_link_status_t)status;
+            g_interface_list.interface_count++;
+            printf("EPON HAL Mock: Added new interface[%u] '%s' with status %d\n", new_index, if_name, status);
+        } else {
+            printf("EPON HAL Mock: Cannot add interface '%s' - max interfaces (%u) reached\n", if_name, EPON_HAL_MAX_INTERFACES);
+            return;
+        }
         
         if (g_initialized && g_config.interface_status_callback) {
             epon_onu_interface_info_t info;

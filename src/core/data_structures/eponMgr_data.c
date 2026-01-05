@@ -184,8 +184,8 @@ int eponMgr_data_get_link_stats(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Try stored data first
-    if (eponMgr_statsData_get_link_stats(eponData->stats_data, stats) == 0) {
+    // Try stored data first - returns true if cache is valid
+    if (eponMgr_statsData_get_link_stats(eponData->stats_data, stats)) {
         pthread_mutex_unlock(&eponData->mutex);
         EPONMGR_LOG_INFO("Link statistics retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Data available
