@@ -13,6 +13,98 @@
 #include <unistd.h>
 
 /**
+ * @brief Print collected statistics in table format
+ * @param link_stats Pointer to link statistics structure
+ * @param transceiver_stats Pointer to transceiver statistics structure
+ * @param if_list Pointer to interface list structure
+ */
+static void print_stats_table(const epon_hal_link_stats_t *link_stats,
+                              const epon_hal_transceiver_stats_t *transceiver_stats,
+                              const epon_interface_list_t *if_list) {
+    EPONMGR_LOG_INFO("================================================================================\n");
+    EPONMGR_LOG_INFO("                         EPON STATISTICS REPORT                              \n");
+    EPONMGR_LOG_INFO("================================================================================\n");
+    
+    /* Link Statistics Section */
+    EPONMGR_LOG_INFO("\nLINK STATISTICS\n");
+    EPONMGR_LOG_INFO("  %-40s : %llu bytes\n", "Bytes Sent (TX)",
+                     (unsigned long long)link_stats->bytes_sent);
+    EPONMGR_LOG_INFO("  %-40s : %llu bytes\n", "Bytes Received (RX)",
+                     (unsigned long long)link_stats->bytes_received);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Packets Sent",
+                     (unsigned long long)link_stats->packets_sent);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Packets Received",
+                     (unsigned long long)link_stats->packets_received);
+    EPONMGR_LOG_INFO("  %-40s : %llu\n", "Errors Sent",
+                     (unsigned long long)link_stats->errors_sent);
+    EPONMGR_LOG_INFO("  %-40s : %llu\n", "Errors Received",
+                     (unsigned long long)link_stats->errors_received);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Discard Packets Sent",
+                     (unsigned long long)link_stats->discard_packets_sent);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Discard Packets Received",
+                     (unsigned long long)link_stats->discard_packets_received);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Broadcast Packets Sent",
+                     (unsigned long long)link_stats->broadcast_packets_sent);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Broadcast Packets Received",
+                     (unsigned long long)link_stats->broadcast_packets_received);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Multicast Packets Sent",
+                     (unsigned long long)link_stats->multicast_packets_sent);
+    EPONMGR_LOG_INFO("  %-40s : %llu packets\n", "Multicast Packets Received",
+                     (unsigned long long)link_stats->multicast_packets_received);
+    EPONMGR_LOG_INFO("  %-40s : %u Mbps\n", "Max Bit Rate",
+                     link_stats->max_bit_rate);
+    EPONMGR_LOG_INFO("  %-40s : %llu\n", "FEC Corrected Bits",
+                     (unsigned long long)link_stats->fec_corrected);
+    EPONMGR_LOG_INFO("  %-40s : %llu\n", "FEC Uncorrectable Codewords",
+                     (unsigned long long)link_stats->fec_uncorrectable);
+    EPONMGR_LOG_INFO("  %-40s : %llu\n", "Ranging Resyncs",
+                     (unsigned long long)link_stats->ranging_resyncs);
+    EPONMGR_LOG_INFO("  %-40s : %llu\n", "MAC Resets",
+                     (unsigned long long)link_stats->mac_resets);
+    
+    /* Transceiver Statistics Section */
+    EPONMGR_LOG_INFO("\nTRANSCEIVER STATISTICS\n");
+    EPONMGR_LOG_INFO("  %-40s : %.2f dBm\n", "Optical Signal Level (RX Power)",
+                     transceiver_stats->optical_signal_level);
+    EPONMGR_LOG_INFO("  %-40s : %.2f dBm\n", "Transmit Optical Level (TX Power)",
+                     transceiver_stats->transmit_optical_level);
+    EPONMGR_LOG_INFO("  %-40s : %.2f dBm\n", "Lower Optical Threshold",
+                     transceiver_stats->lower_optical_threshold);
+    EPONMGR_LOG_INFO("  %-40s : %.2f dBm\n", "Upper Optical Threshold",
+                     transceiver_stats->upper_optical_threshold);
+    EPONMGR_LOG_INFO("  %-40s : %.2f dBm\n", "Lower Transmit Power Threshold",
+                     transceiver_stats->lower_transmit_power_threshold);
+    EPONMGR_LOG_INFO("  %-40s : %.2f dBm\n", "Upper Transmit Power Threshold",
+                     transceiver_stats->upper_transmit_power_threshold);
+    EPONMGR_LOG_INFO("  %-40s : %.2f °C\n", "Transceiver Temperature",
+                     transceiver_stats->temperature);
+    EPONMGR_LOG_INFO("  %-40s : %.3f V\n", "Supply Voltage",
+                     transceiver_stats->supply_voltage);
+    EPONMGR_LOG_INFO("  %-40s : %.2f mA\n", "Laser Bias Current",
+                     transceiver_stats->bias_current);
+    
+    /* Interface List Section */
+    EPONMGR_LOG_INFO("\nVEIP INTERFACE LIST\n");
+    if (if_list && if_list->interface_count > 0) {
+        EPONMGR_LOG_INFO("  Total Interfaces: %u\n", if_list->interface_count);
+        EPONMGR_LOG_INFO("  %-4s %-30s %-10s\n", "Idx", "Interface Name", "Status");
+        EPONMGR_LOG_INFO("  %-4s %-30s %-10s\n", "---", "-----------------------------", "--------");
+        
+        for (uint32_t i = 0; i < if_list->interface_count; i++) {
+            const char *status_str = (if_list->interface[i].status == EPON_ONU_INTF_STATUS_LINK_UP) 
+                                     ? "UP" : "DOWN";
+            EPONMGR_LOG_INFO("  %-4u %-30s %-10s\n", i + 1, 
+                           if_list->interface[i].name, 
+                           status_str);
+        }
+    } else {
+        EPONMGR_LOG_INFO("  No interfaces configured\n");
+    }
+    
+    EPONMGR_LOG_INFO("================================================================================\n");
+}
+
+/**
  * @brief Collect and update all statistics
  * @param poller Pointer to stats poller structure
  * @return 0 on success, -1 on error
@@ -23,9 +115,15 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     }
     
     int errors = 0;
+    epon_hal_link_stats_t link_stats;
+    epon_hal_transceiver_stats_t transceiver_stats;
+    epon_interface_list_t if_list;
+    
+    memset(&link_stats, 0, sizeof(link_stats));
+    memset(&transceiver_stats, 0, sizeof(transceiver_stats));
+    memset(&if_list, 0, sizeof(if_list));
     
     /* Collect link statistics */
-    epon_hal_link_stats_t link_stats;
     if (eponMgr_data_get_link_stats(poller->eponData, &link_stats) == EPON_HAL_SUCCESS) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected link stats (TX: %llu bytes, RX: %llu bytes)\n",
                          (unsigned long long)link_stats.bytes_sent,
@@ -39,7 +137,6 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     }
     
     /* Collect transceiver statistics */
-    epon_hal_transceiver_stats_t transceiver_stats;
     if (eponMgr_data_get_transceiver_stats(poller->eponData, &transceiver_stats) == EPON_HAL_SUCCESS) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected transceiver stats (RX power: %.2f dBm, TX power: %.2f dBm)\n",
                          transceiver_stats.optical_signal_level,
@@ -51,6 +148,18 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect transceiver stats\n");
         errors++;
     }
+    
+    /* Collect interface list */
+    if (eponMgr_data_get_interface_list(poller->eponData, &if_list) == EPON_HAL_SUCCESS) {
+        EPONMGR_LOG_DEBUG("Stats poller: Collected interface list (%u interfaces)\n", 
+                         if_list.interface_count);
+    } else {
+        EPONMGR_LOG_WARN("Stats poller: Failed to collect interface list\n");
+        errors++;
+    }
+    
+    /* Print statistics in table format */
+    print_stats_table(&link_stats, &transceiver_stats, &if_list);
     
     return (errors > 0) ? -1 : 0;
 }

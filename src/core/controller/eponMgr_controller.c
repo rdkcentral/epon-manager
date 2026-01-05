@@ -636,3 +636,16 @@ void* eponMgr_controller_get_stats_poller(eponMgr_controller_t *controller) {
 eponMgr_controller_t* eponMgr_controller_get_instance(void) {
     return g_controller;
 }
+
+const eponMgr_persistence_t* eponMgr_controller_lock_persistence_config(void) {
+    if (!g_controller) return NULL;
+    
+    pthread_mutex_lock(&g_controller->mutex);
+    return g_controller->config;
+}
+
+void eponMgr_controller_unlock_persistence_config(void) {
+    if (!g_controller) return;
+    
+    pthread_mutex_unlock(&g_controller->mutex);
+}

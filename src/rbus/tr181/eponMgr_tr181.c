@@ -1416,7 +1416,7 @@ int eponMgr_tr181_unregister_veip_instance(uint32_t instance) {
  * Queries HAL for interface list, updates internal list, then syncs TR-181 table.
  */
 int eponMgr_tr181_sync_veip_table(void) {
-    EPONMGR_LOG_INFO("Entering eponMgr_tr181_sync_veip_table");
+    EPONMGR_LOG_INFO("Entering eponMgr_tr181_sync_veip_table\n");
 
     eponMgr_data_t *eponData = eponMgr_data_lock();
     if (!eponData || !eponData->interface_list) {
@@ -1527,31 +1527,39 @@ static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t 
     rbusValue_t value;
     rbusValue_Init(&value);
     
+    /* Lock and get persistent config which was loaded from PSM at startup */
+    const eponMgr_persistence_t *config = eponMgr_controller_lock_persistence_config();
+    if (!config) {
+        EPONMGR_LOG_WARN("Persistence config not available\n");
+        rbusValue_Release(value);
+        return RBUS_ERROR_BUS_ERROR;
+    }
+    
     if (strstr(param_name, ".Enable")) {
-        /* Read from PSM */
-        bool enabled = false;
-        if (eponMgr_psm_get_bool(PSM_EPON_STATS_POLLER_ENABLED, &enabled) != 0) {
-            /* Use default if PSM read fails */
-            enabled = false;
-        }
+        /* Read from persistent config which was loaded from PSM */
+        bool enabled = config->stats_poller_enabled;
+        EPONMGR_LOG_DEBUG("Stats poller enabled from config: %s\n", 
+                        enabled ? "true" : "false");
         rbusValue_SetBoolean(value, enabled);
     }
     else if (strstr(param_name, ".PollingInterval")) {
-        /* Read from PSM */
-        uint32_t interval = 900;
-        if (eponMgr_psm_get_uint(PSM_EPON_STATS_POLLER_INTERVAL, &interval) != 0) {
-            /* Use default if PSM read fails */
-            interval = 900;
-        }
+        /* Read from persistent config which was loaded from PSM */
+        uint32_t interval = config->stats_poller_interval_seconds;
+        EPONMGR_LOG_DEBUG("Stats poller interval from config: %u seconds\n", interval);
         rbusValue_SetUInt32(value, interval);
     }
     else {
         rbusValue_Release(value);
+        eponMgr_controller_unlock_persistence_config();
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
+    
+    /* Unlock after we're done reading config */
+    eponMgr_controller_unlock_persistence_config();
+    
     return RBUS_ERROR_SUCCESS;
 }
 

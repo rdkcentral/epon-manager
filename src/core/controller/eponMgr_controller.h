@@ -15,6 +15,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "eponMgr_persistence.h"
 
 /**
  * @brief Controller context
@@ -85,5 +86,23 @@ void* eponMgr_controller_get_stats_poller(eponMgr_controller_t *controller);
  * @return Pointer to controller context, NULL if not initialized
  */
 eponMgr_controller_t* eponMgr_controller_get_instance(void);
+
+/**
+ * @brief Lock and get persistent configuration from controller
+ * 
+ * Acquires the controller mutex and returns the persistence configuration.
+ * Caller MUST call eponMgr_controller_unlock_persistence_config() when done.
+ * 
+ * @return Pointer to persistence configuration, NULL if not initialized
+ * @note Caller must call unlock to release the mutex
+ */
+const eponMgr_persistence_t* eponMgr_controller_lock_persistence_config(void);
+
+/**
+ * @brief Release the lock on persistent configuration
+ * 
+ * Releases the mutex acquired by eponMgr_controller_lock_persistence_config().
+ */
+void eponMgr_controller_unlock_persistence_config(void);
 
 #endif /* EPONMGR_CONTROLLER_H */
