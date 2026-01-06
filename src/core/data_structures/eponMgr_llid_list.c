@@ -56,6 +56,7 @@ int eponMgr_llid_list_update(eponMgr_llid_list_t *list, const epon_llid_info_t *
         }
     }
     
+    EPONMGR_LOG_INFO("Adding new LLID entry: %u\n", llid_info->llid_value);
     // Add new LLID - need to realloc
     if (list->llid_list.llid_count >= list->llid_list.max_llid_count) {
         pthread_mutex_unlock(&list->mutex);
@@ -85,6 +86,7 @@ int eponMgr_llid_list_remove(eponMgr_llid_list_t *list, uint16_t llid_value)
     // Find and remove LLID
     for (uint32_t i = 0; i < list->llid_list.llid_count; i++) {
         if (list->llid_list.llid_list[i].llid_value == llid_value) {
+            EPONMGR_LOG_INFO("Removing LLID entry: %u\n", llid_value);
             // Shift remaining elements
             for (uint32_t j = i; j < list->llid_list.llid_count - 1; j++) {
                 list->llid_list.llid_list[j] = list->llid_list.llid_list[j + 1];

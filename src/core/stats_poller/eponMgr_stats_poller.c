@@ -476,9 +476,9 @@ static void print_stats_table(const epon_hal_link_stats_t *link_stats,
         for (uint32_t i = 0; i < if_list->interface_count; i++) {
             const char *status_str = (if_list->interface[i].status == EPON_ONU_INTF_STATUS_LINK_UP) 
                                      ? "UP" : "DOWN";
-            snprintf(line, sizeof(line), "   │ %2u   │ %-28s │ %-8s │                         ", i + 1,
+            snprintf(line, sizeof(line), "   │ %2u   │ %-28s │ %-8s │                          ", i + 1,
                     if_list->interface[i].name, status_str);
-            EPONMGR_LOG_INFO("%s%-81s%s\n", box_v, line, box_v);
+            EPONMGR_LOG_INFO("%s%-79s%s\n", box_v, line, box_v);
         }
         
         snprintf(line, sizeof(line), "%-79s", "   └──────┴──────────────────────────────┴──────────┘                          ");

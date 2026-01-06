@@ -11,10 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-// Cache key prefixes
-#define CACHE_KEY_LINK_STATS        "link_stats"
-#define CACHE_KEY_TRANSCEIVER_STATS "transceiver_stats"
-
 // Global EPON data context
 static eponMgr_data_t *g_eponData = NULL;
 
@@ -180,14 +176,12 @@ int eponMgr_data_get_link_stats(eponMgr_data_t *eponData,
 {
     if (!eponData || !stats) return EPON_HAL_ERROR_INVALID_PARAM;
     
-    EPONMGR_LOG_INFO("Getting link statistics\n");
-    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try stored data first - returns true if cache is valid
     if (eponMgr_statsData_get_link_stats(eponData->stats_data, stats)) {
         pthread_mutex_unlock(&eponData->mutex);
-        EPONMGR_LOG_INFO("Link statistics retrieved from cache\n");
+        EPONMGR_LOG_DEBUG("Link statistics retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Data available
     }
     
@@ -211,14 +205,12 @@ int eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData,
 {
     if (!eponData || !stats) return EPON_HAL_ERROR_INVALID_PARAM;
     
-    EPONMGR_LOG_INFO("Getting transceiver statistics\n");
-    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try stored data first
     if (eponMgr_statsData_get_transceiver_stats(eponData->stats_data, stats)) {
         pthread_mutex_unlock(&eponData->mutex);
-        EPONMGR_LOG_INFO("Transceiver statistics retrieved from cache\n");
+        EPONMGR_LOG_DEBUG("Transceiver statistics retrieved from cache\n");
         return EPON_HAL_SUCCESS;
     }
     
@@ -242,33 +234,18 @@ int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
 {
     if (!eponData || !llid_list) return EPON_HAL_ERROR_INVALID_PARAM;
     
-    EPONMGR_LOG_INFO("Getting LLID information\n");
+    EPONMGR_LOG_DEBUG("Getting LLID information\n");
     
     pthread_mutex_lock(&eponData->mutex);
     
     // Call HAL to get current LLID list
     int ret = epon_hal_get_llid_info(llid_list);
     if (ret == EPON_HAL_SUCCESS) {
-        // Check if LLID list has changed
-        uint32_t old_count = eponMgr_llid_list_count(eponData->llid_list);
-        bool changed = (old_count != llid_list->llid_count);
-        
         // Update internal LLID list data structure
         eponMgr_llid_list_clear(eponData->llid_list);
         
         for (uint32_t i = 0; i < llid_list->llid_count; i++) {
-            int update_ret = eponMgr_llid_list_update(eponData->llid_list, &llid_list->llid_list[i]);
-            if (update_ret == 1) {
-                changed = true;  // New LLID added
-            }
-        }
-        
-        // Only sync TR-181 if LLID list changed
-        if (changed) {
-            pthread_mutex_unlock(&eponData->mutex);
-            EPONMGR_LOG_INFO("LLID list changed, updating TR-181\n");
-            eponMgr_tr181_sync_llid_table();
-            return ret;
+            eponMgr_llid_list_update(eponData->llid_list, &llid_list->llid_list[i]);
         }
     } else {
         EPONMGR_LOG_INFO("Failed to get LLID information from HAL\n");
@@ -326,14 +303,12 @@ int eponMgr_data_get_olt_info(eponMgr_data_t *eponData,
 {
     if (!eponData || !olt_info) return EPON_HAL_ERROR_INVALID_PARAM;
     
-    EPONMGR_LOG_INFO("Getting OLT information\n");
-    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try cached version first (validity flag, no TTL)
     if (eponMgr_onu_state_get_olt_info(eponData->onu_state, olt_info) == 0) {
         pthread_mutex_unlock(&eponData->mutex);
-        EPONMGR_LOG_INFO("OLT information retrieved from cache\n");
+        EPONMGR_LOG_DEBUG("OLT information retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Cache hit
     }
     
@@ -357,14 +332,12 @@ int eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData,
 {
     if (!eponData || !mfr_info) return EPON_HAL_ERROR_INVALID_PARAM;
     
-    EPONMGR_LOG_INFO("Getting ONU manufacturer information\n");
-    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try cached version first (validity flag, no TTL)
     if (eponMgr_onu_state_get_manufacturer_info(eponData->onu_state, mfr_info) == 0) {
         pthread_mutex_unlock(&eponData->mutex);
-        EPONMGR_LOG_INFO("ONU manufacturer information retrieved from cache\n");
+        EPONMGR_LOG_DEBUG("ONU manufacturer information retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Cache hit
     }
     
@@ -388,14 +361,12 @@ int eponMgr_data_get_link_info(eponMgr_data_t *eponData,
 {
     if (!eponData || !link_info) return EPON_HAL_ERROR_INVALID_PARAM;
     
-    EPONMGR_LOG_INFO("Getting link information\n");
-    
     pthread_mutex_lock(&eponData->mutex);
     
     // Try cached version first (validity flag, no TTL)
     if (eponMgr_onu_state_get_link_info(eponData->onu_state, link_info) == 0) {
         pthread_mutex_unlock(&eponData->mutex);
-        EPONMGR_LOG_INFO("Link information retrieved from cache\n");
+        EPONMGR_LOG_DEBUG("Link information retrieved from cache\n");
         return EPON_HAL_SUCCESS;  // Cache hit
     }
     
@@ -436,12 +407,7 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
 {
     if (!eponData || !cpe_table) return EPON_HAL_ERROR_INVALID_PARAM;
     
-    EPONMGR_LOG_INFO("Getting CPE MAC address table\n");
-    
     pthread_mutex_lock(&eponData->mutex);
-    
-    /* Save old count for change detection */
-    uint32_t old_count = eponMgr_cpe_list_count(eponData->cpe_list);
     
     /* Clear list before populating with fresh data */
     eponMgr_cpe_list_clear(eponData->cpe_list);
@@ -449,28 +415,13 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
     // Call HAL to get current CPE table
     int ret = dpoe_hal_get_cpe_mac_table(cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
-        EPONMGR_LOG_INFO("Retrieved CPE MAC table: %u static, %u dynamic entries\n",
+        EPONMGR_LOG_DEBUG("Retrieved CPE MAC table: %u static, %u dynamic entries\n",
                         cpe_table->static_cpe_count, cpe_table->dynamic_cpe_count);
         // Update internal CPE list data structure
-        bool has_new_cpes = false;
         uint32_t total = cpe_table->static_cpe_count + cpe_table->dynamic_cpe_count;
         
         for (uint32_t i = 0; i < total; i++) {
-            int update_ret = eponMgr_cpe_list_update(eponData->cpe_list, &cpe_table->cpe_list[i]);
-            if (update_ret == 1) {
-                has_new_cpes = true;  /* New CPE added */
-            }
-        }
-        
-        /* Get new count */
-        uint32_t new_count = eponMgr_cpe_list_count(eponData->cpe_list);
-        
-        /* Only sync if count changed or new CPEs added */
-        if (new_count != old_count || has_new_cpes) {
-            pthread_mutex_unlock(&eponData->mutex);
-            EPONMGR_LOG_INFO("CPE table changed, updating TR-181\n");
-            eponMgr_tr181_sync_cpe_table();
-            return ret;
+            eponMgr_cpe_list_update(eponData->cpe_list, &cpe_table->cpe_list[i]);
         }
     } else {
         EPONMGR_LOG_INFO("Failed to get CPE MAC table from HAL\n");

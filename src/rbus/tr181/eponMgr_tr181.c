@@ -144,8 +144,8 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.OLT.VendorSpecificInfo", RBUS_ELEMENT_TYPE_PROPERTY, {olt_get_handler, NULL, NULL, NULL, NULL, NULL}},
 
     /* Phase 7.1: LLID Dynamic Table (table + count + row parameters) */
+    {TR181_BASE_PATH ".X_RDK_EPON.LLIDNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
-   // {TR181_BASE_PATH ".X_RDK_EPON.LLIDNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.LLID", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.Status", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.MACAddress", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
@@ -154,14 +154,20 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.ForwardingState", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
 
     /* Phase 7.2: DPoE/CPE Dynamic Table (table + stats + row parameters) */
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.MaxCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.StaticCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.DynamicCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPENumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.MACAddress", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.Type", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.AgeTime", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+
+    /* Phase 7.3: VEIP Interface Dynamic Table (table + count + row parameters) */
+    {TR181_BASE_PATH ".X_RDK_EPON.VEIP_InterfaceNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {veip_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.{i}.Name", RBUS_ELEMENT_TYPE_PROPERTY, {veip_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.{i}.Status", RBUS_ELEMENT_TYPE_PROPERTY, {veip_table_handler, NULL, NULL, NULL, NULL, NULL}},
 
     /* Stats Poller Configuration (2 parameters) */
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.Enable", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
@@ -196,88 +202,20 @@ int eponMgr_tr181_init(rbusHandle_t handle) {
     /* Sync CPE table to register any existing CPEs */
     eponMgr_tr181_sync_cpe_table();
     
+    /* Sync VEIP Interface table to register any existing interfaces */
+    eponMgr_tr181_sync_veip_table();
+    
     return 0;
 }
 
-/**
- * @brief Register a single LLID instance dynamically using RBUS table API
- * 
- * @param instance 1-based LLID instance number (1-32)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_register_llid_instance(uint32_t instance) {
-    if (!g_rbus_handle || instance == 0 || instance > MAX_LLID_INSTANCES) {
-        EPONMGR_LOG_ERROR("Invalid LLID instance: %u\n", instance);
-        return -1;
-    }
 
-    /* Check if already registered */
-    if (g_llid_instances[instance - 1].registered) {
-        EPONMGR_LOG_DEBUG("LLID instance %u already registered\n", instance);
-        return 0;
-    }
-
-    /* Use RBUS table API to register row */
-    char row_name[256];
-    snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.", instance);
-
-    rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
-    if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to register LLID table row %u: %d\n", instance, rc);
-        return -1;
-    }
-
-    /* Mark as registered */
-    g_llid_instances[instance - 1].instance = instance;
-    g_llid_instances[instance - 1].registered = true;
-
-    EPONMGR_LOG_INFO("Registered LLID table row %u\n", instance);
-    return 0;
-}
-
-/**
- * @brief Unregister a single LLID instance dynamically using RBUS table API
- * 
- * @param instance 1-based LLID instance number (1-32)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_unregister_llid_instance(uint32_t instance) {
-    if (!g_rbus_handle || instance == 0 || instance > MAX_LLID_INSTANCES) {
-        EPONMGR_LOG_ERROR("Invalid LLID instance: %u\n", instance);
-        return -1;
-    }
-
-    /* Check if registered */
-    if (!g_llid_instances[instance - 1].registered) {
-        EPONMGR_LOG_DEBUG("LLID instance %u not registered\n", instance);
-        return 0;
-    }
-
-    /* Use RBUS table API to unregister row */
-    char row_name[256];
-    snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.LLID.%u.", instance);
-
-    rbusError_t rc = rbusTable_unregisterRow(g_rbus_handle, row_name);
-    if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to unregister LLID table row %u: %d\n", instance, rc);
-        return -1;
-    }
-
-    /* Mark as unregistered */
-    g_llid_instances[instance - 1].registered = false;
-    g_llid_instances[instance - 1].instance = 0;
-
-    EPONMGR_LOG_INFO("Unregistered LLID table row %u\n", instance);
-    return 0;
-}
 
 /**
  * @brief Ensure all LLID instances are registered (called from handlers on-demand)
  * 
  * @return 0 on success, -1 on failure
  */
-static int ensure_llid_instances_registered(void) {
-    EPONMGR_LOG_INFO("DEBUG Ensuring LLID instances are registered...\n");
+int eponMgr_tr181_sync_llid_table(void) {
     if (!g_rbus_handle) {
         return -1;
     }
@@ -289,7 +227,6 @@ static int ensure_llid_instances_registered(void) {
     }
 
     uint32_t llid_count = eponMgr_llid_list_count(eponData->llid_list);
-    EPONMGR_LOG_INFO("DEBUG Ensuring LLID instances are registered... Count: %u\n", llid_count);
     /* Register LLID instances (1-based indexing) */
     for (uint32_t i = 0; i < llid_count && i < MAX_LLID_INSTANCES; i++) {
         uint32_t instance = i + 1;
@@ -298,16 +235,13 @@ static int ensure_llid_instances_registered(void) {
             if (eponMgr_llid_list_get_at(eponData->llid_list, i, &llid_info) == 0) {
                 
                 /* Register this LLID instance */
-                char row_name[256];
-                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.LLID.");
-                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
-                EPONMGR_LOG_INFO("DEBUG  LLID instances  registering %s ... Instance: %u\n", row_name, instance );
+                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.LLID.", instance, NULL);
                 if (rc == RBUS_ERROR_SUCCESS) {
                     g_llid_instances[instance - 1].instance = instance;
                     g_llid_instances[instance - 1].registered = true;
-                    EPONMGR_LOG_INFO("Registered LLID table row %u on-demand\n", instance);
+                    EPONMGR_LOG_INFO("Registered LLID table row %s%u on-demand\n", TR181_BASE_PATH ".X_RDK_EPON.LLID.", instance);
                 } else {
-                    EPONMGR_LOG_ERROR("Failed to register LLID table row %u: %d (Row Name: %s)\n", instance, rc, row_name);
+                    EPONMGR_LOG_ERROR("Failed to register LLID table row %u: %d\n", instance, rc);
                 }
             }
         }
@@ -317,96 +251,14 @@ static int ensure_llid_instances_registered(void) {
     return 0;
 }
 
-/**
- * @brief Synchronize LLID table registrations with current LLID list from HAL
- * 
- * Queries HAL for current LLID info, updates internal list, then syncs TR-181 table.
- * Should be called when LLID list changes.
- * 
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_sync_llid_table(void) {
-    return ensure_llid_instances_registered();
-}
 
-/**
- * @brief Register a single CPE instance dynamically using RBUS table API
- * 
- * @param instance 1-based CPE instance number (1-256)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_register_cpe_instance(uint32_t instance) {
-    if (!g_rbus_handle || instance == 0 || instance > MAX_CPE_INSTANCES) {
-        EPONMGR_LOG_ERROR("Invalid CPE instance: %u\n", instance);
-        return -1;
-    }
-
-    /* Check if already registered */
-    if (g_cpe_instances[instance - 1].registered) {
-        EPONMGR_LOG_DEBUG("CPE instance %u already registered\n", instance);
-        return 0;
-    }
-
-    /* Use RBUS table API to register row */
-    char row_name[256];
-    snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.", instance);
-
-    rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
-    if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to register CPE table row %u: %d\n", instance, rc);
-        return -1;
-    }
-
-    /* Mark as registered */
-    g_cpe_instances[instance - 1].instance = instance;
-    g_cpe_instances[instance - 1].registered = true;
-
-    EPONMGR_LOG_INFO("Registered CPE table row %u\n", instance);
-    return 0;
-}
-
-/**
- * @brief Unregister a single CPE instance dynamically using RBUS table API
- * 
- * @param instance 1-based CPE instance number (1-256)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_unregister_cpe_instance(uint32_t instance) {
-    if (!g_rbus_handle || instance == 0 || instance > MAX_CPE_INSTANCES) {
-        EPONMGR_LOG_ERROR("Invalid CPE instance: %u\n", instance);
-        return -1;
-    }
-
-    /* Check if registered */
-    if (!g_cpe_instances[instance - 1].registered) {
-        EPONMGR_LOG_DEBUG("CPE instance %u not registered\n", instance);
-        return 0;
-    }
-
-    /* Use RBUS table API to unregister row */
-    char row_name[256];
-    snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.%u.", instance);
-
-    rbusError_t rc = rbusTable_unregisterRow(g_rbus_handle, row_name);
-    if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to unregister CPE table row %u: %d\n", instance, rc);
-        return -1;
-    }
-
-    /* Mark as unregistered */
-    g_cpe_instances[instance - 1].registered = false;
-    g_cpe_instances[instance - 1].instance = 0;
-
-    EPONMGR_LOG_INFO("Unregistered CPE table row %u\n", instance);
-    return 0;
-}
 
 /**
  * @brief Ensure all CPE instances are registered (called from handlers on-demand)
  * 
  * @return 0 on success, -1 on failure
  */
-static int ensure_cpe_instances_registered(void) {
+int eponMgr_tr181_sync_cpe_table(void) {
     if (!g_rbus_handle) {
         return -1;
     }
@@ -426,13 +278,11 @@ static int ensure_cpe_instances_registered(void) {
             dpoe_cpe_mac_entry_t cpe_entry;
             if (eponMgr_cpe_list_get_at(eponData->cpe_list, i, &cpe_entry) == 0) {
                 /* Register this CPE instance */
-                char row_name[256];
-                snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.");
-                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, row_name, instance, NULL);
+                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.", instance, NULL);
                 if (rc == RBUS_ERROR_SUCCESS) {
                     g_cpe_instances[instance - 1].instance = instance;
                     g_cpe_instances[instance - 1].registered = true;
-                    EPONMGR_LOG_DEBUG("Registered CPE table row %u on-demand\n", instance);
+                    EPONMGR_LOG_INFO("Registered CPE table row %s%u on-demand\n", TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.", instance);
                 }
             }
         }
@@ -440,18 +290,6 @@ static int ensure_cpe_instances_registered(void) {
 
     eponMgr_data_unlock();
     return 0;
-}
-
-/**
- * @brief Synchronize CPE table registrations with current CPE list from HAL
- * 
- * Queries HAL for current CPE MAC table, updates internal list, then syncs TR-181 table.
- * Should be called when CPE list changes.
- * 
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_sync_cpe_table(void) {
-    return ensure_cpe_instances_registered();
 }
 
 /**
@@ -465,21 +303,30 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle) {
     /* Unregister all dynamic VEIP instances */
     for (uint32_t i = 0; i < MAX_VEIP_INSTANCES; i++) {
         if (g_veip_instances[i].registered) {
-            eponMgr_tr181_unregister_veip_instance(i + 1);
+            char row_name[256];
+            snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.", i + 1);
+            rbusTable_unregisterRow(handle, row_name);
+            g_veip_instances[i].registered = false;
         }
     }
 
     /* Unregister all dynamic LLID instances */
     for (uint32_t i = 0; i < MAX_LLID_INSTANCES; i++) {
         if (g_llid_instances[i].registered) {
-            eponMgr_tr181_unregister_llid_instance(i + 1);
+            char row_name[256];
+            snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.LLID.");
+            rbusTable_unregisterRow(handle, row_name);
+            g_llid_instances[i].registered = false;
         }
     }
 
     /* Unregister all dynamic CPE instances */
     for (uint32_t i = 0; i < MAX_CPE_INSTANCES; i++) {
         if (g_cpe_instances[i].registered) {
-            eponMgr_tr181_unregister_cpe_instance(i + 1);
+            char row_name[256];
+            snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.");
+            rbusTable_unregisterRow(handle, row_name);
+            g_cpe_instances[i].registered = false;
         }
     }
 
@@ -1076,7 +923,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     rbusValue_t value;
     rbusValue_Init(&value);
     
-    EPONMGR_LOG_INFO("TR-181 GET: %s\n", param_name);
+    EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     /* Sync LLID data from HAL to ensure cache is current
      * Safe now that sync functions don't call back into data APIs */
@@ -1087,10 +934,8 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
         /* Continue with cached data */
     }
 
-        EPONMGR_LOG_INFO("TR-181 GET: %s DEBUG\n", param_name);
-
     /* Ensure all LLID instances are registered after syncing fresh data */
-    ensure_llid_instances_registered();
+    eponMgr_tr181_sync_llid_table();
 
     // Handle count parameter
     if (strstr(param_name, "LLIDNumberOfEntries")) {
@@ -1134,14 +979,15 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     }
 
     // Determine which LLID parameter is requested
-    if (strstr(param_name, ".LLID")) {
+    if (strcmp(param_name + strlen(param_name) - strlen(".LLID"), ".LLID") == 0) {
+        // Parameter ends with ".LLID"
         rbusValue_SetUInt32(value, llid_info.llid_value);
     }
-    else if (strstr(param_name, ".Status")) {
+    else if (strcmp(param_name + strlen(param_name) - strlen(".Status"), ".Status") == 0) {
         const char *status_str = llid_state_to_string(llid_info.state);
         rbusValue_SetString(value, status_str);
     }
-    else if (strstr(param_name, ".MACAddress")) {
+    else if (strcmp(param_name + strlen(param_name) - strlen(".MACAddress"), ".MACAddress") == 0) {
         char mac_str[24];
         snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
                  llid_info.local_mac_address[0], llid_info.local_mac_address[1],
@@ -1149,14 +995,14 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
                  llid_info.local_mac_address[4], llid_info.local_mac_address[5]);
         rbusValue_SetString(value, mac_str);
     }
-    else if (strstr(param_name, ".Mode")) {
+    else if (strcmp(param_name + strlen(param_name) - strlen(".Mode"), ".Mode") == 0) {
         const char *mode_str = (llid_info.mode == EPON_LLID_MODE_UNICAST) ? "Unicast" : "Broadcast";
         rbusValue_SetString(value, mode_str);
     }
-    else if (strstr(param_name, ".EncryptionEnabled")) {
+    else if (strcmp(param_name + strlen(param_name) - strlen(".EncryptionEnabled"), ".EncryptionEnabled") == 0) {
         rbusValue_SetBoolean(value, llid_info.encryption_enabled);
     }
-    else if (strstr(param_name, ".ForwardingState")) {
+    else if (strcmp(param_name + strlen(param_name) - strlen(".ForwardingState"), ".ForwardingState") == 0) {
         const char *fwd_str;
         if (llid_info.forwarding_state == EPON_LLID_FORWARDING_ENABLED) {
             fwd_str = "Enabled";
@@ -1209,7 +1055,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     }
 
     /* Ensure all CPE instances are registered after syncing fresh data */
-    ensure_cpe_instances_registered();
+    eponMgr_tr181_sync_cpe_table();
 
     // Handle DPoE statistics
     if (strstr(param_name, "MaxCPECount")) {
@@ -1282,7 +1128,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     }
 
     // Determine which CPE parameter is requested
-    if (strstr(param_name, ".MACAddress")) {
+    if (strcmp(param_name + strlen(param_name) - 11, ".MACAddress") == 0) {
         char mac_str[24];
         snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
                  cpe_entry.mac_address[0], cpe_entry.mac_address[1],
@@ -1290,13 +1136,13 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
                  cpe_entry.mac_address[4], cpe_entry.mac_address[5]);
         rbusValue_SetString(value, mac_str);
     }
-    else if (strstr(param_name, ".AddedTime")) {
+    else if (strcmp(param_name + strlen(param_name) - 9, ".AddedTime") == 0) {
         char time_str[32];
         time_t added_time = time(NULL) - cpe_entry.age_time;
         strftime(time_str, sizeof(time_str), "%Y-%m-%dT%H:%M:%S", localtime(&added_time));
         rbusValue_SetString(value, time_str);
     }
-    else if (strstr(param_name, ".Type")) {
+    else if (strcmp(param_name + strlen(param_name) - 5, ".Type") == 0) {
         const char *type_str = (cpe_entry.type == DPOE_CPE_MAC_STATIC) ? "Static" : "Dynamic";
         rbusValue_SetString(value, type_str);
     }
@@ -1311,134 +1157,47 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
  * VEIP Interface Dynamic Table Support (Phase 7.3)
  * ========================================================================== */
 
-/**
- * @brief Register a VEIP interface instance
- * @param instance 1-based instance number
- * @param name Interface name (e.g., "veip0")
- * @return 0 on success, -1 on error
- */
-int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name) {
-    if (instance == 0 || instance > MAX_VEIP_INSTANCES || !name) {
-        EPONMGR_LOG_ERROR("Invalid VEIP instance: %u or name: %p\n", instance, name);
-        return -1;
-    }
-    
-    uint32_t idx = instance - 1;
-    
-    // Check if already registered
-    if (g_veip_instances[idx].registered) {
-        EPONMGR_LOG_WARN("VEIP instance %u already registered\n", instance);
-        return 0;
-    }
-    
-    // Build parameter paths
-    char path[256];
-    rbusDataElement_t elements[2];
-    
-    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Name", instance);
-    elements[0].name = strdup(path);
-    elements[0].type = RBUS_ELEMENT_TYPE_PROPERTY;
-    elements[0].cbTable.getHandler = veip_table_handler;
-    elements[0].cbTable.setHandler = NULL;
-    
-    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Status", instance);
-    elements[1].name = strdup(path);
-    elements[1].type = RBUS_ELEMENT_TYPE_PROPERTY;
-    elements[1].cbTable.getHandler = veip_table_handler;
-    elements[1].cbTable.setHandler = NULL;
-    
-    rbusError_t rc = rbus_regDataElements(g_rbus_handle, 2, elements);
-    
-    free((void*)elements[0].name);
-    free((void*)elements[1].name);
-    
-    if (rc != RBUS_ERROR_SUCCESS) {
-        EPONMGR_LOG_ERROR("Failed to register VEIP instance %u: %d\n", instance, rc);
-        return -1;
-    }
-    
-    g_veip_instances[idx].instance = instance;
-    strncpy(g_veip_instances[idx].name, name, sizeof(g_veip_instances[idx].name) - 1);
-    g_veip_instances[idx].name[sizeof(g_veip_instances[idx].name) - 1] = '\0';
-    g_veip_instances[idx].registered = true;
-    
-    EPONMGR_LOG_INFO("Registered VEIP instance %u (%s)\n", instance, name);
-    return 0;
-}
 
-/**
- * @brief Unregister a VEIP interface instance
- */
-int eponMgr_tr181_unregister_veip_instance(uint32_t instance) {
-    if (instance == 0 || instance > MAX_VEIP_INSTANCES) return -1;
-    
-    uint32_t idx = instance - 1;
-    if (!g_veip_instances[idx].registered) {
-        return 0;
-    }
-    
-    char path[256];
-    rbusDataElement_t elements[2];
-    
-    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Name", instance);
-    elements[0].name = strdup(path);
-    snprintf(path, sizeof(path), TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u.Status", instance);
-    elements[1].name = strdup(path);
-    
-    rbus_unregDataElements(g_rbus_handle, 2, elements);
-    
-    free((void*)elements[0].name);
-    free((void*)elements[1].name);
-    
-    g_veip_instances[idx].registered = false;
-    g_veip_instances[idx].instance = 0;
-    memset(g_veip_instances[idx].name, 0, sizeof(g_veip_instances[idx].name));
-    
-    EPONMGR_LOG_INFO("Unregistered VEIP instance %u\n", instance);
-    return 0;
-}
 
 /**
  * @brief Synchronize VEIP interface table with HAL interface list
  * 
- * Queries HAL for interface list, updates internal list, then syncs TR-181 table.
+ * Registers unregistered VEIP instances using RBUS table API
  */
 int eponMgr_tr181_sync_veip_table(void) {
-    EPONMGR_LOG_INFO("Entering eponMgr_tr181_sync_veip_table\n");
+    if (!g_rbus_handle) {
+        return -1;
+    }
 
     eponMgr_data_t *eponData = eponMgr_data_lock();
     if (!eponData || !eponData->interface_list) {
         if (eponData) eponMgr_data_unlock();
         return -1;
     }
+
+    uint32_t interface_count = eponMgr_interface_list_count(eponData->interface_list);
     
-    /* Use cached interface data - DO NOT query HAL here
-     * Sync is called AFTER the interface list is already updated by controller
-     * Querying HAL again would cause circular dependencies and missed updates */
-    
-    bool active_instances[MAX_VEIP_INSTANCES] = {false};
-    uint32_t count = eponMgr_interface_list_count(eponData->interface_list);
-    epon_onu_interface_info_t interface_names[MAX_VEIP_INSTANCES];
-    
-    for (uint32_t i = 0; i < count && i < MAX_VEIP_INSTANCES; i++) {
-        if (eponMgr_interface_list_get_at(eponData->interface_list, i, &interface_names[i]) == 0) {
-            active_instances[i] = true;
-        }
-    }
-    
-    eponMgr_data_unlock();
-    
-    /* Register new instances and unregister removed ones */
-    for (uint32_t i = 0; i < MAX_VEIP_INSTANCES; i++) {
+    /* Register VEIP instances (1-based indexing) */
+    for (uint32_t i = 0; i < interface_count && i < MAX_VEIP_INSTANCES; i++) {
         uint32_t instance = i + 1;
-        
-        if (active_instances[i] && !g_veip_instances[i].registered) {
-            eponMgr_tr181_register_veip_instance(instance, interface_names[i].name);
-        } else if (!active_instances[i] && g_veip_instances[i].registered) {
-            eponMgr_tr181_unregister_veip_instance(instance);
+        if (!g_veip_instances[instance - 1].registered) {
+            epon_onu_interface_info_t interface_info;
+            if (eponMgr_interface_list_get_at(eponData->interface_list, i, &interface_info) == 0) {
+                /* Register this VEIP instance */
+                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.", instance, NULL);
+                if (rc == RBUS_ERROR_SUCCESS) {
+                    g_veip_instances[instance - 1].instance = instance;
+                    strncpy(g_veip_instances[instance - 1].name, interface_info.name, 
+                            sizeof(g_veip_instances[instance - 1].name) - 1);
+                    g_veip_instances[instance - 1].name[sizeof(g_veip_instances[instance - 1].name) - 1] = '\0';
+                    g_veip_instances[instance - 1].registered = true;
+                    EPONMGR_LOG_INFO("Registered VEIP table row %s%u on-demand\n", TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.",instance);
+                }
+            }
         }
     }
-    
+
+    eponMgr_data_unlock();
     return 0;
 }
 
@@ -1452,6 +1211,27 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
     const char *param_name = rbusProperty_GetName(property);
     if (!param_name) return RBUS_ERROR_INVALID_INPUT;
     
+    /* Handle VEIP_InterfaceNumberOfEntries */
+    if (strstr(param_name, "VEIP_InterfaceNumberOfEntries")) {
+        eponMgr_data_t *eponData = eponMgr_data_lock();
+        if (!eponData || !eponData->interface_list) {
+            if (eponData) eponMgr_data_unlock();
+            return RBUS_ERROR_BUS_ERROR;
+        }
+        
+        uint32_t interface_count = eponData->interface_list->if_list.interface_count;
+        
+        rbusValue_t value;
+        rbusValue_Init(&value);
+        rbusValue_SetUInt32(value, interface_count);
+        rbusProperty_SetValue(property, value);
+        rbusValue_Release(value);
+        
+        eponMgr_data_unlock();
+        return RBUS_ERROR_SUCCESS;
+    }
+    
+    /* Handle row parameters (.Name, .Status) */
     uint32_t instance = 0;
     if (sscanf(param_name, TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.%u", &instance) != 1) {
         EPONMGR_LOG_ERROR("Failed to parse VEIP instance from: %s\n", param_name);

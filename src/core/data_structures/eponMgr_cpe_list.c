@@ -78,7 +78,10 @@ int eponMgr_cpe_list_update(eponMgr_cpe_list_t *list, const dpoe_cpe_mac_entry_t
         pthread_mutex_unlock(&list->mutex);
         return -1;  // Max capacity reached
     }
-    
+    EPONMGR_LOG_INFO("Adding new CPE MAC entry %02x:%02x:%02x:%02x:%02x:%02x\n",
+                    cpe_entry->mac_address[0], cpe_entry->mac_address[1],
+                    cpe_entry->mac_address[2], cpe_entry->mac_address[3],
+                    cpe_entry->mac_address[4], cpe_entry->mac_address[5]);
     dpoe_cpe_mac_entry_t *new_list = realloc(list->cpe_table.cpe_list, 
                                               (total_count + 1) * sizeof(dpoe_cpe_mac_entry_t));
     if (!new_list) {
@@ -110,6 +113,10 @@ int eponMgr_cpe_list_remove(eponMgr_cpe_list_t *list, const uint8_t *mac_address
     // Find and remove CPE
     for (uint32_t i = 0; i < total_count; i++) {
         if (mac_equal(list->cpe_table.cpe_list[i].mac_address, mac_address)) {
+            EPONMGR_LOG_INFO("Removing CPE MAC entry %02x:%02x:%02x:%02x:%02x:%02x\n",
+                            mac_address[0], mac_address[1],
+                            mac_address[2], mac_address[3],
+                            mac_address[4], mac_address[5]);
             // Adjust count
             if (list->cpe_table.cpe_list[i].type == DPOE_CPE_MAC_STATIC) {
                 list->cpe_table.static_cpe_count--;
