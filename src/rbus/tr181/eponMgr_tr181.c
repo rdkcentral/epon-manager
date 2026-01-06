@@ -7,7 +7,7 @@
  * 
  * Includes dynamic table support for:
  * - LLID.{i} table (Phase 7.1)
- * - DPoE.CPE.{i} table (Phase 7.2)
+ * - DPOE.CPE.{i} table (Phase 7.2)
  */
 
 #include <stdio.h>
@@ -153,15 +153,15 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.EncryptionEnabled", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.LLID.{i}.ForwardingState", RBUS_ELEMENT_TYPE_PROPERTY, {llid_table_handler, NULL, NULL, NULL, NULL, NULL}},
 
-    /* Phase 7.2: DPoE/CPE Dynamic Table (table + stats + row parameters) */
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.MaxCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.StaticCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.DynamicCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPENumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.MACAddress", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.Type", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.{i}.AgeTime", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    /* Phase 7.2: DPOE/CPE Dynamic Table (table + stats + row parameters) */
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.MaxCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.StaticCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.DynamicCPECount", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPENumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.{i}.MACAddress", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.{i}.Type", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.{i}.AgeTime", RBUS_ELEMENT_TYPE_PROPERTY, {cpe_table_handler, NULL, NULL, NULL, NULL, NULL}},
 
     /* Phase 7.3: VEIP Interface Dynamic Table (table + count + row parameters) */
     {TR181_BASE_PATH ".X_RDK_EPON.VEIP_InterfaceNumberOfEntries", RBUS_ELEMENT_TYPE_PROPERTY, {veip_table_handler, NULL, NULL, NULL, NULL, NULL}},
@@ -278,11 +278,11 @@ int eponMgr_tr181_sync_cpe_table(void) {
             dpoe_cpe_mac_entry_t cpe_entry;
             if (eponMgr_cpe_list_get_at(eponData->cpe_list, i, &cpe_entry) == 0) {
                 /* Register this CPE instance */
-                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.", instance, NULL);
+                rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.", instance, NULL);
                 if (rc == RBUS_ERROR_SUCCESS) {
                     g_cpe_instances[instance - 1].instance = instance;
                     g_cpe_instances[instance - 1].registered = true;
-                    EPONMGR_LOG_INFO("Registered CPE table row %s%u on-demand\n", TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.", instance);
+                    EPONMGR_LOG_INFO("Registered CPE table row %s%u on-demand\n", TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.", instance);
                 }
             }
         }
@@ -324,7 +324,7 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle) {
     for (uint32_t i = 0; i < MAX_CPE_INSTANCES; i++) {
         if (g_cpe_instances[i].registered) {
             char row_name[256];
-            snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPoE.CPE.");
+            snprintf(row_name, sizeof(row_name), TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.");
             rbusTable_unregisterRow(handle, row_name);
             g_cpe_instances[i].registered = false;
         }
@@ -1021,13 +1021,13 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
 }
 
 /* ============================================================================
- * Phase 7.2: DPoE/CPE Dynamic Table Handler
+ * Phase 7.2: DPOE/CPE Dynamic Table Handler
  * ============================================================================ */
 
 /**
  * @brief CPE table handler
  * 
- * Handles: DPoE stats, CPENumberOfEntries, CPE.{i}.* parameters
+ * Handles: DPOE stats, CPENumberOfEntries, CPE.{i}.* parameters
  */
 static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts) {
     (void)handle;
@@ -1057,7 +1057,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     /* Ensure all CPE instances are registered after syncing fresh data */
     eponMgr_tr181_sync_cpe_table();
 
-    // Handle DPoE statistics
+    // Handle DPOE statistics
     if (strstr(param_name, "MaxCPECount")) {
         pthread_mutex_lock(&eponData->cpe_list->mutex);
         uint32_t max_cpe = eponData->cpe_list->cpe_table.max_cpe;
@@ -1098,7 +1098,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     }
 
     // Handle table instance parameters (CPE.{i}.*)
-    const char *cpe_prefix = ".DPoE.CPE.";
+    const char *cpe_prefix = ".DPOE.CPE.";
     const char *instance_start = strstr(param_name, cpe_prefix);
     if (!instance_start) {
         rbusValue_Release(value);
