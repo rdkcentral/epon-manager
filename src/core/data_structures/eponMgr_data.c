@@ -241,9 +241,7 @@ int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
     // Call HAL to get current LLID list
     int ret = epon_hal_get_llid_info(llid_list);
     if (ret == EPON_HAL_SUCCESS) {
-        // Update internal LLID list data structure
-        eponMgr_llid_list_clear(eponData->llid_list);
-        
+        // Incrementally update internal LLID list (caller controls clearing)
         for (uint32_t i = 0; i < llid_list->llid_count; i++) {
             eponMgr_llid_list_update(eponData->llid_list, &llid_list->llid_list[i]);
         }
@@ -409,15 +407,12 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
-    /* Clear list before populating with fresh data */
-    eponMgr_cpe_list_clear(eponData->cpe_list);
-    
     // Call HAL to get current CPE table
     int ret = dpoe_hal_get_cpe_mac_table(cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
         EPONMGR_LOG_DEBUG("Retrieved CPE MAC table: %u static, %u dynamic entries\n",
                         cpe_table->static_cpe_count, cpe_table->dynamic_cpe_count);
-        // Update internal CPE list data structure
+        // Incrementally update internal CPE list (caller controls clearing)
         uint32_t total = cpe_table->static_cpe_count + cpe_table->dynamic_cpe_count;
         
         for (uint32_t i = 0; i < total; i++) {
