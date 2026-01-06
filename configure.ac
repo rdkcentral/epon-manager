@@ -88,7 +88,7 @@ else
 fi
 
 # Add common compiler flags
-CFLAGS="$CFLAGS -Wall -Wextra -fPIC"
+CFLAGS="$CFLAGS -Wall -Wextra -Wunused-variable -Wunused-function -Wunused-parameter -fPIC"
 
 # Configuration summary
 AC_MSG_RESULT([

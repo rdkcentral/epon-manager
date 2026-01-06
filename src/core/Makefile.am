@@ -15,6 +15,7 @@ epon_manager_CFLAGS = \
     -I$(top_srcdir)/src/core/data_structures \
     -I$(top_srcdir)/src/core/stats_poller \
     -I$(top_srcdir)/src/core/controller \
+    -Wunused-variable -Wunused-function -Wunused-parameter \
     $(AM_CFLAGS)
 
 epon_manager_LDADD = \

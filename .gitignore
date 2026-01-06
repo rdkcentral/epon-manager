@@ -159,3 +159,4 @@ temp/
 .cache/
 tests/unit/test_rbus_basic
 tests/unit/test_telemetry
+tests/hal_mock/epon_hal_trigger

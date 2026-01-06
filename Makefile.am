@@ -12,13 +12,8 @@ endif
 # Extra files to include in distribution
 EXTRA_DIST = \
     README.md \
-    DIRECTORY_STRUCTURE.md \
-    EPON_HAL_Proposal.md \
     design_docs \
-    docs \
-    scripts/build_and_test.sh \
-    scripts/setup_workspace.sh \
-    epon_hal.h
+    docs
 
 # Create lib directory at build time
 all-local:
