@@ -240,18 +240,17 @@ int eponMgr_tr181_sync_llid_table(void) {
     }
 
     eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData || !eponData->llid_list) {
-        if (eponData) eponMgr_data_unlock();
+    if (!eponData) {
         return -1;
     }
 
-    uint32_t llid_count = eponMgr_llid_list_count(eponData->llid_list);
+    uint32_t llid_count = eponMgr_data_get_llid_count(eponData);
     /* Register LLID instances (1-based indexing) */
     for (uint32_t i = 0; i < llid_count && i < MAX_LLID_INSTANCES; i++) {
         uint32_t instance = i + 1;
         if (!g_llid_instances[instance - 1].registered) {
             epon_llid_info_t llid_info;
-            if (eponMgr_llid_list_get_at(eponData->llid_list, i, &llid_info) == 0) {
+            if (eponMgr_data_get_llid_at_index(eponData, i, &llid_info) == 0) {
                 
                 /* Register this LLID instance */
                 rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.LLID.", instance, NULL);
@@ -283,19 +282,18 @@ int eponMgr_tr181_sync_cpe_table(void) {
     }
 
     eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData || !eponData->cpe_list) {
-        if (eponData) eponMgr_data_unlock();
+    if (!eponData) {
         return -1;
     }
 
-    uint32_t cpe_count = eponMgr_cpe_list_count(eponData->cpe_list);
+    uint32_t cpe_count = eponMgr_data_get_cpe_count(eponData);
     
     /* Register CPE instances (1-based indexing) */
     for (uint32_t i = 0; i < cpe_count && i < MAX_CPE_INSTANCES; i++) {
         uint32_t instance = i + 1;
         if (!g_cpe_instances[instance - 1].registered) {
             dpoe_cpe_mac_entry_t cpe_entry;
-            if (eponMgr_cpe_list_get_at(eponData->cpe_list, i, &cpe_entry) == 0) {
+            if (eponMgr_data_get_cpe_at_index(eponData, i, &cpe_entry) == 0) {
                 /* Register this CPE instance */
                 rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.DPOE.CPE.", instance, NULL);
                 if (rc == RBUS_ERROR_SUCCESS) {
@@ -958,7 +956,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
 
     // Handle count parameter
     if (strstr(param_name, "LLIDNumberOfEntries")) {
-        uint32_t count = eponMgr_llid_list_count(eponData->llid_list);
+        uint32_t count = eponMgr_data_get_llid_count(eponData);
         rbusValue_SetUInt32(value, count);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
@@ -989,7 +987,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
 
     // Get LLID info from list (instance is 1-based)
     epon_llid_info_t llid_info;
-    ret = eponMgr_llid_list_get_at(eponData->llid_list, instance - 1, &llid_info);
+    ret = eponMgr_data_get_llid_at_index(eponData, instance - 1, &llid_info);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("LLID instance %u not found\n", instance);
         rbusValue_Release(value);
@@ -1108,7 +1106,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
         return RBUS_ERROR_SUCCESS;
     }
     else if (strstr(param_name, "CPENumberOfEntries")) {
-        uint32_t count = eponMgr_cpe_list_count(eponData->cpe_list);
+        uint32_t count = eponMgr_data_get_cpe_count(eponData);
         rbusValue_SetUInt32(value, count);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
@@ -1138,7 +1136,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
 
     // Get CPE entry from list (instance is 1-based)
     dpoe_cpe_mac_entry_t cpe_entry;
-    ret = eponMgr_cpe_list_get_at(eponData->cpe_list, instance - 1, &cpe_entry);
+    ret = eponMgr_data_get_cpe_at_index(eponData, instance - 1, &cpe_entry);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("CPE instance %u not found\n", instance);
         rbusValue_Release(value);
@@ -1194,14 +1192,14 @@ int eponMgr_tr181_sync_veip_table(void) {
         return -1;
     }
 
-    uint32_t interface_count = eponMgr_interface_list_count(eponData->interface_list);
+    uint32_t interface_count = eponMgr_data_get_interface_count(eponData);
     
     /* Register VEIP instances (1-based indexing) */
     for (uint32_t i = 0; i < interface_count && i < MAX_VEIP_INSTANCES; i++) {
         uint32_t instance = i + 1;
         if (!g_veip_instances[instance - 1].registered) {
             epon_onu_interface_info_t interface_info;
-            if (eponMgr_interface_list_get_at(eponData->interface_list, i, &interface_info) == 0) {
+            if (eponMgr_data_get_interface_at_index(eponData, i, &interface_info) == 0) {
                 /* Register this VEIP instance */
                 rbusError_t rc = rbusTable_registerRow(g_rbus_handle, TR181_BASE_PATH ".X_RDK_EPON.VEIP_Interface.", instance, NULL);
                 if (rc == RBUS_ERROR_SUCCESS) {
@@ -1276,7 +1274,7 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
     }
     
     epon_onu_interface_info_t info;
-    if (eponMgr_interface_list_get(eponData->interface_list, iface_name, &info) != 0) {
+    if (eponMgr_data_get_interface_by_name(eponData, iface_name, &info) != 0) {
         eponMgr_data_unlock();
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }

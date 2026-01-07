@@ -10,13 +10,7 @@ libeponMgr_datastructures_a_SOURCES = \
     eponMgr_queue.c \
     eponMgr_queue.h \
     eponMgr_onu_state.c \
-    eponMgr_onu_state.h \
-    eponMgr_llid_list.c \
-    eponMgr_llid_list.h \
-    eponMgr_cpe_list.c \
-    eponMgr_cpe_list.h \
-    eponMgr_interface_list.c \
-    eponMgr_interface_list.h
+    eponMgr_onu_state.h
 
 libeponMgr_datastructures_a_CFLAGS = \
     -I$(top_srcdir)/include \

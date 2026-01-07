@@ -164,11 +164,11 @@ static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status
 /**
  * @brief Check if any interface is UP
  */
-static bool has_any_interface_up(eponMgr_interface_list_t *iface_list) {
+static bool has_any_interface_up(epon_interface_list_t *iface_list) {
     if (!iface_list) return false;
     
-    for (uint32_t i = 0; i < iface_list->if_list.interface_count; i++) {
-        if (iface_list->if_list.interface[i].status == EPON_ONU_INTF_STATUS_LINK_UP) {
+    for (uint32_t i = 0; i < iface_list->interface_count; i++) {
+        if (iface_list->interface[i].status == EPON_ONU_INTF_STATUS_LINK_UP) {
             return true;
         }
     }
@@ -184,16 +184,24 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     
     if (!ctrl || !ctrl->data) return;
     
-    // Update interface list in data structures
-    eponMgr_interface_list_t *iface_list = ctrl->data->interface_list;
+    // Update interface in internal data structure
+    epon_interface_list_t *iface_list = &ctrl->data->interface_list;
     if (iface_list) {
-        if (info->status == EPON_ONU_INTF_STATUS_LINK_UP) {
-            eponMgr_interface_list_update(iface_list, info);
-            EPONMGR_LOG_INFO("Interface %s added/updated as UP\n", info->name);
-        } else {
-            // Update status to down but keep in list for tracking
-            eponMgr_interface_list_update(iface_list, info);
-            EPONMGR_LOG_INFO("Interface %s updated as DOWN\n", info->name);
+        // Find and update the interface
+        bool found = false;
+        for (uint32_t i = 0; i < iface_list->interface_count; i++) {
+            if (strncmp(iface_list->interface[i].name, info->name, EPON_HAL_INTERFACE_NAME_LEN) == 0) {
+                iface_list->interface[i] = *info;
+                found = true;
+                EPONMGR_LOG_INFO("Interface %s updated, status=%d\n", info->name, info->status);
+                break;
+            }
+        }
+        
+        // Add new interface if not found and space available
+        if (!found && iface_list->interface_count < EPON_HAL_MAX_INTERFACES) {
+            iface_list->interface[iface_list->interface_count++] = *info;
+            EPONMGR_LOG_INFO("Interface %s added, status=%d\n", info->name, info->status);
         }
     }
     
@@ -417,6 +425,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     epon_hal_config_t hal_config;
     memset(&hal_config, 0, sizeof(hal_config));
     hal_config.struct_size = sizeof(hal_config);
+    hal_config.dpoe_supported = ctrl->config->dpoe_enabled;
     hal_config.status_callback = hal_status_callback;
     hal_config.alarm_callback = hal_alarm_callback;
     hal_config.interface_status_callback = hal_interface_status_callback;

@@ -43,7 +43,7 @@ int eponMgr_data_init(eponMgr_data_t *eponData,
     
     memset(eponData, 0, sizeof(eponMgr_data_t));
     
-    // Initialize cache
+    // Initialize statistics cache
     eponData->stats_data = (eponMgr_statsData_t *)malloc(sizeof(eponMgr_statsData_t));
     if (!eponData->stats_data) return -1;
 
@@ -52,22 +52,22 @@ int eponMgr_data_init(eponMgr_data_t *eponData,
         return -1;
     }
     
-    // Initialize data structures
-    eponData->interface_list = (eponMgr_interface_list_t *)malloc(sizeof(eponMgr_interface_list_t));
-    if (!eponData->interface_list) goto error;
-    if (eponMgr_interface_list_init(eponData->interface_list) != 0) goto error;
-    
-    eponData->llid_list = (eponMgr_llid_list_t *)malloc(sizeof(eponMgr_llid_list_t));
-    if (!eponData->llid_list) goto error;
-    if (eponMgr_llid_list_init(eponData->llid_list, 32) != 0) goto error;
-    
-    eponData->cpe_list = (eponMgr_cpe_list_t *)malloc(sizeof(eponMgr_cpe_list_t));
-    if (!eponData->cpe_list) goto error;
-    if (eponMgr_cpe_list_init(eponData->cpe_list, 256) != 0) goto error;
-    
+    // Initialize ONU state (for cached info like OLT, manufacturer, link)
     eponData->onu_state = (eponMgr_onu_state_t *)malloc(sizeof(eponMgr_onu_state_t));
-    if (!eponData->onu_state) goto error;
-    if (eponMgr_onu_state_init(eponData->onu_state, false) != 0) goto error;
+    if (!eponData->onu_state) {
+        eponMgr_statsData_destroy(eponData->stats_data);
+        free(eponData->stats_data);
+        return -1;
+    }
+    if (eponMgr_onu_state_init(eponData->onu_state, config->dpoe_supported) != 0) {
+        free(eponData->onu_state);
+        eponMgr_statsData_destroy(eponData->stats_data);
+        free(eponData->stats_data);
+        return -1;
+    }
+    
+    // Initialize direct HAL structures (zero-init already done by memset)
+    // They will be populated on first HAL call
     
     // Store HAL config
     memcpy(&eponData->hal_config, config, sizeof(epon_hal_config_t));
@@ -86,29 +86,6 @@ int eponMgr_data_init(eponMgr_data_t *eponData,
     
     EPONMGR_LOG_INFO("Core data context initialized successfully\n");
     return 0;
-
-error:
-    if (eponData->onu_state) {
-        eponMgr_onu_state_destroy(eponData->onu_state);
-        free(eponData->onu_state);
-    }
-    if (eponData->cpe_list) {
-        eponMgr_cpe_list_destroy(eponData->cpe_list);
-        free(eponData->cpe_list);
-    }
-    if (eponData->llid_list) {
-        eponMgr_llid_list_destroy(eponData->llid_list);
-        free(eponData->llid_list);
-    }
-    if (eponData->interface_list) {
-        eponMgr_interface_list_destroy(eponData->interface_list);
-        free(eponData->interface_list);
-    }
-    if (eponData->stats_data) {
-        eponMgr_statsData_destroy(eponData->stats_data);
-        free(eponData->stats_data);
-    }
-    return -1;
 }
 
 void eponMgr_data_destroy(eponMgr_data_t *eponData)
@@ -128,18 +105,15 @@ void eponMgr_data_destroy(eponMgr_data_t *eponData)
         eponMgr_onu_state_destroy(eponData->onu_state);
         free(eponData->onu_state);
     }
-    if (eponData->cpe_list) {
-        eponMgr_cpe_list_destroy(eponData->cpe_list);
-        free(eponData->cpe_list);
+    
+    // Free dynamic memory in HAL structures if allocated
+    if (eponData->llid_list.llid_list) {
+        free(eponData->llid_list.llid_list);
     }
-    if (eponData->llid_list) {
-        eponMgr_llid_list_destroy(eponData->llid_list);
-        free(eponData->llid_list);
+    if (eponData->cpe_table.cpe_list) {
+        free(eponData->cpe_table.cpe_list);
     }
-    if (eponData->interface_list) {
-        eponMgr_interface_list_destroy(eponData->interface_list);
-        free(eponData->interface_list);
-    }
+    
     if (eponData->stats_data) {
         eponMgr_statsData_destroy(eponData->stats_data);
         free(eponData->stats_data);
@@ -257,12 +231,16 @@ int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Call HAL to get current LLID list
+    // Call HAL to get current LLID list directly
     int ret = epon_hal_get_llid_info(llid_list);
     if (ret == EPON_HAL_SUCCESS) {
-        // Incrementally update internal LLID list (caller controls clearing)
-        for (uint32_t i = 0; i < llid_list->llid_count; i++) {
-            eponMgr_llid_list_update(eponData->llid_list, &llid_list->llid_list[i]);
+        // Check if count changed for TR-181 sync
+        if (llid_list->llid_count != eponData->llid_count_cache) {
+            eponData->llid_count_cache = llid_list->llid_count;
+            pthread_mutex_unlock(&eponData->mutex);
+            EPONMGR_LOG_INFO("LLID count changed to %u, updating TR-181\n", llid_list->llid_count);
+            eponMgr_tr181_sync_llid_table();
+            return ret;
         }
     } else {
         EPONMGR_LOG_INFO("Failed to get LLID information from HAL\n");
@@ -281,29 +259,16 @@ int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
-    /* Save old count for change detection */
-    uint32_t old_count = eponMgr_interface_list_count(eponData->interface_list);
-    
-    // Call HAL to get current interface list
+    // Call HAL to get current interface list directly
     int ret = epon_hal_get_interface_list(if_list);
     if (ret == EPON_HAL_SUCCESS) {
         EPONMGR_LOG_INFO("Retrieved %u interface(s) from HAL\n", if_list->interface_count);
-        // Update internal interface list data structure
-        eponMgr_interface_list_clear(eponData->interface_list);
         
-        bool changed = (old_count != if_list->interface_count);
-        
-        for (uint32_t i = 0; i < if_list->interface_count; i++) {
-            int update_ret = eponMgr_interface_list_update(eponData->interface_list, &if_list->interface[i]);
-            if (update_ret == 1) {
-                changed = true;  /* New interface added */
-            }
-        }
-        
-        /* Only sync TR-181 if interface list changed */
-        if (changed) {
+        // Check if count changed for TR-181 sync
+        if (if_list->interface_count != eponData->if_list_count_cache) {
+            eponData->if_list_count_cache = if_list->interface_count;
             pthread_mutex_unlock(&eponData->mutex);
-            EPONMGR_LOG_INFO("Interface list changed, updating TR-181\n");
+            EPONMGR_LOG_INFO("Interface count changed to %u, updating TR-181\n", if_list->interface_count);
             eponMgr_tr181_sync_veip_table();
             return ret;
         }
@@ -410,8 +375,8 @@ int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Return from internal CPE list structure
-    *max_cpe = eponData->cpe_list->cpe_table.max_cpe;
+    // Return from HAL config
+    *max_cpe = eponData->hal_config.dpoe_supported ? 256 : 0;
     
     EPONMGR_LOG_INFO("Maximum CPE count: %u\n", *max_cpe);
     
@@ -426,16 +391,20 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Call HAL to get current CPE table
+    // Call HAL to get current CPE table directly
     int ret = dpoe_hal_get_cpe_mac_table(cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
+        uint32_t total = cpe_table->static_cpe_count + cpe_table->dynamic_cpe_count;
         EPONMGR_LOG_DEBUG("Retrieved CPE MAC table: %u static, %u dynamic entries\n",
                         cpe_table->static_cpe_count, cpe_table->dynamic_cpe_count);
-        // Incrementally update internal CPE list (caller controls clearing)
-        uint32_t total = cpe_table->static_cpe_count + cpe_table->dynamic_cpe_count;
         
-        for (uint32_t i = 0; i < total; i++) {
-            eponMgr_cpe_list_update(eponData->cpe_list, &cpe_table->cpe_list[i]);
+        // Check if count changed for TR-181 sync
+        if (total != eponData->cpe_count_cache) {
+            eponData->cpe_count_cache = total;
+            pthread_mutex_unlock(&eponData->mutex);
+            EPONMGR_LOG_INFO("CPE count changed to %u, updating TR-181\n", total);
+            eponMgr_tr181_sync_cpe_table();
+            return ret;
         }
     } else {
         EPONMGR_LOG_INFO("Failed to get CPE MAC table from HAL\n");
@@ -468,5 +437,77 @@ void eponMgr_data_invalidate_cache(eponMgr_data_t *eponData)
     eponMgr_statsData_invalidate_all(eponData->stats_data);
     eponMgr_onu_state_invalidate_all(eponData->onu_state);
     
+    // Reset count caches to force TR-181 sync on next call
+    eponData->if_list_count_cache = 0;
+    eponData->llid_count_cache = 0;
+    eponData->cpe_count_cache = 0;
+    
     pthread_mutex_unlock(&eponData->mutex);
+}
+
+int eponMgr_data_get_llid_at_index(eponMgr_data_t *eponData, uint32_t index, epon_llid_info_t *llid_info)
+{
+    if (!eponData || !llid_info) return -1;
+    
+    pthread_mutex_lock(&eponData->mutex);
+    
+    if (index >= eponData->llid_list.llid_count || !eponData->llid_list.llid_list) {
+        pthread_mutex_unlock(&eponData->mutex);
+        return -1;
+    }
+    
+    *llid_info = eponData->llid_list.llid_list[index];
+    pthread_mutex_unlock(&eponData->mutex);
+    return 0;
+}
+
+int eponMgr_data_get_cpe_at_index(eponMgr_data_t *eponData, uint32_t index, dpoe_cpe_mac_entry_t *cpe_entry)
+{
+    if (!eponData || !cpe_entry) return -1;
+    
+    pthread_mutex_lock(&eponData->mutex);
+    
+    uint32_t total = eponData->cpe_table.static_cpe_count + eponData->cpe_table.dynamic_cpe_count;
+    if (index >= total || !eponData->cpe_table.cpe_list) {
+        pthread_mutex_unlock(&eponData->mutex);
+        return -1;
+    }
+    
+    *cpe_entry = eponData->cpe_table.cpe_list[index];
+    pthread_mutex_unlock(&eponData->mutex);
+    return 0;
+}
+
+int eponMgr_data_get_interface_at_index(eponMgr_data_t *eponData, uint32_t index, epon_onu_interface_info_t *if_info)
+{
+    if (!eponData || !if_info) return -1;
+    
+    pthread_mutex_lock(&eponData->mutex);
+    
+    if (index >= eponData->interface_list.interface_count) {
+        pthread_mutex_unlock(&eponData->mutex);
+        return -1;
+    }
+    
+    *if_info = eponData->interface_list.interface[index];
+    pthread_mutex_unlock(&eponData->mutex);
+    return 0;
+}
+
+int eponMgr_data_get_interface_by_name(eponMgr_data_t *eponData, const char *name, epon_onu_interface_info_t *if_info)
+{
+    if (!eponData || !name || !if_info) return -1;
+    
+    pthread_mutex_lock(&eponData->mutex);
+    
+    for (uint32_t i = 0; i < eponData->interface_list.interface_count; i++) {
+        if (strncmp(eponData->interface_list.interface[i].name, name, EPON_HAL_INTERFACE_NAME_LEN) == 0) {
+            *if_info = eponData->interface_list.interface[i];
+            pthread_mutex_unlock(&eponData->mutex);
+            return 0;
+        }
+    }
+    
+    pthread_mutex_unlock(&eponData->mutex);
+    return -1;
 }
