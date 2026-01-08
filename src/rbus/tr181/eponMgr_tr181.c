@@ -922,14 +922,14 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
     rbusValue_Init(&value);
+    int ret;
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     /* Sync LLID data from HAL to ensure cache is current
      * Safe now that sync functions don't call back into data APIs */
-    epon_llid_list_t llid_list;
-    int ret = eponMgr_data_get_llid_info(eponData, &llid_list);
-    if (ret != 0) {
+    const epon_llid_list_t* llid_list = eponMgr_data_get_llid_info(eponData);
+    if (!llid_list) {
         EPONMGR_LOG_WARN("Failed to sync LLID info from HAL, using cached data\n");
         /* Continue with cached data */
     }
@@ -1041,14 +1041,14 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     const char* param_name = rbusProperty_GetName(property);
     rbusValue_t value;
     rbusValue_Init(&value);
+    int ret;
     
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     /* Sync CPE data from HAL to ensure cache is current
      * Safe now that sync functions don't call back into data APIs */
-    dpoe_cpe_mac_table_t cpe_table;
-    int ret = eponMgr_data_get_cpe_mac_table(eponData, &cpe_table);
-    if (ret != 0) {
+    const dpoe_cpe_mac_table_t* cpe_table = eponMgr_data_get_cpe_mac_table(eponData);
+    if (!cpe_table) {
         EPONMGR_LOG_WARN("Failed to sync CPE MAC table from HAL, using cached data\n");
         /* Continue with cached data */
     }

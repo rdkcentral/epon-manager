@@ -51,9 +51,6 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     }
     
     int errors = 0;
-    epon_interface_list_t if_list;
-    
-    memset(&if_list, 0, sizeof(if_list));
     
     /* Collect link statistics */
     const epon_hal_link_stats_t* link_stats = eponMgr_data_get_link_stats(poller->eponData);
@@ -84,16 +81,18 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     }
     
     /* Collect interface list */
-    if (eponMgr_data_get_interface_list(poller->eponData, &if_list) == EPON_HAL_SUCCESS) {
+    const epon_interface_list_t* if_list = eponMgr_data_get_interface_list(poller->eponData);
+    if (if_list) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected interface list (%u interfaces)\n", 
-                         if_list.interface_count);
+                         if_list->interface_count);
     } else {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect interface list\n");
         errors++;
     }
-    
-    /* Print statistics in table format */
-    print_stats_table(link_stats, transceiver_stats, &if_list);
+
+    if(link_stats && transceiver_stats && if_list) {
+        print_stats_table(link_stats, transceiver_stats, if_list);
+    }
     
     return (errors > 0) ? -1 : 0;
 }
