@@ -121,21 +121,73 @@ static epon_onu_status_t parse_status(const char *status_str) {
     return -1;
 }
 
-static epon_hal_alarm_t parse_alarm(const char *alarm_str) {
-    if (strcasecmp(alarm_str, "los") == 0) return EPON_HAL_ALARM_LOS;
-    if (strcasecmp(alarm_str, "lofi") == 0) return EPON_HAL_ALARM_LOFI;
-    if (strcasecmp(alarm_str, "dying_gasp") == 0) return EPON_HAL_ALARM_DYING_GASP;
-    if (strcasecmp(alarm_str, "error_symbol") == 0) return EPON_HAL_ALARM_ERROR_SYMBOL_PERIOD;
-    if (strcasecmp(alarm_str, "error_frame") == 0) return EPON_HAL_ALARM_ERROR_FRAME;
-    if (strcasecmp(alarm_str, "oam_lost") == 0) return EPON_HAL_ALARM_OAM_SESSION_LOST;
-    if (strcasecmp(alarm_str, "power_low") == 0) return EPON_HAL_ALARM_POWER_LOW;
-    if (strcasecmp(alarm_str, "power_high") == 0) return EPON_HAL_ALARM_POWER_HIGH;
-    if (strcasecmp(alarm_str, "equipment") == 0) return EPON_HAL_ALARM_EQUIPMENT_FAILURE;
-    if (strcasecmp(alarm_str, "temperature") == 0) return EPON_HAL_ALARM_TEMPERATURE;
-    if (strcasecmp(alarm_str, "fec") == 0) return EPON_HAL_ALARM_FEC_THRESHOLD;
-    if (strcasecmp(alarm_str, "laser_bias") == 0) return EPON_HAL_ALARM_LASER_BIAS_CURRENT;
-    if (strcasecmp(alarm_str, "voltage") == 0) return EPON_HAL_ALARM_SUPPLY_VOLTAGE;
-    return -1;
+struct alarm_info {
+    epon_alarm_type_t type;
+    uint32_t value;
+    const char *name;
+};
+
+static struct alarm_info parse_alarm(const char *alarm_str) {
+    struct alarm_info info = {0, (uint32_t)-1, NULL};
+    
+    /* Standard alarms */
+    if (strcasecmp(alarm_str, "lofi") == 0) {
+        info.type = EPON_ALARM_TYPE_STANDARD;
+        info.value = EPON_HAL_ALARM_LOFI;
+        info.name = "LOFI";
+    } else if (strcasecmp(alarm_str, "error_symbol") == 0) {
+        info.type = EPON_ALARM_TYPE_STANDARD;
+        info.value = EPON_HAL_ALARM_ERROR_SYMBOL_PERIOD;
+        info.name = "ERROR_SYMBOL_PERIOD";
+    } else if (strcasecmp(alarm_str, "error_frame") == 0) {
+        info.type = EPON_ALARM_TYPE_STANDARD;
+        info.value = EPON_HAL_ALARM_ERROR_FRAME;
+        info.name = "ERROR_FRAME";
+    } else if (strcasecmp(alarm_str, "oam_lost") == 0) {
+        info.type = EPON_ALARM_TYPE_STANDARD;
+        info.value = EPON_HAL_ALARM_OAM_SESSION_LOST;
+        info.name = "OAM_SESSION_LOST";
+    } else if (strcasecmp(alarm_str, "equipment") == 0) {
+        info.type = EPON_ALARM_TYPE_STANDARD;
+        info.value = EPON_HAL_ALARM_EQUIPMENT_FAILURE;
+        info.name = "EQUIPMENT_FAILURE";
+    }
+    /* Vendor-specific alarms */
+    else if (strcasecmp(alarm_str, "los") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_LOS;
+        info.name = "LOS";
+    } else if (strcasecmp(alarm_str, "dying_gasp") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_DYING_GASP;
+        info.name = "DYING_GASP";
+    } else if (strcasecmp(alarm_str, "power_low") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_POWER_LOW;
+        info.name = "POWER_LOW";
+    } else if (strcasecmp(alarm_str, "power_high") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_POWER_HIGH;
+        info.name = "POWER_HIGH";
+    } else if (strcasecmp(alarm_str, "temperature") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_TEMPERATURE;
+        info.name = "TEMPERATURE";
+    } else if (strcasecmp(alarm_str, "fec") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_FEC_THRESHOLD;
+        info.name = "FEC_THRESHOLD";
+    } else if (strcasecmp(alarm_str, "laser_bias") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_LASER_BIAS_CURRENT;
+        info.name = "LASER_BIAS_CURRENT";
+    } else if (strcasecmp(alarm_str, "voltage") == 0) {
+        info.type = EPON_ALARM_TYPE_VENDOR_SPECIFIC;
+        info.value = EPON_VENDOR_ALARM_SUPPLY_VOLTAGE;
+        info.name = "SUPPLY_VOLTAGE";
+    }
+    
+    return info;
 }
 
 static const char* status_to_string(epon_onu_status_t status) {
@@ -148,23 +200,8 @@ static const char* status_to_string(epon_onu_status_t status) {
     }
 }
 
-static const char* alarm_to_string(epon_hal_alarm_t alarm) {
-    switch (alarm) {
-        case EPON_HAL_ALARM_LOS: return "LOS";
-        case EPON_HAL_ALARM_LOFI: return "LOFI";
-        case EPON_HAL_ALARM_DYING_GASP: return "DYING_GASP";
-        case EPON_HAL_ALARM_ERROR_SYMBOL_PERIOD: return "ERROR_SYMBOL_PERIOD";
-        case EPON_HAL_ALARM_ERROR_FRAME: return "ERROR_FRAME";
-        case EPON_HAL_ALARM_OAM_SESSION_LOST: return "OAM_SESSION_LOST";
-        case EPON_HAL_ALARM_POWER_LOW: return "POWER_LOW";
-        case EPON_HAL_ALARM_POWER_HIGH: return "POWER_HIGH";
-        case EPON_HAL_ALARM_EQUIPMENT_FAILURE: return "EQUIPMENT_FAILURE";
-        case EPON_HAL_ALARM_TEMPERATURE: return "TEMPERATURE";
-        case EPON_HAL_ALARM_FEC_THRESHOLD: return "FEC_THRESHOLD";
-        case EPON_HAL_ALARM_LASER_BIAS_CURRENT: return "LASER_BIAS_CURRENT";
-        case EPON_HAL_ALARM_SUPPLY_VOLTAGE: return "SUPPLY_VOLTAGE";
-        default: return "UNKNOWN";
-    }
+static const char* alarm_to_string(struct alarm_info info) {
+    return info.name ? info.name : "UNKNOWN";
 }
 
 static int send_command(const char *command) {
@@ -331,8 +368,8 @@ int main(int argc, char *argv[]) {
     
     /* Trigger alarm callback */
     if (alarm_str) {
-        epon_hal_alarm_t alarm = parse_alarm(alarm_str);
-        if (alarm == (epon_hal_alarm_t)-1) {
+        struct alarm_info alarm = parse_alarm(alarm_str);
+        if (alarm.value == (uint32_t)-1) {
             fprintf(stderr, "Error: Invalid alarm type '%s'\n", alarm_str);
             fprintf(stderr, "Use -l to list available alarm types\n");
             return 1;
@@ -343,7 +380,7 @@ int main(int argc, char *argv[]) {
                    i+1, repeat_count, alarm_to_string(alarm), alarm_clear ? "CLEAR" : "RAISED");
             
             char cmd[256];
-            snprintf(cmd, sizeof(cmd), "ALARM:%d:%d", alarm, alarm_clear ? 0 : 1);
+            snprintf(cmd, sizeof(cmd), "ALARM:%d:%u:%u:%d", alarm.type, alarm.value, 0xFFFF, alarm_clear ? 0 : 1);
             if (send_command(cmd) < 0) {
                 return 1;
             }
