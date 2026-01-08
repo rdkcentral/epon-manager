@@ -39,6 +39,7 @@
 #include "eponMgr_persistence.h"
 #include "eponMgr_psm.h"
 #include "eponMgr_stats_poller.h"
+#include "eponMgr_statsData.h"
 
 #include <rbus/rbus.h>
 
@@ -664,13 +665,9 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
         rbusValue_SetUInt64(value, link_stats->fec_uncorrectable);
     }
     else if (strstr(param_name, "BER")) {
-        // Calculate BER from FEC stats (simple approximation)
-        if (link_stats->bytes_received > 0) {
-            uint64_t ber = (link_stats->fec_uncorrectable * 1000000000ULL) / link_stats->bytes_received;
-            rbusValue_SetUInt64(value, ber);
-        } else {
-            rbusValue_SetUInt64(value, 0);
-        }
+        // Calculate BER from FEC corrected bit errors
+        double ber = eponMgr_statsData_calculate_ber(link_stats);
+        rbusValue_SetDouble(value, ber);
     }
     else if (strstr(param_name, "RangingResyncs")) {
         rbusValue_SetUInt32(value, (uint32_t)link_stats->ranging_resyncs);

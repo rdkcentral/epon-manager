@@ -82,3 +82,31 @@ void eponMgr_statsData_invalidate_all(eponMgr_statsData_t *stats_data) {
     
     pthread_mutex_unlock(&stats_data->mutex);
 }
+
+double eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats) {
+    if (!link_stats || link_stats->bytes_received == 0) {
+        return 0.0;
+    }
+    
+    /* BER = Total Bit Errors / Total Bits Received
+     * 
+     * Total Bit Errors = fec_corrected + (fec_uncorrectable * estimated_errors_per_codeword)
+     * 
+     * - fec_corrected: number of corrected bit errors
+     * - fec_uncorrectable: number of uncorrectable codewords
+     * 
+     * For EPON Reed-Solomon(255,239) FEC:
+     * - Each codeword = 255 bytes = 2040 bits
+     * - When uncorrectable, conservatively estimate 8 bit errors per codeword
+     *   (RS can correct up to t=8 errors, uncorrectable means > 8 errors)
+     */
+    #define FEC_CODEWORD_SIZE_BITS 2040  /* 255 bytes * 8 bits */
+    #define ESTIMATED_ERRORS_PER_UNCORRECTABLE_CODEWORD 8
+    
+    uint64_t total_bit_errors = link_stats->fec_corrected + 
+                                (link_stats->fec_uncorrectable * ESTIMATED_ERRORS_PER_UNCORRECTABLE_CODEWORD);
+    uint64_t total_bits = link_stats->bytes_received * 8;
+    double ber = (double)total_bit_errors / (double)total_bits;
+    
+    return ber;
+}

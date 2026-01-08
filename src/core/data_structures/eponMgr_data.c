@@ -393,8 +393,8 @@ int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Return from HAL config
-    *max_cpe = eponData->hal_config.dpoe_supported ? 256 : 0;
+    // Return from CPE table
+    *max_cpe = eponData->cpe_table.max_cpe;
     
     EPONMGR_LOG_INFO("Maximum CPE count: %u\n", *max_cpe);
     
