@@ -790,14 +790,10 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
         rbusValue_SetBoolean(value, eponData->hal_config.dpoe_supported);
     }
     else if (strstr(param_name, "MaxLLIDSupported")) {
-        if (eponData->llid_list) {
-            pthread_mutex_lock(&eponData->llid_list->mutex);
-            uint32_t max_llid = eponData->llid_list->llid_list.max_llid_count;
-            pthread_mutex_unlock(&eponData->llid_list->mutex);
-            rbusValue_SetUInt32(value, max_llid);
-        } else {
-            rbusValue_SetUInt32(value, 1);  // Default single LLID
-        }
+        pthread_mutex_lock(&eponData->mutex);
+        uint32_t max_llid = eponData->llid_list.max_llid_count;
+        pthread_mutex_unlock(&eponData->mutex);
+        rbusValue_SetUInt32(value, max_llid);
     }
     
     rbusProperty_SetValue(property, value);
@@ -931,8 +927,7 @@ static rbusError_t llid_table_handler(rbusHandle_t handle, rbusProperty_t proper
     (void)opts;
 
     eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData || !eponData->llid_list) {
-        if (eponData) eponMgr_data_unlock();
+    if (!eponData) {
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -1051,8 +1046,7 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
     (void)opts;
 
     eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData || !eponData->cpe_list) {
-        if (eponData) eponMgr_data_unlock();
+    if (!eponData) {
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -1076,9 +1070,9 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
 
     // Handle DPOE statistics
     if (strstr(param_name, "MaxCPECount")) {
-        pthread_mutex_lock(&eponData->cpe_list->mutex);
-        uint32_t max_cpe = eponData->cpe_list->cpe_table.max_cpe;
-        pthread_mutex_unlock(&eponData->cpe_list->mutex);
+        pthread_mutex_lock(&eponData->mutex);
+        uint32_t max_cpe = eponData->cpe_table.max_cpe;
+        pthread_mutex_unlock(&eponData->mutex);
         rbusValue_SetUInt32(value, max_cpe);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
@@ -1086,9 +1080,9 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
         return RBUS_ERROR_SUCCESS;
     }
     else if (strstr(param_name, "StaticCPECount")) {
-        pthread_mutex_lock(&eponData->cpe_list->mutex);
-        uint32_t static_cpe = eponData->cpe_list->cpe_table.static_cpe_count;
-        pthread_mutex_unlock(&eponData->cpe_list->mutex);
+        pthread_mutex_lock(&eponData->mutex);
+        uint32_t static_cpe = eponData->cpe_table.static_cpe_count;
+        pthread_mutex_unlock(&eponData->mutex);
         rbusValue_SetUInt32(value, static_cpe);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
@@ -1096,9 +1090,9 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
         return RBUS_ERROR_SUCCESS;
     }
     else if (strstr(param_name, "DynamicCPECount")) {
-        pthread_mutex_lock(&eponData->cpe_list->mutex);
-        uint32_t dynamic_cpe = eponData->cpe_list->cpe_table.dynamic_cpe_count;
-        pthread_mutex_unlock(&eponData->cpe_list->mutex);
+        pthread_mutex_lock(&eponData->mutex);
+        uint32_t dynamic_cpe = eponData->cpe_table.dynamic_cpe_count;
+        pthread_mutex_unlock(&eponData->mutex);
         rbusValue_SetUInt32(value, dynamic_cpe);
         rbusProperty_SetValue(property, value);
         rbusValue_Release(value);
@@ -1187,8 +1181,7 @@ int eponMgr_tr181_sync_veip_table(void) {
     }
 
     eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData || !eponData->interface_list) {
-        if (eponData) eponMgr_data_unlock();
+    if (!eponData) {
         return -1;
     }
 
@@ -1231,12 +1224,11 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
     /* Handle VEIP_InterfaceNumberOfEntries */
     if (strstr(param_name, "VEIP_InterfaceNumberOfEntries")) {
         eponMgr_data_t *eponData = eponMgr_data_lock();
-        if (!eponData || !eponData->interface_list) {
-            if (eponData) eponMgr_data_unlock();
+        if (!eponData) {
             return RBUS_ERROR_BUS_ERROR;
         }
         
-        uint32_t interface_count = eponData->interface_list->if_list.interface_count;
+        uint32_t interface_count = eponData->interface_list.interface_count;
         
         rbusValue_t value;
         rbusValue_Init(&value);
@@ -1268,8 +1260,7 @@ static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t proper
     const char *iface_name = g_veip_instances[idx].name;
     
     eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData || !eponData->interface_list) {
-        if (eponData) eponMgr_data_unlock();
+    if (!eponData) {
         return RBUS_ERROR_BUS_ERROR;
     }
     
