@@ -89,7 +89,7 @@ static void hal_status_callback(epon_onu_status_t status) {
     // Create event
     eponMgr_event_t event;
     event.type = EPONMGR_EVENT_TYPE_ONU_STATUS;
-    event.data.onu_status.status = status;
+    event.data.onu_status = status;
     
     // Enqueue event and return immediately
     if (eponMgr_queue_push(g_controller->event_queue, &event) == 0) {
@@ -104,14 +104,13 @@ static void hal_status_callback(epon_onu_status_t status) {
  * @brief HAL alarm callback - called when alarms are raised/cleared
  * Enqueues event and returns immediately
  */
-static void hal_alarm_callback(epon_hal_alarm_t alarm, bool is_active) {
-    if (!g_controller || !g_controller->event_queue) return;
+static void hal_alarm_callback(epon_alarm_info_t *alarm_info) {
+    if (!g_controller || !g_controller->event_queue || !alarm_info) return;
     
     // Create event
     eponMgr_event_t event;
     event.type = EPONMGR_EVENT_TYPE_ALARM;
-    event.data.alarm.alarm = alarm;
-    event.data.alarm.is_active = is_active;
+    event.data.alarm = *alarm_info;
     
     // Enqueue event and return immediately
     if (eponMgr_queue_push(g_controller->event_queue, &event) == 0) {
@@ -132,7 +131,7 @@ static void hal_interface_status_callback(epon_onu_interface_info_t status) {
     // Create event
     eponMgr_event_t event;
     event.type = EPONMGR_EVENT_TYPE_INTERFACE_STATUS;
-    event.data.interface_status.info = status;
+    event.data.interface_status = status;
     
     // Enqueue event and return immediately
     if (eponMgr_queue_push(g_controller->event_queue, &event) == 0) {
@@ -230,16 +229,12 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
 }
 
 /**
- * @brief Get alarm name string from enum value
+ * @brief Get standard alarm name string from enum value
  */
-static const char* get_alarm_name(epon_hal_alarm_t alarm) {
+static const char* get_standard_alarm_name(epon_hal_alarm_t alarm) {
     switch (alarm) {
-        case EPON_HAL_ALARM_LOS:
-            return "LOS";
         case EPON_HAL_ALARM_LOFI:
             return "LOFI";
-        case EPON_HAL_ALARM_DYING_GASP:
-            return "DYING_GASP";
         case EPON_HAL_ALARM_ERROR_SYMBOL_PERIOD:
             return "ERROR_SYMBOL_PERIOD";
         case EPON_HAL_ALARM_ERROR_FRAME:
@@ -250,37 +245,71 @@ static const char* get_alarm_name(epon_hal_alarm_t alarm) {
             return "ERROR_FRAME_SECONDS";
         case EPON_HAL_ALARM_OAM_SESSION_LOST:
             return "OAM_SESSION_LOST";
-        case EPON_HAL_ALARM_POWER_LOW:
-            return "POWER_LOW";
-        case EPON_HAL_ALARM_POWER_HIGH:
-            return "POWER_HIGH";
         case EPON_HAL_ALARM_EQUIPMENT_FAILURE:
             return "EQUIPMENT_FAILURE";
-        case EPON_HAL_ALARM_TEMPERATURE:
-            return "TEMPERATURE";
-        case EPON_HAL_ALARM_VENDOR_SPECIFIC:
-            return "VENDOR_SPECIFIC";
-        case EPON_HAL_ALARM_FEC_THRESHOLD:
-            return "FEC_THRESHOLD";
-        case EPON_HAL_ALARM_LASER_BIAS_CURRENT:
-            return "LASER_BIAS_CURRENT";
-        case EPON_HAL_ALARM_SUPPLY_VOLTAGE:
-            return "SUPPLY_VOLTAGE";
         default:
             return "UNKNOWN";
     }
 }
 
 /**
+ * @brief Get vendor alarm name string from enum value
+ */
+static const char* get_vendor_alarm_name(epon_vendor_alarm_t alarm) {
+    switch (alarm) {
+        case EPON_VENDOR_ALARM_LOS:
+            return "LOS";
+        case EPON_VENDOR_ALARM_DYING_GASP:
+            return "DYING_GASP";
+        case EPON_VENDOR_ALARM_POWER_LOW:
+            return "POWER_LOW";
+        case EPON_VENDOR_ALARM_POWER_HIGH:
+            return "POWER_HIGH";
+        case EPON_VENDOR_ALARM_TEMPERATURE:
+            return "TEMPERATURE";
+        case EPON_VENDOR_ALARM_FEC_THRESHOLD:
+            return "FEC_THRESHOLD";
+        case EPON_VENDOR_ALARM_LASER_BIAS_CURRENT:
+            return "LASER_BIAS_CURRENT";
+        case EPON_VENDOR_ALARM_SUPPLY_VOLTAGE:
+            return "SUPPLY_VOLTAGE";
+        default:
+            return "UNKNOWN_VENDOR";
+    }
+}
+
+/**
  * @brief Process alarm event
  */
-static void process_alarm_event(eponMgr_controller_t *ctrl, epon_hal_alarm_t alarm, bool is_active) {
-    const char *alarm_str = get_alarm_name(alarm);
+static void process_alarm_event(eponMgr_controller_t *ctrl, epon_alarm_info_t *alarm_info) {
+    if (!alarm_info) return;
+    
+    const char *alarm_str;
+    const char *type_str;
+    
+    if (alarm_info->alarm_type == EPON_ALARM_TYPE_STANDARD) {
+        alarm_str = get_standard_alarm_name(alarm_info->standard_alarm);
+        type_str = "Standard";
+    } else {
+        alarm_str = get_vendor_alarm_name(alarm_info->vendor_alarm);
+        type_str = "Vendor";
+    }
+    
+    bool is_active = alarm_info->is_active;
+    uint16_t llid = alarm_info->llid;
     
     if (is_active) {
-        EPONMGR_LOG_WARN("Alarm RAISED: %s (%d)\n", alarm_str, alarm);
+        if (llid == EPON_LLID_NOT_APPLICABLE) {
+            EPONMGR_LOG_WARN("%s Alarm RAISED: %s\n", type_str, alarm_str);
+        } else {
+            EPONMGR_LOG_WARN("%s Alarm RAISED: %s (LLID=%u)\n", type_str, alarm_str, llid);
+        }
     } else {
-        EPONMGR_LOG_INFO("Alarm CLEARED: %s (%d)\n", alarm_str, alarm);
+        if (llid == EPON_LLID_NOT_APPLICABLE) {
+            EPONMGR_LOG_INFO("%s Alarm CLEARED: %s\n", type_str, alarm_str);
+        } else {
+            EPONMGR_LOG_INFO("%s Alarm CLEARED: %s (LLID=%u)\n", type_str, alarm_str, llid);
+        }
     }
     
     // TODO: Phase 7 - Report telemetry event for alarm
@@ -308,15 +337,15 @@ static int process_one_event(eponMgr_controller_t *ctrl) {
     // Process event based on type
     switch (event.type) {
         case EPONMGR_EVENT_TYPE_ONU_STATUS:
-            process_onu_status_event(ctrl, event.data.onu_status.status);
+            process_onu_status_event(ctrl, event.data.onu_status);
             break;
             
         case EPONMGR_EVENT_TYPE_INTERFACE_STATUS:
-            process_interface_status_event(ctrl, &event.data.interface_status.info);
+            process_interface_status_event(ctrl, &event.data.interface_status);
             break;
             
         case EPONMGR_EVENT_TYPE_ALARM:
-            process_alarm_event(ctrl, event.data.alarm.alarm, event.data.alarm.is_active);
+            process_alarm_event(ctrl, &event.data.alarm);
             break;
             
         default:

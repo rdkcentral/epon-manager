@@ -59,11 +59,6 @@ extern "C" {
 #define EPON_HAL_OLT_VENDOR_INFO_LEN 64      /**< OLT vendor information buffer length */
 
 /**
- * @brief LLID constants
- */
-#define EPON_LLID_NOT_APPLICABLE 0xFFFF      /**< LLID value for device-wide alarms not associated with a specific LLID */
-
-/**
  * @defgroup HAL_LOGGER Generic HAL Logging APIs
  * @brief Generic logging macros for HAL modules - implementer defines the backend
  * @{
@@ -78,7 +73,6 @@ typedef enum {
     HAL_LOG_LEVEL_WARN,         /**< Warning conditions */
     HAL_LOG_LEVEL_NOTICE,       /**< Normal but significant conditions */
     HAL_LOG_LEVEL_INFO,         /**< Informational messages */
-    HAL_LOG_LEVEL_OAM,          /**< OAM protocol messages */
     HAL_LOG_LEVEL_DEBUG,        /**< Debug-level messages */
     HAL_LOG_LEVEL_TRACE         /**< Trace-level detailed messages */
 } hal_log_level_t;
@@ -103,31 +97,34 @@ typedef enum {
 #define HAL_LOG(level, format, ...)   HAL_LOG_FUNCTION(level, __FUNCTION__, __LINE__, format, ##__VA_ARGS__)
 
 /**
- * @brief Logging backend function - can be customized by defining HAL_LOG_FUNCTION
+ * @brief Logging backend function - integrated with RDK Logger
  * 
- * By default, logging is disabled (no-op). To enable logging, define HAL_LOG_FUNCTION
- * before including this header to redirect to your preferred logging backend.
+ * HAL implementation uses RDK Logger with "LOG.RDK.EPONMANAGER" module for all logging.
+ * Log levels are mapped from generic HAL levels to RDK log levels.
  * 
- * Example for RDK Logger:
- * @code
- * #define HAL_LOG_FUNCTION(level, func, line, format, ...) \
- *     RDK_LOG(rdk_log_map[level], "LOG.RDK.HAL", "[%s:%d] " format, func, line, ##__VA_ARGS__)
- * @endcode
- * 
- * Example for printf:
- * @code
- * #define HAL_LOG_FUNCTION(level, func, line, format, ...) \
- *     printf("[HAL][%s:%d] " format "\n", func, line, ##__VA_ARGS__)
- * @endcode
- * 
- * Example for syslog:
- * @code
- * #define HAL_LOG_FUNCTION(level, func, line, format, ...) \
- *     syslog(syslog_map[level], "[%s:%d] " format, func, line, ##__VA_ARGS__)
- * @endcode
+ * To use a different logging backend, define HAL_LOG_FUNCTION before including this header.
  */
 #ifndef HAL_LOG_FUNCTION
-#define HAL_LOG_FUNCTION(level, func, line, format, ...) /* Logging disabled by default */
+#ifdef RDK_LOGGER_ENABLED
+#include "rdk_debug.h"
+
+/* Map HAL log levels to RDK log levels */
+static const rdk_LogLevel hal_to_rdk_log_level[] = {
+    [HAL_LOG_LEVEL_FATAL]  = RDK_LOG_FATAL,
+    [HAL_LOG_LEVEL_ERROR]  = RDK_LOG_ERROR,
+    [HAL_LOG_LEVEL_WARN]   = RDK_LOG_WARN,
+    [HAL_LOG_LEVEL_NOTICE] = RDK_LOG_NOTICE,
+    [HAL_LOG_LEVEL_INFO]   = RDK_LOG_INFO,
+    [HAL_LOG_LEVEL_DEBUG]  = RDK_LOG_DEBUG,
+    [HAL_LOG_LEVEL_TRACE]  = RDK_LOG_TRACE
+};
+
+#define HAL_LOG_FUNCTION(level, func, line, format, ...) \
+    RDK_LOG(hal_to_rdk_log_level[level], "LOG.RDK.EPONMANAGER", "[%s:%d] " format, func, line, ##__VA_ARGS__)
+#else
+/* Logging disabled if RDK Logger not available */
+#define HAL_LOG_FUNCTION(level, func, line, format, ...) /* No-op */
+#endif
 #endif
 
 /** @} */ /* End of HAL_LOGGER group */
@@ -177,85 +174,42 @@ typedef struct {
     epon_interface_link_status_t status;          /**< Interface operational status (link up/down). */
 } epon_onu_interface_info_t;
 
-/**
- * @brief Standard IEEE 802.3ah EPON alarms
- * 
- * These are standard EPON alarms as defined in IEEE 802.3ah specification.
- * Vendor-specific alarms (e.g., DPoE alarms) are defined separately.
- */
 typedef enum {
-    EPON_HAL_ALARM_LOFI = 0,                /**< Loss of frame/lock. */
+    
+    EPON_HAL_ALARM_LOS = 0,                 /**< Loss of signal detected. */
+    EPON_HAL_ALARM_LOFI,                    /**< Loss of frame/lock. */
+    EPON_HAL_ALARM_DYING_GASP,              /**< Imminent power loss detected. */
     EPON_HAL_ALARM_ERROR_SYMBOL_PERIOD,     /**< Errored symbol period threshold exceeded. */
     EPON_HAL_ALARM_ERROR_FRAME,             /**< Errored frame threshold exceeded. */
     EPON_HAL_ALARM_ERROR_FRAME_PERIOD,      /**< Errored frame period threshold exceeded. */
     EPON_HAL_ALARM_ERROR_FRAME_SECONDS,     /**< Errored frame seconds threshold exceeded. */
     EPON_HAL_ALARM_OAM_SESSION_LOST,        /**< OAM session lost. */
+    EPON_HAL_ALARM_POWER_LOW,               /**< Optical power below threshold. */
+    EPON_HAL_ALARM_POWER_HIGH,              /**< Optical power above threshold. */
     EPON_HAL_ALARM_EQUIPMENT_FAILURE,       /**< Equipment or hardware failure. */
+    EPON_HAL_ALARM_TEMPERATURE,             /**< Temperature threshold exceeded. */
+    EPON_HAL_ALARM_VENDOR_SPECIFIC,         /**< Vendor-specific OAM alarm. */
+    EPON_HAL_ALARM_FEC_THRESHOLD,           /**< FEC uncorrectable errors threshold exceeded. */
+    EPON_HAL_ALARM_LASER_BIAS_CURRENT,      /**< Laser bias current out of range. */
+    EPON_HAL_ALARM_SUPPLY_VOLTAGE,          /**< Supply voltage out of range. */
     EPON_HAL_ALARM_MAX                      /**< Maximum alarm value (not an actual alarm). */
 } epon_hal_alarm_t;
 
 /**
- * @brief Vendor-specific EPON alarms (DPoE)
- * 
- * These alarms are vendor-specific.
-  * 
- * These alarms will be reported with alarm_type = EPON_ALARM_TYPE_VENDOR_SPECIFIC.
- */
-typedef enum {
-    EPON_VENDOR_ALARM_LOS = 0,              /**< Loss of signal detected  */
-    EPON_VENDOR_ALARM_DYING_GASP,           /**< Imminent power loss detected  */
-    EPON_VENDOR_ALARM_POWER_LOW,            /**< Optical power below threshold  */
-    EPON_VENDOR_ALARM_POWER_HIGH,           /**< Optical power above threshold  */
-    EPON_VENDOR_ALARM_TEMPERATURE,          /**< Temperature threshold exceeded  */
-    EPON_VENDOR_ALARM_FEC_THRESHOLD,        /**< FEC uncorrectable errors threshold exceeded  */
-    EPON_VENDOR_ALARM_LASER_BIAS_CURRENT,   /**< Laser bias current out of range  */
-    EPON_VENDOR_ALARM_SUPPLY_VOLTAGE,       /**< Supply voltage out of range    . */
-    EPON_VENDOR_ALARM_MAX                   /**< Maximum vendor alarm value (not an actual alarm). */
-} epon_vendor_alarm_t;
-
-/**
- * @brief Alarm type discriminator
- * 
- * Indicates whether an alarm is a standard IEEE 802.3ah alarm or vendor-specific.
- */
-typedef enum {
-    EPON_ALARM_TYPE_STANDARD = 0,           /**< Standard IEEE 802.3ah alarm. */
-    EPON_ALARM_TYPE_VENDOR_SPECIFIC = 1     /**< Vendor-specific alarm (e.g., DPoE). */
-} epon_alarm_type_t;
-
-/**
- * @brief Alarm information structure
- * 
- * Encapsulates all alarm-related information for the alarm callback.
- * Provides a unified interface for both standard and vendor-specific alarms.
- */
-typedef struct {
-    epon_alarm_type_t alarm_type;           /**< Type of alarm (standard or vendor-specific). */
-    union {
-        epon_hal_alarm_t standard_alarm;    /**< Standard IEEE alarm (valid when alarm_type = EPON_ALARM_TYPE_STANDARD). */
-        epon_vendor_alarm_t vendor_alarm;   /**< Vendor-specific alarm (valid when alarm_type = EPON_ALARM_TYPE_VENDOR_SPECIFIC). */
-    };
-    uint16_t llid;                          /**< LLID associated with the alarm, or EPON_LLID_NOT_APPLICABLE for device-wide alarms. */
-    bool is_active;                         /**< true if alarm is active (raised), false if cleared. */
-} epon_alarm_info_t;
-
-/**
  * @brief OAM message types for logging (IEEE 802.3ah)
  * Bitmask values to enable/disable logging of specific OAM message types.
- * 
- * @note Organization-specific OAM messages (0xFE) are handled via EPON_OAM_VAR_REQUEST 
- *       and EPON_OAM_VAR_RESPONSE. Enable those flags to log organization-specific messages.
- * @note MPCP GATE and REPORT messages are not available for logging as they are 
- *       handled in hardware and not visible to software.
  */
 typedef enum {
     EPON_OAM_INFO           = (1 << 0),  /**< OAM Information PDU (0x00). */
     EPON_OAM_EVENT          = (1 << 1),  /**< OAM Event Notification (0x01). */
-    EPON_OAM_VAR_REQUEST    = (1 << 2),  /**< OAM Variable Request (0x02). Includes organization-specific messages (0xFE). */
-    EPON_OAM_VAR_RESPONSE   = (1 << 3),  /**< OAM Variable Response (0x03). Includes organization-specific messages (0xFE). */
+    EPON_OAM_VAR_REQUEST    = (1 << 2),  /**< OAM Variable Request (0x02). */
+    EPON_OAM_VAR_RESPONSE   = (1 << 3),  /**< OAM Variable Response (0x03). */
     EPON_OAM_LOOPBACK       = (1 << 4),  /**< OAM Loopback Control (0x04). */
-    EPON_OAM_MPCP_REGISTER  = (1 << 5),  /**< MPCP REGISTER message. */
-    EPON_OAM_MPCP_REGISTER_ACK = (1 << 6), /**< MPCP REGISTER_ACK message. */
+    EPON_OAM_ORG_SPECIFIC   = (1 << 5),  /**< OAM Organization Specific (0xFE). */
+    EPON_OAM_MPCP_REGISTER  = (1 << 6),  /**< MPCP REGISTER message. */
+    EPON_OAM_MPCP_GATE      = (1 << 7),  /**< MPCP GATE message. */
+    EPON_OAM_MPCP_REPORT    = (1 << 8),  /**< MPCP REPORT message. */
+    EPON_OAM_MPCP_REGISTER_ACK = (1 << 9), /**< MPCP REGISTER_ACK message. */
     EPON_OAM_ALL            = 0xFFFFFFFF /**< Enable logging for all OAM messages. */
 } epon_oam_log_type_t;
 
@@ -399,25 +353,8 @@ typedef struct {
     /**< Callback function invoked when ONU status changes. */
     void (*status_callback)(epon_onu_status_t status);
     
-    /**< Callback function invoked when an alarm is raised or cleared.
-     *   @param alarm_info Pointer to alarm information structure containing alarm type, specific alarm, LLID, and status.
-     *   
-     *   Example usage:
-     *   @code
-     *   void my_alarm_callback(const epon_alarm_info_t *alarm_info) {
-     *       if (alarm_info->alarm_type == EPON_ALARM_TYPE_STANDARD) {
-     *           printf("Standard alarm %d on LLID %u: %s\n",
-     *                  alarm_info->standard_alarm, alarm_info->llid,
-     *                  alarm_info->is_active ? "RAISED" : "CLEARED");
-     *       } else {
-     *           printf("Vendor alarm %d on LLID %u: %s\n",
-     *                  alarm_info->vendor_alarm, alarm_info->llid,
-     *                  alarm_info->is_active ? "RAISED" : "CLEARED");
-     *       }
-     *   }
-     *   @endcode
-     */
-    void (*alarm_callback)(const epon_alarm_info_t *alarm_info);
+    /**< Callback function invoked when an alarm is raised or cleared. */
+    void (*alarm_callback)(epon_hal_alarm_t alarm, bool is_active);
     
     /**< Callback function invoked when layer2 interface status changes.
      *   This callback will be called for each interface separately when the device has
@@ -672,12 +609,12 @@ int epon_hal_get_olt_info(epon_olt_info_t *olt_info);
  * @brief Enable or disable logging of specific OAM messages.
  *
  * This function configures which OAM message types should be logged by the HAL.
- * OAM messages matching the enabled bitmask will be logged using the HAL_LOG macro
- * at HAL_LOG_LEVEL_OAM as per IEEE 802.3ah specification.
+ * OAM messages matching the enabled bitmask will be logged using the configured
+ * HAL_LOG_FUNCTION at DEBUG or TRACE level as per IEEE 802.3ah specification.
  *
  * @param[in] oam_log_mask Bitmask of OAM message types to enable logging.
  *                         Use epon_oam_log_type_t values combined with bitwise OR.
- *                         Use EPON_OAM_ALL to enable all OAM message logging.
+ *                         Use EPON_OAM_LOG_ALL to enable all OAM message logging.
  *                         Use 0 to disable all OAM message logging.
  *
  * @return epon_hal_return_t status code.
@@ -690,17 +627,15 @@ int epon_hal_get_olt_info(epon_olt_info_t *olt_info);
  *       this logging configuration.
  * @note The actual logging output depends on HAL_LOG_FUNCTION implementation.
  *       If HAL_LOG_FUNCTION is not defined, no output will be produced.
- * @note OAM messages are logged using HAL_LOG_LEVEL_OAM.
- *       The logging backend can filter this level separately from other log levels.
  *
  * Example usage:
  * @code
  * // Enable logging for OAM Info and Event messages only
- * epon_oam_log_type_t mask = EPON_OAM_INFO | EPON_OAM_EVENT;
+ * uint32_t mask = EPON_OAM_INFO | EPON_OAM_EVENT;
  * epon_hal_set_oam_log_mask(mask);
  *
  * // Enable all OAM message logging
- * epon_hal_set_oam_log_mask(EPON_OAM_ALL);
+ * epon_hal_set_oam_log_mask(EPON_OAM_LOG_ALL);
  *
  * // Disable all OAM message logging
  * epon_hal_set_oam_log_mask(0);

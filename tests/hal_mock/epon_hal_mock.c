@@ -247,16 +247,21 @@ static void process_command(const char *cmd) {
         }
     }
     else if (strcmp(type, "ALARM") == 0) {
-        char *alarm_str = strtok_r(NULL, ":", &saveptr);
+        char *alarm_type_str = strtok_r(NULL, ":", &saveptr);
+        char *alarm_value_str = strtok_r(NULL, ":", &saveptr);
+        char *llid_str = strtok_r(NULL, ":", &saveptr);
         char *active_str = strtok_r(NULL, ":", &saveptr);
-        if (!alarm_str || !active_str) return;
+        if (!alarm_type_str || !alarm_value_str || !llid_str || !active_str) return;
         
-        int alarm = atoi(alarm_str);
+        int alarm_type = atoi(alarm_type_str);
+        uint32_t alarm_value = (uint32_t)atoi(alarm_value_str);
+        uint16_t llid = (uint16_t)atoi(llid_str);
         int active = atoi(active_str);
-        printf("EPON HAL Mock: Processing ALARM command: %d, active=%d\n", alarm, active);
+        printf("EPON HAL Mock: Processing ALARM command: type=%d, value=%u, llid=%u, active=%d\n", 
+               alarm_type, alarm_value, llid, active);
         
         if (g_initialized && g_config.alarm_callback) {
-            g_config.alarm_callback((epon_hal_alarm_t)alarm, (bool)active);
+            epon_hal_mock_trigger_alarm((epon_alarm_type_t)alarm_type, alarm_value, llid, (bool)active);
         }
     }
     else if (strcmp(type, "INTERFACE") == 0) {
@@ -727,10 +732,21 @@ void epon_hal_mock_trigger_status(epon_onu_status_t status) {
     }
 }
 
-void epon_hal_mock_trigger_alarm(epon_hal_alarm_t alarm, bool is_active) {
+void epon_hal_mock_trigger_alarm(epon_alarm_type_t type, uint32_t alarm_value, uint16_t llid, bool is_active) {
     if (g_initialized && g_config.alarm_callback) {
-        printf("EPON HAL Mock: Triggering alarm callback - alarm=%d, active=%d\n", alarm, is_active);
-        g_config.alarm_callback(alarm, is_active);
+        epon_alarm_info_t alarm_info;
+        alarm_info.alarm_type = type;
+        if (type == EPON_ALARM_TYPE_STANDARD) {
+            alarm_info.standard_alarm = (epon_hal_alarm_t)alarm_value;
+        } else {
+            alarm_info.vendor_alarm = (epon_vendor_alarm_t)alarm_value;
+        }
+        alarm_info.llid = llid;
+        alarm_info.is_active = is_active;
+        
+        printf("EPON HAL Mock: Triggering alarm callback - type=%d, alarm=%u, llid=%u, active=%d\n", 
+               type, alarm_value, llid, is_active);
+        g_config.alarm_callback(&alarm_info);
     }
 }
 

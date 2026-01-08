@@ -49,21 +49,9 @@ typedef struct {
     eponMgr_event_type_t type;
     
     union {
-        /* ONU status event */
-        struct {
-            epon_onu_status_t status;
-        } onu_status;
-        
-        /* Interface status event */
-        struct {
-            epon_onu_interface_info_t info;
-        } interface_status;
-        
-        /* Alarm event */
-        struct {
-            epon_hal_alarm_t alarm;
-            bool is_active;
-        } alarm;
+        epon_onu_status_t onu_status;              /**< ONU status event */
+        epon_onu_interface_info_t interface_status; /**< Interface status event */
+        epon_alarm_info_t alarm;                    /**< Alarm event */
     } data;
 } eponMgr_event_t;
 

@@ -43,10 +43,12 @@ void epon_hal_mock_trigger_status(epon_onu_status_t status);
 
 /**
  * @brief Trigger alarm callback (test only)
- * @param alarm Alarm type
- * @param is_active true = alarm raised, false = alarm cleared
+ * @param type Alarm type (standard or vendor)
+ * @param alarm_value Alarm enum value (cast to epon_hal_alarm_t or epon_vendor_alarm_t)
+ * @param llid LLID value (use EPON_LLID_NOT_APPLICABLE if not applicable)
+ * @param is_active True if alarm is active, false if cleared
  */
-void epon_hal_mock_trigger_alarm(epon_hal_alarm_t alarm, bool is_active);
+void epon_hal_mock_trigger_alarm(epon_alarm_type_t type, uint32_t alarm_value, uint16_t llid, bool is_active);
 
 /**
  * @brief Trigger interface status change callback (test only)
