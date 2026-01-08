@@ -139,22 +139,18 @@ const epon_hal_link_stats_t* eponMgr_data_get_link_stats(eponMgr_data_t *eponDat
 const epon_hal_transceiver_stats_t* eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData);
 
 /**
- * @brief Get LLID list (fills HAL structure directly)
+ * @brief Get LLID list - zero-copy
  * @param eponData Pointer to data context
- * @param llid_list Pointer to LLID list structure (HAL fills)
- * @return EPON HAL return code
+ * @return Const pointer to LLID list if available, NULL otherwise
  */
-int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
-                                epon_llid_list_t *llid_list);
+const epon_llid_list_t* eponMgr_data_get_llid_info(eponMgr_data_t *eponData);
 
 /**
- * @brief Get interface list (fills HAL structure directly)
+ * @brief Get interface list - zero-copy
  * @param eponData Pointer to data context
- * @param if_list Pointer to interface list structure (HAL fills)
- * @return EPON HAL return code
+ * @return Const pointer to interface list if available, NULL otherwise
  */
-int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
-                                     epon_interface_list_t *if_list);
+const epon_interface_list_t* eponMgr_data_get_interface_list(eponMgr_data_t *eponData);
 
 /**
  * @brief Get OLT information (cached with validity flag) - zero-copy
@@ -187,13 +183,11 @@ int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,
                               uint32_t *max_cpe);
 
 /**
- * @brief Get CPE MAC address table (fills HAL structure directly)
+ * @brief Get CPE MAC address table - zero-copy
  * @param eponData Pointer to data context
- * @param cpe_table Pointer to CPE table (HAL fills)
- * @return EPON HAL return code
+ * @return Const pointer to CPE table if available, NULL otherwise
  */
-int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
-                                    dpoe_cpe_mac_table_t *cpe_table);
+const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData);
 
 /**
  * @brief Set OAM log level (no caching)

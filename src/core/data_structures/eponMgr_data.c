@@ -234,62 +234,62 @@ const epon_hal_transceiver_stats_t* eponMgr_data_get_transceiver_stats(eponMgr_d
     return NULL;
 }
 
-int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
-                                epon_llid_list_t *llid_list)
+const epon_llid_list_t* eponMgr_data_get_llid_info(eponMgr_data_t *eponData)
 {
-    if (!eponData || !llid_list) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     EPONMGR_LOG_DEBUG("Getting LLID information\n");
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Call HAL to get current LLID list directly
-    int ret = epon_hal_get_llid_info(llid_list);
+    // Call HAL to fill owned LLID list directly (zero-copy)
+    int ret = epon_hal_get_llid_info(&eponData->llid_list);
     if (ret == EPON_HAL_SUCCESS) {
         // Check if count changed for TR-181 sync
-        if (llid_list->llid_count != eponData->llid_count_cache) {
-            eponData->llid_count_cache = llid_list->llid_count;
+        if (eponData->llid_list.llid_count != eponData->llid_count_cache) {
+            eponData->llid_count_cache = eponData->llid_list.llid_count;
             pthread_mutex_unlock(&eponData->mutex);
-            EPONMGR_LOG_INFO("LLID count changed to %u, updating TR-181\n", llid_list->llid_count);
+            EPONMGR_LOG_INFO("LLID count changed to %u, updating TR-181\n", eponData->llid_list.llid_count);
             eponMgr_tr181_sync_llid_table();
-            return ret;
+            return &eponData->llid_list;
         }
+        pthread_mutex_unlock(&eponData->mutex);
+        return &eponData->llid_list;
     } else {
-        EPONMGR_LOG_INFO("Failed to get LLID information from HAL\n");
+        EPONMGR_LOG_WARN("Failed to get LLID information from HAL\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return NULL;
     }
-    
-    pthread_mutex_unlock(&eponData->mutex);
-    return ret;
 }
 
-int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
-                                     epon_interface_list_t *if_list)
+const epon_interface_list_t* eponMgr_data_get_interface_list(eponMgr_data_t *eponData)
 {
-    if (!eponData || !if_list) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     EPONMGR_LOG_INFO("Getting interface list\n");
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Call HAL to get current interface list directly
-    int ret = epon_hal_get_interface_list(if_list);
+    // Call HAL to fill owned interface list directly (zero-copy)
+    int ret = epon_hal_get_interface_list(&eponData->interface_list);
     if (ret == EPON_HAL_SUCCESS) {
-        EPONMGR_LOG_INFO("Retrieved %u interface(s) from HAL\n", if_list->interface_count);
+        EPONMGR_LOG_INFO("Retrieved %u interface(s) from HAL\n", eponData->interface_list.interface_count);
         
         // Check if count changed for TR-181 sync
-        if (if_list->interface_count != eponData->if_list_count_cache) {
-            eponData->if_list_count_cache = if_list->interface_count;
+        if (eponData->interface_list.interface_count != eponData->if_list_count_cache) {
+            eponData->if_list_count_cache = eponData->interface_list.interface_count;
             pthread_mutex_unlock(&eponData->mutex);
-            EPONMGR_LOG_INFO("Interface count changed to %u, updating TR-181\n", if_list->interface_count);
+            EPONMGR_LOG_INFO("Interface count changed to %u, updating TR-181\n", eponData->interface_list.interface_count);
             eponMgr_tr181_sync_veip_table();
-            return ret;
+            return &eponData->interface_list;
         }
+        pthread_mutex_unlock(&eponData->mutex);
+        return &eponData->interface_list;
     } else {
-        EPONMGR_LOG_INFO("Failed to get interface list from HAL\n");
+        EPONMGR_LOG_WARN("Failed to get interface list from HAL\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return NULL;
     }
-    
-    pthread_mutex_unlock(&eponData->mutex);
-    return ret;
 }
 
 const epon_olt_info_t* eponMgr_data_get_olt_info(eponMgr_data_t *eponData)
@@ -402,19 +402,18 @@ int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,
     return EPON_HAL_SUCCESS;
 }
 
-int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
-                                    dpoe_cpe_mac_table_t *cpe_table)
+const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData)
 {
-    if (!eponData || !cpe_table) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Call HAL to get current CPE table directly
-    int ret = dpoe_hal_get_cpe_mac_table(cpe_table);
+    // Call HAL to fill owned CPE table directly (zero-copy)
+    int ret = dpoe_hal_get_cpe_mac_table(&eponData->cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
-        uint32_t total = cpe_table->static_cpe_count + cpe_table->dynamic_cpe_count;
+        uint32_t total = eponData->cpe_table.static_cpe_count + eponData->cpe_table.dynamic_cpe_count;
         EPONMGR_LOG_DEBUG("Retrieved CPE MAC table: %u static, %u dynamic entries\n",
-                        cpe_table->static_cpe_count, cpe_table->dynamic_cpe_count);
+                        eponData->cpe_table.static_cpe_count, eponData->cpe_table.dynamic_cpe_count);
         
         // Check if count changed for TR-181 sync
         if (total != eponData->cpe_count_cache) {
@@ -422,14 +421,15 @@ int eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData,
             pthread_mutex_unlock(&eponData->mutex);
             EPONMGR_LOG_INFO("CPE count changed to %u, updating TR-181\n", total);
             eponMgr_tr181_sync_cpe_table();
-            return ret;
+            return &eponData->cpe_table;
         }
+        pthread_mutex_unlock(&eponData->mutex);
+        return &eponData->cpe_table;
     } else {
-        EPONMGR_LOG_INFO("Failed to get CPE MAC table from HAL\n");
+        EPONMGR_LOG_WARN("Failed to get CPE MAC table from HAL\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return NULL;
     }
-    
-    pthread_mutex_unlock(&eponData->mutex);
-    return ret;
 }
 
 int eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
