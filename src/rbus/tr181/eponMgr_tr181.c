@@ -539,12 +539,9 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get transceiver stats from HAL wrapper (with caching)
-    epon_hal_transceiver_stats_t trans_stats;
-    trans_stats.struct_size = sizeof(epon_hal_transceiver_stats_t);
-    
-    int ret = eponMgr_data_get_transceiver_stats(eponData, &trans_stats);
-    if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d\n", ret);
+    const epon_hal_transceiver_stats_t* trans_stats = eponMgr_data_get_transceiver_stats(eponData);
+    if (!trans_stats) {
+        EPONMGR_LOG_ERROR("Failed to get transceiver stats\n");
         rbusValue_Release(value);
         eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
@@ -552,27 +549,27 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
     
     /* All optical values are in 0.1 dBm units (int32) */
     if (strstr(param_name, "OpticalSignalLevel")) {
-        int32_t rx_power = (int32_t)(trans_stats.optical_signal_level * 10.0f);
+        int32_t rx_power = (int32_t)(trans_stats->optical_signal_level * 10.0f);
         rbusValue_SetInt32(value, rx_power);
     }
     else if (strstr(param_name, "TransmitOpticalLevel")) {
-        int32_t tx_power = (int32_t)(trans_stats.transmit_optical_level * 10.0f);
+        int32_t tx_power = (int32_t)(trans_stats->transmit_optical_level * 10.0f);
         rbusValue_SetInt32(value, tx_power);
     }
     else if (strstr(param_name, "LowerOpticalThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats.lower_optical_threshold * 10.0f);
+        int32_t threshold = (int32_t)(trans_stats->lower_optical_threshold * 10.0f);
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "UpperOpticalThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats.upper_optical_threshold * 10.0f);
+        int32_t threshold = (int32_t)(trans_stats->upper_optical_threshold * 10.0f);
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "LowerTransmitPowerThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats.lower_transmit_power_threshold * 10.0f);
+        int32_t threshold = (int32_t)(trans_stats->lower_transmit_power_threshold * 10.0f);
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "UpperTransmitPowerThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats.upper_transmit_power_threshold * 10.0f);
+        int32_t threshold = (int32_t)(trans_stats->upper_transmit_power_threshold * 10.0f);
         rbusValue_SetInt32(value, threshold);
     }
     
@@ -601,12 +598,10 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get link stats from HAL wrapper (with caching)
-    epon_hal_link_stats_t link_stats;
-    link_stats.struct_size = sizeof(epon_hal_link_stats_t);
+    const epon_hal_link_stats_t* link_stats = eponMgr_data_get_link_stats(eponData);
     
-    int ret = eponMgr_data_get_link_stats(eponData, &link_stats);
-    if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get link stats: %d\n", ret);
+    if (!link_stats) {
+        EPONMGR_LOG_ERROR("Failed to get link stats\n");
         rbusValue_Release(value);
         eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
@@ -614,74 +609,74 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     
     /* Standard Statistics */
     if (strstr(param_name, "BytesSent")) {
-        rbusValue_SetUInt64(value, link_stats.bytes_sent);
+        rbusValue_SetUInt64(value, link_stats->bytes_sent);
     }
     else if (strstr(param_name, "BytesReceived")) {
-        rbusValue_SetUInt64(value, link_stats.bytes_received);
+        rbusValue_SetUInt64(value, link_stats->bytes_received);
     }
     else if (strstr(param_name, "PacketsSent")) {
-        rbusValue_SetUInt64(value, link_stats.packets_sent);
+        rbusValue_SetUInt64(value, link_stats->packets_sent);
     }
     else if (strstr(param_name, "PacketsReceived")) {
-        rbusValue_SetUInt64(value, link_stats.packets_received);
+        rbusValue_SetUInt64(value, link_stats->packets_received);
     }
     else if (strstr(param_name, "ErrorsSent")) {
-        rbusValue_SetUInt32(value, (uint32_t)link_stats.errors_sent);
+        rbusValue_SetUInt32(value, (uint32_t)link_stats->errors_sent);
     }
     else if (strstr(param_name, "ErrorsReceived")) {
-        rbusValue_SetUInt32(value, (uint32_t)link_stats.errors_received);
+        rbusValue_SetUInt32(value, (uint32_t)link_stats->errors_received);
     }
     else if (strstr(param_name, "DiscardPacketsSent")) {
-        rbusValue_SetUInt32(value, (uint32_t)link_stats.discard_packets_sent);
+        rbusValue_SetUInt32(value, (uint32_t)link_stats->discard_packets_sent);
     }
     else if (strstr(param_name, "DiscardPacketsReceived")) {
-        rbusValue_SetUInt32(value, (uint32_t)link_stats.discard_packets_received);
+        rbusValue_SetUInt32(value, (uint32_t)link_stats->discard_packets_received);
     }
     else if (strstr(param_name, "UnicastPacketsSent")) {
         // Unicast = Total - (Multicast + Broadcast)
-        uint64_t unicast = link_stats.packets_sent - link_stats.multicast_packets_sent - link_stats.broadcast_packets_sent;
+        uint64_t unicast = link_stats->packets_sent - link_stats->multicast_packets_sent - link_stats->broadcast_packets_sent;
         rbusValue_SetUInt64(value, unicast);
     }
     else if (strstr(param_name, "UnicastPacketsReceived")) {
-        uint64_t unicast = link_stats.packets_received - link_stats.multicast_packets_received - link_stats.broadcast_packets_received;
+        uint64_t unicast = link_stats->packets_received - link_stats->multicast_packets_received - link_stats->broadcast_packets_received;
         rbusValue_SetUInt64(value, unicast);
     }
     else if (strstr(param_name, "MulticastPacketsSent")) {
-        rbusValue_SetUInt64(value, link_stats.multicast_packets_sent);
+        rbusValue_SetUInt64(value, link_stats->multicast_packets_sent);
     }
     else if (strstr(param_name, "MulticastPacketsReceived")) {
-        rbusValue_SetUInt64(value, link_stats.multicast_packets_received);
+        rbusValue_SetUInt64(value, link_stats->multicast_packets_received);
     }
     else if (strstr(param_name, "BroadcastPacketsSent")) {
-        rbusValue_SetUInt64(value, link_stats.broadcast_packets_sent);
+        rbusValue_SetUInt64(value, link_stats->broadcast_packets_sent);
     }
     else if (strstr(param_name, "BroadcastPacketsReceived")) {
-        rbusValue_SetUInt64(value, link_stats.broadcast_packets_received);
+        rbusValue_SetUInt64(value, link_stats->broadcast_packets_received);
     }
     else if (strstr(param_name, "UnknownProtoPacketsReceived")) {
         rbusValue_SetUInt32(value, 0);  // Not available in HAL
     }
     /* X_RDK Statistics */
     else if (strstr(param_name, "FECCorrected")) {
-        rbusValue_SetUInt64(value, link_stats.fec_corrected);
+        rbusValue_SetUInt64(value, link_stats->fec_corrected);
     }
     else if (strstr(param_name, "FECUncorrectable")) {
-        rbusValue_SetUInt64(value, link_stats.fec_uncorrectable);
+        rbusValue_SetUInt64(value, link_stats->fec_uncorrectable);
     }
     else if (strstr(param_name, "BER")) {
         // Calculate BER from FEC stats (simple approximation)
-        if (link_stats.bytes_received > 0) {
-            uint64_t ber = (link_stats.fec_uncorrectable * 1000000000ULL) / link_stats.bytes_received;
+        if (link_stats->bytes_received > 0) {
+            uint64_t ber = (link_stats->fec_uncorrectable * 1000000000ULL) / link_stats->bytes_received;
             rbusValue_SetUInt64(value, ber);
         } else {
             rbusValue_SetUInt64(value, 0);
         }
     }
     else if (strstr(param_name, "RangingResyncs")) {
-        rbusValue_SetUInt32(value, (uint32_t)link_stats.ranging_resyncs);
+        rbusValue_SetUInt32(value, (uint32_t)link_stats->ranging_resyncs);
     }
     else if (strstr(param_name, "MACResets")) {
-        rbusValue_SetUInt32(value, (uint32_t)link_stats.mac_resets);
+        rbusValue_SetUInt32(value, (uint32_t)link_stats->mac_resets);
     }
     
     rbusProperty_SetValue(property, value);
@@ -709,27 +704,24 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get transceiver stats from HAL wrapper (with caching)
-    epon_hal_transceiver_stats_t trans_stats;
-    trans_stats.struct_size = sizeof(epon_hal_transceiver_stats_t);
-    
-    int ret = eponMgr_data_get_transceiver_stats(eponData, &trans_stats);
-    if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get transceiver stats: %d\n", ret);
+    const epon_hal_transceiver_stats_t* trans_stats = eponMgr_data_get_transceiver_stats(eponData);
+    if (!trans_stats) {
+        EPONMGR_LOG_ERROR("Failed to get transceiver stats\n");
         rbusValue_Release(value);
         eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
     }
     
     if (strstr(param_name, "Temperature")) {
-        int32_t temp = (int32_t)(trans_stats.temperature * 10.0f);  /* 0.1°C units */
+        int32_t temp = (int32_t)(trans_stats->temperature * 10.0f);  /* 0.1°C units */
         rbusValue_SetInt32(value, temp);
     }
     else if (strstr(param_name, "SupplyVoltage")) {
-        int32_t voltage = (int32_t)(trans_stats.supply_voltage * 1000.0f);  /* mV units */
+        int32_t voltage = (int32_t)(trans_stats->supply_voltage * 1000.0f);  /* mV units */
         rbusValue_SetInt32(value, voltage);
     }
     else if (strstr(param_name, "BiasCurrent")) {
-        int32_t current = (int32_t)(trans_stats.bias_current * 10.0f);  /* 0.1 mA units */
+        int32_t current = (int32_t)(trans_stats->bias_current * 10.0f);  /* 0.1 mA units */
         rbusValue_SetInt32(value, current);
     }
     
@@ -759,18 +751,18 @@ static rbusError_t epon_get_handler(rbusHandle_t handle, rbusProperty_t property
 
     if (strstr(param_name, "OperationalMode")) {
         // Get link info from HAL wrapper (with caching)
-        epon_hal_link_info_t link_info;
-        if (eponMgr_data_get_link_info(eponData, &link_info) == 0) {
-            rbusValue_SetString(value, link_info.mode);
+        const epon_hal_link_info_t* link_info = eponMgr_data_get_link_info(eponData);
+        if (link_info) {
+            rbusValue_SetString(value, link_info->mode);
         } else {
             rbusValue_SetString(value, "1G-EPON");  // Default
         }
     }
     else if (strstr(param_name, "EncryptionMode")) {
-        epon_hal_link_info_t link_info;
+        const epon_hal_link_info_t* link_info = eponMgr_data_get_link_info(eponData);
         
-        if (eponMgr_onu_state_get_link_info(eponData->onu_state, &link_info) == 0) {
-            const char *enc_str = encryption_mode_to_string(link_info.encryption);
+        if (link_info) {
+            const char *enc_str = encryption_mode_to_string(link_info->encryption);
             rbusValue_SetString(value, enc_str);
         } else {
             rbusValue_SetString(value, "None");
@@ -821,36 +813,34 @@ static rbusError_t manufacturer_get_handler(rbusHandle_t handle, rbusProperty_t 
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get manufacturer info from HAL wrapper
-    epon_onu_manufacturer_info_t mfr_info;
-    mfr_info.struct_size = sizeof(epon_onu_manufacturer_info_t);
+    const epon_onu_manufacturer_info_t* mfr_info = eponMgr_data_get_onu_manufacturer_info(eponData);
     
-    int ret = eponMgr_data_get_onu_manufacturer_info(eponData, &mfr_info);
-    if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get manufacturer info: %d\n", ret);
+    if (!mfr_info) {
+        EPONMGR_LOG_ERROR("Failed to get manufacturer info\n");
         rbusValue_Release(value);
         eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
     }
     
     if (strstr(param_name, ".Manufacturer")) {
-        rbusValue_SetString(value, mfr_info.manufacturer);
+        rbusValue_SetString(value, mfr_info->manufacturer);
     }
     else if (strstr(param_name, "ModelNumber")) {
-        rbusValue_SetString(value, mfr_info.model_number);
+        rbusValue_SetString(value, mfr_info->model_number);
     }
     else if (strstr(param_name, "HardwareVersion")) {
-        rbusValue_SetString(value, mfr_info.hardware_version);
+        rbusValue_SetString(value, mfr_info->hardware_version);
     }
     else if (strstr(param_name, "SoftwareVersion")) {
-        rbusValue_SetString(value, mfr_info.software_version);
+        rbusValue_SetString(value, mfr_info->software_version);
     }
     else if (strstr(param_name, "SerialNumber")) {
-        rbusValue_SetString(value, mfr_info.serial_number);
+        rbusValue_SetString(value, mfr_info->serial_number);
     }
     else if (strstr(param_name, "VendorOUI")) {
         char oui_str[16];
         snprintf(oui_str, sizeof(oui_str), "%02X%02X%02X", 
-                 mfr_info.vendor_oui[0], mfr_info.vendor_oui[1], mfr_info.vendor_oui[2]);
+                 mfr_info->vendor_oui[0], mfr_info->vendor_oui[1], mfr_info->vendor_oui[2]);
         rbusValue_SetString(value, oui_str);
     }
     
@@ -879,12 +869,10 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     // Get OLT info from HAL wrapper
-    epon_olt_info_t olt_info;
-    olt_info.struct_size = sizeof(epon_olt_info_t);
+    const epon_olt_info_t* olt_info = eponMgr_data_get_olt_info(eponData);
     
-    int ret = eponMgr_data_get_olt_info(eponData, &olt_info);
-    if (ret != 0) {
-        EPONMGR_LOG_ERROR("Failed to get OLT info: %d\n", ret);
+    if (!olt_info) {
+        EPONMGR_LOG_ERROR("Failed to get OLT info\n");
         rbusValue_Release(value);
         eponMgr_data_unlock();
         return RBUS_ERROR_BUS_ERROR;
@@ -893,14 +881,14 @@ static rbusError_t olt_get_handler(rbusHandle_t handle, rbusProperty_t property,
     if (strstr(param_name, "MACAddress")) {
         char mac_str[24];
         snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 olt_info.mac_address[0], olt_info.mac_address[1], olt_info.mac_address[2],
-                 olt_info.mac_address[3], olt_info.mac_address[4], olt_info.mac_address[5]);
+                 olt_info->mac_address[0], olt_info->mac_address[1], olt_info->mac_address[2],
+                 olt_info->mac_address[3], olt_info->mac_address[4], olt_info->mac_address[5]);
         rbusValue_SetString(value, mac_str);
     }
     else if (strstr(param_name, "VendorOUI")) {
         char oui_str[16];
         snprintf(oui_str, sizeof(oui_str), "%02X%02X%02X",
-                 olt_info.vendor_oui[0], olt_info.vendor_oui[1], olt_info.vendor_oui[2]);
+                 olt_info->vendor_oui[0], olt_info->vendor_oui[1], olt_info->vendor_oui[2]);
         rbusValue_SetString(value, oui_str);
     }
     else if (strstr(param_name, "VendorSpecificInfo")) {

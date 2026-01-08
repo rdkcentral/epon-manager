@@ -100,84 +100,6 @@ int eponMgr_onu_state_update_status(eponMgr_onu_state_t *state,
                                      epon_onu_status_t new_status);
 
 /**
- * @brief Get current ONU status
- * 
- * @param state Pointer to ONU state structure
- * @param status Pointer to store current status
- * @return 0 on success, -1 on error
- */
-int eponMgr_onu_state_get_status(eponMgr_onu_state_t *state, 
-                                  epon_onu_status_t *status);
-
-/**
- * @brief Check if ONU status has changed
- * 
- * @param state Pointer to ONU state structure
- * @return true if status changed from previous, false otherwise
- */
-bool eponMgr_onu_state_has_changed(eponMgr_onu_state_t *state);
-
-/**
- * @brief Update OLT information
- * 
- * @param state Pointer to ONU state structure
- * @param olt_info Pointer to OLT information
- * @return 0 on success, -1 on error
- */
-int eponMgr_onu_state_update_olt_info(eponMgr_onu_state_t *state, 
-                                       const epon_olt_info_t *olt_info);
-
-/**
- * @brief Get OLT information
- * 
- * @param state Pointer to ONU state structure
- * @param olt_info Pointer to store OLT information
- * @return 0 on success (info valid), -1 if not valid
- */
-int eponMgr_onu_state_get_olt_info(eponMgr_onu_state_t *state, 
-                                    epon_olt_info_t *olt_info);
-
-/**
- * @brief Update manufacturer information
- * 
- * @param state Pointer to ONU state structure
- * @param mfr_info Pointer to manufacturer information
- * @return 0 on success, -1 on error
- */
-int eponMgr_onu_state_update_manufacturer_info(eponMgr_onu_state_t *state, 
-                                                const epon_onu_manufacturer_info_t *mfr_info);
-
-/**
- * @brief Get manufacturer information
- * 
- * @param state Pointer to ONU state structure
- * @param mfr_info Pointer to store manufacturer information
- * @return 0 on success (info valid), -1 if not valid
- */
-int eponMgr_onu_state_get_manufacturer_info(eponMgr_onu_state_t *state, 
-                                             epon_onu_manufacturer_info_t *mfr_info);
-
-/**
- * @brief Update link information
- * 
- * @param state Pointer to ONU state structure
- * @param link_info Pointer to link information
- * @return 0 on success, -1 on error
- */
-int eponMgr_onu_state_update_link_info(eponMgr_onu_state_t *state, 
-                                        const epon_hal_link_info_t *link_info);
-
-/**
- * @brief Get link information
- * 
- * @param state Pointer to ONU state structure
- * @param link_info Pointer to store link information
- * @return 0 on success (info valid), -1 if not valid
- */
-int eponMgr_onu_state_get_link_info(eponMgr_onu_state_t *state, 
-                                     epon_hal_link_info_t *link_info);
-
-/**
  * @brief Invalidate all cached information
  * 
  * Called when ONU status changes to invalidate all cached data.
@@ -185,22 +107,6 @@ int eponMgr_onu_state_get_link_info(eponMgr_onu_state_t *state,
  * @param state Pointer to ONU state structure
  */
 void eponMgr_onu_state_invalidate_all(eponMgr_onu_state_t *state);
-
-/**
- * @brief Check if ONU is registered
- * 
- * @param state Pointer to ONU state structure
- * @return true if ONU is in registered state, false otherwise
- */
-bool eponMgr_onu_state_is_registered(eponMgr_onu_state_t *state);
-
-/**
- * @brief Check if ONU link is up
- * 
- * @param state Pointer to ONU state structure
- * @return true if ONU link is up, false otherwise
- */
-bool eponMgr_onu_state_is_link_up(eponMgr_onu_state_t *state);
 
 /**
  * @brief Mark HAL as initialized

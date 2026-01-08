@@ -74,14 +74,15 @@ typedef struct {
 
 /**
  * @brief Main statistics data structure (thread-safe)
+ * Zero-copy design: HAL fills .data directly, getters return const pointers
  */
 typedef struct {
-    pthread_mutex_t mutex;                          /**< Mutex for thread safety */
-    uint32_t ttl_seconds;                           /**< Time-to-live for statistics */
-    eponMgr_statsData_link_stats_t link_stats;          /**< TTL-based storage */
+    pthread_mutex_t mutex;                           /**< Mutex for thread safety */
+    uint32_t ttl_seconds;                            /**< Time-to-live for statistics */
+    eponMgr_statsData_link_stats_t link_stats;      /**< TTL-based storage */
     eponMgr_statsData_transceiver_stats_t transceiver_stats; /**< TTL-based storage */
-    eponMgr_statsData_manufacturer_info_t manufacturer_info;  /**< Validity flag only */
-    eponMgr_statsData_link_info_t link_info;                  /**< Validity flag only */
+    eponMgr_statsData_manufacturer_info_t manufacturer_info; /**< Validity flag only */
+    eponMgr_statsData_link_info_t link_info;        /**< Validity flag only */
 } eponMgr_statsData_t;
 
 /**
@@ -106,70 +107,6 @@ void eponMgr_statsData_destroy(eponMgr_statsData_t *stats_data);
  */
 bool eponMgr_statsData_is_stats_valid(time_t timestamp, uint32_t ttl_seconds);
 
-/* Statistics storage - TTL based */
-
-/**
- * @brief Store link stats with timestamp
- * @param stats_data Pointer to stats data structure
- * @param stats Link statistics data
- */
-void eponMgr_statsData_set_link_stats(eponMgr_statsData_t *stats_data, const epon_hal_link_stats_t *stats);
-
-/**
- * @brief Get link stats (checks TTL)
- * @param stats_data Pointer to stats data structure
- * @param stats Output buffer for link statistics
- * @return true if data available (valid & not expired), false otherwise
- */
-bool eponMgr_statsData_get_link_stats(eponMgr_statsData_t *stats_data, epon_hal_link_stats_t *stats);
-
-/**
- * @brief Store transceiver stats with timestamp
- * @param stats_data Pointer to stats data structure
- * @param stats Transceiver statistics data
- */
-void eponMgr_statsData_set_transceiver_stats(eponMgr_statsData_t *stats_data, const epon_hal_transceiver_stats_t *stats);
-
-/**
- * @brief Get transceiver stats (checks TTL)
- * @param stats_data Pointer to stats data structure
- * @param stats Output buffer for transceiver statistics
- * @return true if data available (valid & not expired), false otherwise
- */
-bool eponMgr_statsData_get_transceiver_stats(eponMgr_statsData_t *stats_data, epon_hal_transceiver_stats_t *stats);
-
-/* Info storage - validity flag based (no timestamp) */
-
-/**
- * @brief Store manufacturer info
- * @param stats_data Pointer to stats data structure
- * @param info Manufacturer information data
- */
-void eponMgr_statsData_set_manufacturer_info(eponMgr_statsData_t *stats_data, const epon_onu_manufacturer_info_t *info);
-
-/**
- * @brief Get manufacturer info (checks validity flag only)
- * @param stats_data Pointer to stats data structure
- * @param info Output buffer for manufacturer information
- * @return true if valid, false if invalid
- */
-bool eponMgr_statsData_get_manufacturer_info(eponMgr_statsData_t *stats_data, epon_onu_manufacturer_info_t *info);
-
-/**
- * @brief Store link info
- * @param stats_data Pointer to stats data structure
- * @param info Link information data
- */
-void eponMgr_statsData_set_link_info(eponMgr_statsData_t *stats_data, const epon_hal_link_info_t *info);
-
-/**
- * @brief Get link info (checks validity flag only)
- * @param stats_data Pointer to stats data structure
- * @param info Output buffer for link information
- * @return true if valid, false if invalid
- */
-bool eponMgr_statsData_get_link_info(eponMgr_statsData_t *stats_data, epon_hal_link_info_t *info);
-
 /**
  * @brief Invalidate all data entries (called on ONU status change)
  * @param stats_data Pointer to stats data structure
@@ -178,12 +115,5 @@ bool eponMgr_statsData_get_link_info(eponMgr_statsData_t *stats_data, epon_hal_l
  * all stored data is refreshed.
  */
 void eponMgr_statsData_invalidate_all(eponMgr_statsData_t *stats_data);
-
-/**
- * @brief Invalidate specific data entry
- * @param stats_data Pointer to stats data structure
- * @param entry_name Name of entry to invalidate ("link_stats", "transceiver_stats", etc.)
- */
-void eponMgr_statsData_invalidate(eponMgr_statsData_t *stats_data, const char *entry_name);
 
 #endif /* EPONMGR_STATSDATA_H */

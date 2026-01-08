@@ -164,62 +164,74 @@ int eponMgr_data_hal_init(eponMgr_data_t *eponData)
     return ret;
 }
 
-int eponMgr_data_get_link_stats(eponMgr_data_t *eponData,
-                                 epon_hal_link_stats_t *stats)
+const epon_hal_link_stats_t* eponMgr_data_get_link_stats(eponMgr_data_t *eponData)
 {
-    if (!eponData || !stats) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Try stored data first - returns true if cache is valid
-    if (eponMgr_statsData_get_link_stats(eponData->stats_data, stats)) {
+    // Check if cache is valid (TTL check)
+    if (eponData->stats_data->link_stats.valid && 
+        eponMgr_statsData_is_stats_valid(eponData->stats_data->link_stats.timestamp, 
+                                          eponData->stats_data->ttl_seconds)) {
         pthread_mutex_unlock(&eponData->mutex);
         EPONMGR_LOG_DEBUG("Link statistics retrieved from cache\n");
-        return EPON_HAL_SUCCESS;  // Data available
+        return &eponData->stats_data->link_stats.data;
     }
     
-    // Data not available - call HAL
-    memset(stats, 0, sizeof(epon_hal_link_stats_t));
-    stats->struct_size = sizeof(epon_hal_link_stats_t);
-    int ret = epon_hal_get_link_stats(stats);
+    // Cache invalid - call HAL to fill directly
+    epon_hal_link_stats_t* ptr = &eponData->stats_data->link_stats.data;
+    ptr->struct_size = sizeof(epon_hal_link_stats_t);
+    
+    int ret = epon_hal_get_link_stats(ptr);
     if (ret == EPON_HAL_SUCCESS) {
-        eponMgr_statsData_set_link_stats(eponData->stats_data, stats);
+        // Update timestamp and validity
+        eponData->stats_data->link_stats.timestamp = time(NULL);
+        eponData->stats_data->link_stats.valid = true;
         EPONMGR_LOG_INFO("Link statistics retrieved from HAL and cached\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return ptr;
     } else {
         EPONMGR_LOG_INFO("Failed to get link statistics from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
-    return ret;
+    return NULL;
 }
 
-int eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData,
-                                        epon_hal_transceiver_stats_t *stats)
+const epon_hal_transceiver_stats_t* eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData)
 {
-    if (!eponData || !stats) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Try stored data first
-    if (eponMgr_statsData_get_transceiver_stats(eponData->stats_data, stats)) {
+    // Check if cache is valid (TTL check)
+    if (eponData->stats_data->transceiver_stats.valid && 
+        eponMgr_statsData_is_stats_valid(eponData->stats_data->transceiver_stats.timestamp, 
+                                          eponData->stats_data->ttl_seconds)) {
         pthread_mutex_unlock(&eponData->mutex);
         EPONMGR_LOG_DEBUG("Transceiver statistics retrieved from cache\n");
-        return EPON_HAL_SUCCESS;
+        return &eponData->stats_data->transceiver_stats.data;
     }
     
-    // Data not available - call HAL
-    memset(stats, 0, sizeof(epon_hal_transceiver_stats_t));
-    stats->struct_size = sizeof(epon_hal_transceiver_stats_t);
-    int ret = epon_hal_get_transceiver_stats(stats);
+    // Cache invalid - call HAL to fill directly
+    epon_hal_transceiver_stats_t* ptr = &eponData->stats_data->transceiver_stats.data;
+    ptr->struct_size = sizeof(epon_hal_transceiver_stats_t);
+    
+    int ret = epon_hal_get_transceiver_stats(ptr);
     if (ret == EPON_HAL_SUCCESS) {
-        eponMgr_statsData_set_transceiver_stats(eponData->stats_data, stats);
+        // Update timestamp and validity
+        eponData->stats_data->transceiver_stats.timestamp = time(NULL);
+        eponData->stats_data->transceiver_stats.valid = true;
         EPONMGR_LOG_INFO("Transceiver statistics retrieved from HAL and cached\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return ptr;
     } else {
         EPONMGR_LOG_INFO("Failed to get transceiver statistics from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
-    return ret;
+    return NULL;
 }
 
 int eponMgr_data_get_llid_info(eponMgr_data_t *eponData,
@@ -280,90 +292,96 @@ int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
     return ret;
 }
 
-int eponMgr_data_get_olt_info(eponMgr_data_t *eponData,
-                               epon_olt_info_t *olt_info)
+const epon_olt_info_t* eponMgr_data_get_olt_info(eponMgr_data_t *eponData)
 {
-    if (!eponData || !olt_info) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Try cached version first (validity flag, no TTL)
-    if (eponMgr_onu_state_get_olt_info(eponData->onu_state, olt_info) == 0) {
+    // Check if cache is valid
+    if (eponData->onu_state->olt_info_valid) {
         pthread_mutex_unlock(&eponData->mutex);
         EPONMGR_LOG_DEBUG("OLT information retrieved from cache\n");
-        return EPON_HAL_SUCCESS;  // Cache hit
+        return &eponData->onu_state->olt_info;
     }
     
-    // Cache miss - call HAL
-    memset(olt_info, 0, sizeof(epon_olt_info_t));
-    olt_info->struct_size = sizeof(epon_olt_info_t);
-    int ret = epon_hal_get_olt_info(olt_info);
+    // Cache invalid - call HAL to fill directly
+    epon_olt_info_t* ptr = &eponData->onu_state->olt_info;
+    ptr->struct_size = sizeof(epon_olt_info_t);
+    
+    int ret = epon_hal_get_olt_info(ptr);
     if (ret == EPON_HAL_SUCCESS) {
-        eponMgr_onu_state_update_olt_info(eponData->onu_state, olt_info);
+        eponData->onu_state->olt_info_valid = true;
         EPONMGR_LOG_INFO("OLT information retrieved from HAL and cached\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return ptr;
     } else {
         EPONMGR_LOG_INFO("Failed to get OLT information from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
-    return ret;
+    return NULL;
 }
 
-int eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData,
-                                            epon_onu_manufacturer_info_t *mfr_info)
+const epon_onu_manufacturer_info_t* eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData)
 {
-    if (!eponData || !mfr_info) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Try cached version first (validity flag, no TTL)
-    if (eponMgr_onu_state_get_manufacturer_info(eponData->onu_state, mfr_info) == 0) {
+    // Check if cache is valid
+    if (eponData->onu_state->manufacturer_info_valid) {
         pthread_mutex_unlock(&eponData->mutex);
         EPONMGR_LOG_DEBUG("ONU manufacturer information retrieved from cache\n");
-        return EPON_HAL_SUCCESS;  // Cache hit
+        return &eponData->onu_state->manufacturer_info;
     }
     
-    // Cache miss - call HAL
-    memset(mfr_info, 0, sizeof(epon_onu_manufacturer_info_t));
-    mfr_info->struct_size = sizeof(epon_onu_manufacturer_info_t);
-    int ret = epon_hal_get_manufacturer_info(mfr_info);
+    // Cache invalid - call HAL to fill directly
+    epon_onu_manufacturer_info_t* ptr = &eponData->onu_state->manufacturer_info;
+    ptr->struct_size = sizeof(epon_onu_manufacturer_info_t);
+    
+    int ret = epon_hal_get_manufacturer_info(ptr);
     if (ret == EPON_HAL_SUCCESS) {
-        eponMgr_onu_state_update_manufacturer_info(eponData->onu_state, mfr_info);
+        eponData->onu_state->manufacturer_info_valid = true;
         EPONMGR_LOG_INFO("ONU manufacturer information retrieved from HAL and cached\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return ptr;
     } else {
         EPONMGR_LOG_INFO("Failed to get ONU manufacturer information from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
-    return ret;
+    return NULL;
 }
 
-int eponMgr_data_get_link_info(eponMgr_data_t *eponData,
-                                epon_hal_link_info_t *link_info)
+const epon_hal_link_info_t* eponMgr_data_get_link_info(eponMgr_data_t *eponData)
 {
-    if (!eponData || !link_info) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!eponData) return NULL;
     
     pthread_mutex_lock(&eponData->mutex);
     
-    // Try cached version first (validity flag, no TTL)
-    if (eponMgr_onu_state_get_link_info(eponData->onu_state, link_info) == 0) {
+    // Check if cache is valid
+    if (eponData->onu_state->link_info_valid) {
         pthread_mutex_unlock(&eponData->mutex);
         EPONMGR_LOG_DEBUG("Link information retrieved from cache\n");
-        return EPON_HAL_SUCCESS;  // Cache hit
+        return &eponData->onu_state->link_info;
     }
     
-    // Cache miss - call HAL
-    memset(link_info, 0, sizeof(epon_hal_link_info_t));
-    int ret = epon_hal_get_link_info(link_info);
+    // Cache invalid - call HAL to fill directly
+    epon_hal_link_info_t* ptr = &eponData->onu_state->link_info;
+    
+    int ret = epon_hal_get_link_info(ptr);
     if (ret == EPON_HAL_SUCCESS) {
-        eponMgr_onu_state_update_link_info(eponData->onu_state, link_info);
+        eponData->onu_state->link_info_valid = true;
         EPONMGR_LOG_INFO("Link information retrieved from HAL and cached\n");
+        pthread_mutex_unlock(&eponData->mutex);
+        return ptr;
     } else {
         EPONMGR_LOG_INFO("Failed to get link information from HAL\n");
     }
     
     pthread_mutex_unlock(&eponData->mutex);
-    return ret;
+    return NULL;
 }
 
 int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,

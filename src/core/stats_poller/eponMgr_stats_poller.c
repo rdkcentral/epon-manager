@@ -51,39 +51,33 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     }
     
     int errors = 0;
-    epon_hal_link_stats_t link_stats;
-    epon_hal_transceiver_stats_t transceiver_stats;
     epon_interface_list_t if_list;
     
-    memset(&link_stats, 0, sizeof(link_stats));
-    memset(&transceiver_stats, 0, sizeof(transceiver_stats));
     memset(&if_list, 0, sizeof(if_list));
     
-    /* IMPORTANT: Set struct_size before calling HAL APIs */
-    link_stats.struct_size = sizeof(epon_hal_link_stats_t);
-    transceiver_stats.struct_size = sizeof(epon_hal_transceiver_stats_t);
-    
     /* Collect link statistics */
-    if (eponMgr_data_get_link_stats(poller->eponData, &link_stats) == EPON_HAL_SUCCESS) {
+    const epon_hal_link_stats_t* link_stats = eponMgr_data_get_link_stats(poller->eponData);
+    if (link_stats) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected link stats (TX: %llu bytes, RX: %llu bytes)\n",
-                         (unsigned long long)link_stats.bytes_sent,
-                         (unsigned long long)link_stats.bytes_received);
+                         (unsigned long long)link_stats->bytes_sent,
+                         (unsigned long long)link_stats->bytes_received);
         
         // TODO: Push to telemetry system when implemented
-        // eponMgr_telemetry_report_link_stats(&link_stats);
+        // eponMgr_telemetry_report_link_stats(link_stats);
     } else {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect link stats\n");
         errors++;
     }
     
     /* Collect transceiver statistics */
-    if (eponMgr_data_get_transceiver_stats(poller->eponData, &transceiver_stats) == EPON_HAL_SUCCESS) {
+    const epon_hal_transceiver_stats_t* transceiver_stats = eponMgr_data_get_transceiver_stats(poller->eponData);
+    if (transceiver_stats) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected transceiver stats (RX power: %.2f dBm, TX power: %.2f dBm)\n",
-                         transceiver_stats.optical_signal_level,
-                         transceiver_stats.transmit_optical_level);
+                         transceiver_stats->optical_signal_level,
+                         transceiver_stats->transmit_optical_level);
         
         // TODO: Push to telemetry system when implemented
-        // eponMgr_telemetry_report_transceiver_stats(&transceiver_stats);
+        // eponMgr_telemetry_report_transceiver_stats(transceiver_stats);
     } else {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect transceiver stats\n");
         errors++;
@@ -99,7 +93,7 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     }
     
     /* Print statistics in table format */
-    print_stats_table(&link_stats, &transceiver_stats, &if_list);
+    print_stats_table(link_stats, transceiver_stats, &if_list);
     
     return (errors > 0) ? -1 : 0;
 }

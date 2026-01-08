@@ -125,22 +125,18 @@ uint32_t eponMgr_data_get_hal_version(void);
 int eponMgr_data_hal_init(eponMgr_data_t *eponData);
 
 /**
- * @brief Get link statistics (with 30s cache)
+ * @brief Get link statistics (with 30s cache) - zero-copy
  * @param eponData Pointer to data context
- * @param stats Pointer to stats structure (caller sets struct_size)
- * @return EPON HAL return code
+ * @return Const pointer to stats if valid/cached, NULL otherwise
  */
-int eponMgr_data_get_link_stats(eponMgr_data_t *eponData,
-                                 epon_hal_link_stats_t *stats);
+const epon_hal_link_stats_t* eponMgr_data_get_link_stats(eponMgr_data_t *eponData);
 
 /**
- * @brief Get transceiver statistics (with 30s cache)
+ * @brief Get transceiver statistics (with 30s cache) - zero-copy
  * @param eponData Pointer to data context
- * @param stats Pointer to stats structure (caller sets struct_size)
- * @return EPON HAL return code
+ * @return Const pointer to stats if valid/cached, NULL otherwise
  */
-int eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData,
-                                        epon_hal_transceiver_stats_t *stats);
+const epon_hal_transceiver_stats_t* eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData);
 
 /**
  * @brief Get LLID list (fills HAL structure directly)
@@ -161,31 +157,25 @@ int eponMgr_data_get_interface_list(eponMgr_data_t *eponData,
                                      epon_interface_list_t *if_list);
 
 /**
- * @brief Get OLT information (cached with validity flag)
+ * @brief Get OLT information (cached with validity flag) - zero-copy
  * @param eponData Pointer to data context
- * @param olt_info Pointer to OLT info structure (caller sets struct_size)
- * @return EPON HAL return code
+ * @return Const pointer to OLT info if valid/cached, NULL otherwise
  */
-int eponMgr_data_get_olt_info(eponMgr_data_t *eponData,
-                               epon_olt_info_t *olt_info);
+const epon_olt_info_t* eponMgr_data_get_olt_info(eponMgr_data_t *eponData);
 
 /**
- * @brief Get ONU manufacturer information (cached with validity flag)
+ * @brief Get ONU manufacturer information (cached with validity flag) - zero-copy
  * @param eponData Pointer to data context
- * @param mfr_info Pointer to manufacturer info structure (caller sets struct_size)
- * @return EPON HAL return code
+ * @return Const pointer to manufacturer info if valid/cached, NULL otherwise
  */
-int eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData,
-                                            epon_onu_manufacturer_info_t *mfr_info);
+const epon_onu_manufacturer_info_t* eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData);
 
 /**
- * @brief Get link information (cached with validity flag)
+ * @brief Get link information (cached with validity flag) - zero-copy
  * @param eponData Pointer to data context
- * @param link_info Pointer to link info structure (caller sets struct_size)
- * @return EPON HAL return code
+ * @return Const pointer to link info if valid/cached, NULL otherwise
  */
-int eponMgr_data_get_link_info(eponMgr_data_t *eponData,
-                                epon_hal_link_info_t *link_info);
+const epon_hal_link_info_t* eponMgr_data_get_link_info(eponMgr_data_t *eponData);
 
 /**
  * @brief Get maximum CPE count
