@@ -31,7 +31,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include "../../../include/epon_hal.h"
+#include "epon_hal.h"
 
 /**
  * @brief Event types

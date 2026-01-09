@@ -36,7 +36,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include "../data_structures/eponMgr_data.h"
+#include "eponMgr_data.h"
 
 /**
  * @brief Stats poller context structure

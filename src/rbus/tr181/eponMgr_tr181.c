@@ -382,18 +382,18 @@ static const char* get_param_capability(const rbusDataElement_t *elem) {
     
     if (elem->type == RBUS_ELEMENT_TYPE_PROPERTY) {
         if (has_get && has_set) {
-            strcat(capability, "ReadWrite");
+            strcat(capability, "Read +Write");
         } else if (has_get) {
             strcat(capability, "ReadOnly");
         }
         if (has_event) {
-            strcat(capability, "+Sub");
+            strcat(capability, " +Sub");
         }
     }
     else if (elem->type == RBUS_ELEMENT_TYPE_TABLE) {
         strcat(capability, "Table");
-        if (has_add_row) strcat(capability, "+Add");
-        if (has_remove_row) strcat(capability, "+Del");
+        if (has_add_row) strcat(capability, " +Add");
+        if (has_remove_row) strcat(capability, " +Del");
     }
     else if (elem->type == RBUS_ELEMENT_TYPE_EVENT) {
         strcat(capability, "Event");
@@ -409,10 +409,10 @@ static const char* get_param_capability(const rbusDataElement_t *elem) {
  * @brief Print all registered TR-181 parameters
  */
 void eponMgr_tr181_print_registered_params(void) {
-    EPONMGR_LOG_INFO("\n=== Registered TR-181 Parameters ===\n");
-    EPONMGR_LOG_INFO("Total count: %d\n\n", g_param_count);
+    EPONMGR_LOG_INFO("=== Registered TR-181 Parameters ===\n");
+    EPONMGR_LOG_INFO("Total count: %d\n", g_param_count);
     EPONMGR_LOG_INFO("%-5s | %-10s | %-15s | %s\n", "Index", "Type", "Capability", "Parameter Name");
-    EPONMGR_LOG_INFO("------|------------|-----------------|%s\n", "------------------------------------------------------------");
+    EPONMGR_LOG_INFO("------|------------|-----------------|------------------------------------------------------------\n");
     
     for (int i = 0; i < g_param_count; i++) {
         const char *type_str;
@@ -436,7 +436,7 @@ void eponMgr_tr181_print_registered_params(void) {
         const char *capability = get_param_capability(&g_tr181_params[i]);
         EPONMGR_LOG_INFO("%-5d | %-10s | %-15s | %s\n", i + 1, type_str, capability, g_tr181_params[i].name);
     }
-    EPONMGR_LOG_INFO("\n");
+    EPONMGR_LOG_INFO("--------------------------------------------------------------------------------------------------\n\n");
 }
 
 /* ============================================================================

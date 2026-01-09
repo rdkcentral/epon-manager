@@ -36,7 +36,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <pthread.h>
-#include "../../../include/epon_hal.h"
+#include "epon_hal.h"
 
 /**
  * @brief Storage entry for statistics (with TTL)

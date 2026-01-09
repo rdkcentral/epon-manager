@@ -26,7 +26,7 @@
  * sends simulated HAL events.
  */
 
-#include "../../include/epon_hal.h"
+#include "epon_hal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

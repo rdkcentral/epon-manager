@@ -32,6 +32,11 @@
 #include <sys/stat.h>
 #include <signal.h>
 
+/* Version from configure.ac via config.h */
+#ifndef GIT_VERSION
+#define GIT_VERSION "undefined"
+#endif
+
 static void print_usage(const char *program_name) {
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("\nOptions:\n");
@@ -135,9 +140,7 @@ int main(int argc, char *argv[]) {
     }
     
     printf("=== EPON Manager Starting ===\n");
-    printf("Version: 1.0.0\n");
     printf("Mode: %s\n", run_as_daemon ? "daemon" : "console");
-    printf("Persistence: CCSP PSM (dmsb.eponmanager.*)\n");
     printf("\n");
     
     // Create PID file
@@ -156,8 +159,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "FATAL: Failed to initialize EPON Manager controller\n");
         return 1;
     }
-    
-    // Run main event loop (blocks until shutdown)
+        // Run main event loop (blocks until shutdown)
     int ret = eponMgr_controller_run(controller);
     
     // Cleanup

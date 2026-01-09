@@ -35,7 +35,7 @@
  */
 static inline int eponMgr_logger_init(void) {
     rdk_logger_init("/etc/debug.ini");
-    RDK_LOG(RDK_LOG_INFO, EPONMGR_LOG_MODULE, "EPON Manager Logger Initialized\n");
+    RDK_LOG(RDK_LOG_DEBUG, EPONMGR_LOG_MODULE, "EPON Manager Logger Initialized\n");
     return 0;
 }
 

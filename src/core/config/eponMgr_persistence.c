@@ -23,8 +23,8 @@
  */
 
 #include "eponMgr_persistence.h"
-#include "../../rbus/eponMgr_psm.h"
-#include "../../logger/eponMgr_logger.h"
+#include "eponMgr_psm.h"
+#include "eponMgr_logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

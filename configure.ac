@@ -8,6 +8,12 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([cfg])
 
+# Git version information
+m4_define([GITVERSION],
+  m4_esyscmd_s([git describe --tags --always --dirty 2>/dev/null || echo "undefined"])
+)
+AC_SUBST([GIT_VERSION], [GITVERSION])
+
 AM_INIT_AUTOMAKE([foreign subdir-objects -Wall -Werror])
 AM_PROG_AR
 

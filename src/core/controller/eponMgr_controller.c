@@ -26,7 +26,7 @@
 #include "epon_hal.h"
 #include "eponMgr_logger.h"
 #include "eponMgr_persistence.h"
-#include "../data_structures/eponMgr_data.h"
+#include "eponMgr_data.h"
 #include "eponMgr_onu_state.h"
 #include "eponMgr_queue.h"
 #include "eponMgr_rbus.h"
@@ -403,6 +403,10 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
         free(ctrl);
         return NULL;
     }
+    /* Log version information after logger initialization */
+    EPONMGR_LOG_INFO("=== EPON Manager Version ====\n");
+    EPONMGR_LOG_INFO("Version: %s\n", GIT_VERSION);
+    EPONMGR_LOG_INFO("=============================\n");
     ctrl->logger_initialized = true;
     EPONMGR_LOG_INFO("Logger initialized\n");
     

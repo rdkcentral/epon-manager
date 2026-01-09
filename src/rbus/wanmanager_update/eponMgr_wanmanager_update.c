@@ -31,8 +31,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-#include "../../../include/eponMgr_rbus.h"
-#include "../../logger/eponMgr_logger.h"
+#include "eponMgr_rbus.h"
+#include "eponMgr_logger.h"
 #include <rbus/rbus.h>
 
 /* WanManager TR-181 parameters */

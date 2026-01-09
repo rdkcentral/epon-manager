@@ -28,7 +28,7 @@
 #ifndef EPON_HAL_MOCK_H
 #define EPON_HAL_MOCK_H
 
-#include "../../include/epon_hal.h"
+#include "epon_hal.h"
 
 /**
  * Test-only functions to trigger callbacks

@@ -30,7 +30,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../src/core/data_structures/eponMgr_data.h"
+#include "eponMgr_data.h"
 #include <rbus/rbus.h>
 
 /**
