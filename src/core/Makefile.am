@@ -18,7 +18,6 @@ epon_manager_CFLAGS = \
     -I$(top_srcdir)/src/rbus \
     -I$(top_srcdir)/src/rbus/tr181 \
     -I$(top_srcdir)/src/telemetry \
-    -DGIT_VERSION=\"$(GIT_VERSION)\" \
     -Wunused-variable -Wunused-function -Wunused-parameter \
     $(AM_CFLAGS)
 

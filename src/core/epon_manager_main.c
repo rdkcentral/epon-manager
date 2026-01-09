@@ -32,10 +32,6 @@
 #include <sys/stat.h>
 #include <signal.h>
 
-/* Version from configure.ac via config.h */
-#ifndef GIT_VERSION
-#define GIT_VERSION "undefined"
-#endif
 
 static void print_usage(const char *program_name) {
     printf("Usage: %s [OPTIONS]\n", program_name);

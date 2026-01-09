@@ -13,4 +13,5 @@ libeponMgr_controller_a_CFLAGS = \
     -I$(top_srcdir)/src/core/data_structures \
     -I$(top_srcdir)/src/core/stats_poller \
     -I$(top_srcdir)/src/rbus \
+    -DGIT_VERSION=\"$(GIT_VERSION)\" \
     $(AM_CFLAGS)
