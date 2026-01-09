@@ -38,7 +38,7 @@
  * @param transceiver_stats Pointer to transceiver statistics structure
  * @param if_list Pointer to interface list structure
  */
-static void print_stats_table(const epon_hal_link_stats_t *link_stats, const epon_hal_transceiver_stats_t *transceiver_stats, const epon_interface_list_t *if_list);
+static void print_stats(const epon_hal_link_stats_t *link_stats, const epon_hal_transceiver_stats_t *transceiver_stats, const epon_interface_list_t *if_list);
 
 /**
  * @brief Collect and update all statistics
@@ -91,7 +91,7 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
     }
 
     if(link_stats && transceiver_stats && if_list) {
-        print_stats_table(link_stats, transceiver_stats, if_list);
+        print_stats(link_stats, transceiver_stats, if_list);
     }
     
     return (errors > 0) ? -1 : 0;
@@ -328,7 +328,7 @@ int eponMgr_stats_poller_trigger_now(eponMgr_stats_poller_t *poller) {
  * @param transceiver_stats Pointer to transceiver statistics structure
  * @param if_list Pointer to interface list structure
  */
-static void print_stats_table(const epon_hal_link_stats_t *link_stats,
+static void print_stats(const epon_hal_link_stats_t *link_stats,
                               const epon_hal_transceiver_stats_t *transceiver_stats,
                               const epon_interface_list_t *if_list) {
     const char *box_v = "║";

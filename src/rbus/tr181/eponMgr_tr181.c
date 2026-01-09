@@ -75,6 +75,13 @@ static llid_instance_t g_llid_instances[MAX_LLID_INSTANCES] = {{0}};
 static cpe_instance_t g_cpe_instances[MAX_CPE_INSTANCES] = {{0}};
 static veip_instance_t g_veip_instances[MAX_VEIP_INSTANCES] = {{0}};
 
+/**
+ * @brief Print all registered TR-181 parameters
+ * 
+ * Iterates through g_tr181_params and prints element name and type.
+ */
+static void print_tr181_params(void);
+
 /* Forward declarations for handlers */
 static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t base_param_set_handler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts);
@@ -216,7 +223,7 @@ int eponMgr_tr181_init(rbusHandle_t handle) {
 
     EPONMGR_LOG_INFO("TR-181 parameter registration complete: %d parameters\n", g_param_count);
     /* Print all registered TR-181 parameters */
-    eponMgr_tr181_print_registered_params();
+    print_tr181_params();
 
     /* Sync LLID table to register any existing LLIDs */
     eponMgr_tr181_sync_llid_table();
@@ -408,7 +415,7 @@ static const char* get_param_capability(const rbusDataElement_t *elem) {
 /**
  * @brief Print all registered TR-181 parameters
  */
-void eponMgr_tr181_print_registered_params(void) {
+void print_tr181_params(void) {
     EPONMGR_LOG_INFO("=== Registered TR-181 Parameters ===\n");
     EPONMGR_LOG_INFO("Total count: %d\n", g_param_count);
     EPONMGR_LOG_INFO("%-5s | %-10s | %-15s | %s\n", "Index", "Type", "Capability", "Parameter Name");

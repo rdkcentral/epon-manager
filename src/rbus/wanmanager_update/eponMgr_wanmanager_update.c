@@ -76,8 +76,8 @@ int eponMgr_rbus_notify_wanmanager_phy_status(bool phy_up) {
         return -1;
     }
     
-    EPONMGR_LOG_INFO("Successfully notified WanManager: PHY %s\n", 
-             phy_up ? "UP" : "DOWN");
+    EPONMGR_LOG_INFO("Successfully notified WanManager: PHY %s on param %s\n", 
+             phy_up ? "UP" : "DOWN", WANMANAGER_PHY_STATUS_PARAM);
     return 0;
 }
 
@@ -164,8 +164,8 @@ int eponMgr_rbus_update_virtual_interface(const char* interface_name, bool is_up
                 return -1;
             }
             
-            EPONMGR_LOG_INFO("Updated virtual interface %s: Enable=%s\n", 
-                           interface_name, is_up ? "true" : "false");
+            EPONMGR_LOG_INFO("Updated virtual interface %s: Enable=%s on param %s\n", 
+                           interface_name, is_up ? "true" : "false", param_name);
             break;
         }
         
