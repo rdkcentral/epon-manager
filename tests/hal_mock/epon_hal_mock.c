@@ -57,7 +57,54 @@ static dpoe_cpe_mac_entry_t g_cpe_entries[32] = {0};
 static uint32_t g_static_cpe_count = 0;
 static uint32_t g_dynamic_cpe_count = 0;
 
-/* Initialize default mock data */
+/* Track if stats have been explicitly set via trigger */
+static bool g_link_stats_triggered = false;
+static bool g_transceiver_stats_triggered = false;
+
+/**
+ * @brief Generate random statistics values
+ * Simulates realistic variations in stats if not explicitly set
+ */
+static void generate_random_stats(void) {
+    /* Random link stats variations */
+    g_link_stats.packets_sent += (rand() % 500);
+    g_link_stats.packets_received += (rand() % 1000);
+    g_link_stats.bytes_sent += (rand() % 50000);
+    g_link_stats.bytes_received += (rand() % 100000);
+    g_link_stats.errors_sent += (rand() % 20);
+    g_link_stats.errors_received += (rand() % 15);
+    g_link_stats.discard_packets_sent += (rand() % 10);
+    g_link_stats.discard_packets_received += (rand() % 5);
+    g_link_stats.broadcast_packets_sent += (rand() % 100);
+    g_link_stats.broadcast_packets_received += (rand() % 150);
+    g_link_stats.multicast_packets_sent += (rand() % 50);
+    g_link_stats.multicast_packets_received += (rand() % 80);
+    g_link_stats.fec_corrected += (rand() % 512);
+    g_link_stats.fec_uncorrectable += (rand() % 5);
+    g_link_stats.ranging_resyncs += (rand() % 3);
+    g_link_stats.mac_resets += (rand() % 2);
+    
+    /* Random transceiver stats variations */
+    float tx_variation = (rand() % 100 - 50) / 100.0f; /* -0.5 to +0.5 dBm */
+    float rx_variation = (rand() % 100 - 50) / 100.0f;
+    float temp_variation = (rand() % 40 - 20) / 10.0f; /* -2 to +2 °C */
+    float bias_variation = (rand() % 100 - 50) / 100.0f; /* -0.5 to +0.5 mA */
+    
+    g_transceiver_stats.transmit_optical_level += tx_variation;
+    g_transceiver_stats.optical_signal_level += rx_variation;
+    g_transceiver_stats.temperature += temp_variation;
+    g_transceiver_stats.bias_current += bias_variation;
+    
+    /* Clamp optical levels to valid ranges */
+    if (g_transceiver_stats.optical_signal_level < -30.0f) 
+        g_transceiver_stats.optical_signal_level = -30.0f;
+    if (g_transceiver_stats.optical_signal_level > 0.0f) 
+        g_transceiver_stats.optical_signal_level = 0.0f;
+    if (g_transceiver_stats.transmit_optical_level < -6.0f) 
+        g_transceiver_stats.transmit_optical_level = -6.0f;
+    if (g_transceiver_stats.transmit_optical_level > 3.0f) 
+        g_transceiver_stats.transmit_optical_level = 3.0f;
+}
 static void init_default_data(void) {
     /* Default link stats */
     g_link_stats.struct_size = sizeof(g_link_stats);
@@ -66,6 +113,18 @@ static void init_default_data(void) {
     g_link_stats.bytes_sent = 64000;
     g_link_stats.bytes_received = 128000;
     g_link_stats.max_bit_rate = 1000; /* 1Gbps */
+    g_link_stats.errors_sent = 5;
+    g_link_stats.errors_received = 3;
+    g_link_stats.discard_packets_sent = 2;
+    g_link_stats.discard_packets_received = 1;
+    g_link_stats.broadcast_packets_sent = 50;
+    g_link_stats.broadcast_packets_received = 75;
+    g_link_stats.multicast_packets_sent = 25;
+    g_link_stats.multicast_packets_received = 40;
+    g_link_stats.fec_corrected = 128;
+    g_link_stats.fec_uncorrectable = 2;
+    g_link_stats.ranging_resyncs = 0;
+    g_link_stats.mac_resets = 0;
     
     /* Default transceiver stats */
     g_transceiver_stats.struct_size = sizeof(g_transceiver_stats);
@@ -73,6 +132,8 @@ static void init_default_data(void) {
     g_transceiver_stats.optical_signal_level = -15.0f;
     g_transceiver_stats.lower_optical_threshold = -25.0f;
     g_transceiver_stats.upper_optical_threshold = -5.0f;
+    g_transceiver_stats.lower_transmit_power_threshold = -5.0f;
+    g_transceiver_stats.upper_transmit_power_threshold = 3.0f;
     g_transceiver_stats.bias_current = 35.5f;
     g_transceiver_stats.temperature = 45.0f;
     g_transceiver_stats.supply_voltage = 3.3f;
@@ -518,6 +579,11 @@ int epon_hal_get_link_stats(epon_hal_link_stats_t *stats) {
         return EPON_HAL_ERROR_NOT_INITIALIZED;
     }
     
+    /* Generate random variations only if not explicitly set via trigger */
+    if (!g_link_stats_triggered) {
+        generate_random_stats();
+    }
+    
     memcpy(stats, &g_link_stats, sizeof(epon_hal_link_stats_t));
     return EPON_HAL_SUCCESS;
 }
@@ -533,6 +599,11 @@ int epon_hal_get_transceiver_stats(epon_hal_transceiver_stats_t *stats) {
     
     if (!g_initialized) {
         return EPON_HAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    /* Generate random variations only if not explicitly set via trigger */
+    if (!g_transceiver_stats_triggered) {
+        generate_random_stats();
     }
     
     memcpy(stats, &g_transceiver_stats, sizeof(epon_hal_transceiver_stats_t));
@@ -767,11 +838,13 @@ void epon_hal_mock_trigger_interface_status(const char *interface_name,
 void epon_hal_mock_set_link_stats(const epon_hal_link_stats_t *stats) {
     if (stats) {
         memcpy(&g_link_stats, stats, sizeof(epon_hal_link_stats_t));
+        g_link_stats_triggered = true;
     }
 }
 
 void epon_hal_mock_set_transceiver_stats(const epon_hal_transceiver_stats_t *stats) {
     if (stats) {
         memcpy(&g_transceiver_stats, stats, sizeof(epon_hal_transceiver_stats_t));
+        g_transceiver_stats_triggered = true;
     }
 }

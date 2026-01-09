@@ -185,6 +185,7 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     
     // Update interface in internal data structure
     epon_interface_list_t *iface_list = &ctrl->data->interface_list;
+    
     if (iface_list) {
         // Find and update the interface
         bool found = false;
@@ -218,12 +219,20 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     if (eponMgr_rbus_notify_wanmanager_phy_status(phy_is_up) != 0) {
         EPONMGR_LOG_WARN("Failed to notify WanManager of PHY status change\n");
     }
-        // Step 3: Sync VEIP Interface table with updated interface list
-    if (eponMgr_tr181_sync_veip_table() != 0) {
-        EPONMGR_LOG_WARN("Failed to sync VEIP Interface table\n");
+    
+    // Step 3: Sync VEIP Interface table only if interface count changed
+    if (iface_list && iface_list->interface_count != ctrl->data->if_list_count_cache) {
+        EPONMGR_LOG_INFO("Interface count changed: %u -> %u, syncing VEIP table\n", 
+                        ctrl->data->if_list_count_cache, iface_list->interface_count);
+        if (eponMgr_tr181_sync_veip_table() != 0) {
+            EPONMGR_LOG_WARN("Failed to sync VEIP Interface table\n");
+        }
+        // Update cache with new count
+        ctrl->data->if_list_count_cache = iface_list->interface_count;
     }
-        EPONMGR_LOG_INFO("WanManager updated: interface=%s, PHY status=%s\n", 
-                    info->name, phy_is_up ? "UP" : "DOWN");
+    
+    EPONMGR_LOG_INFO("WanManager updated: interface=%s, PHY status=%s\n", 
+                info->name, phy_is_up ? "UP" : "DOWN");
     
     // TODO: Phase 7 - Report telemetry event for interface status change
 }
@@ -474,6 +483,39 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
         goto error;
     }
     EPONMGR_LOG_INFO("EPON HAL initialized successfully\n");
+    
+    // Step 7a: Check HAL API version compatibility
+    uint32_t hal_api_version = epon_hal_get_version();
+    uint32_t expected_version = EPON_HAL_API_VERSION;
+    
+    uint8_t hal_major = (hal_api_version >> 24) & 0xFF;
+    uint8_t hal_minor = (hal_api_version >> 16) & 0xFF;
+    uint8_t hal_patch = hal_api_version & 0xFFFF;
+    
+    uint8_t exp_major = (expected_version >> 24) & 0xFF;
+    uint8_t exp_minor = (expected_version >> 16) & 0xFF;
+    uint8_t exp_patch = expected_version & 0xFFFF;
+    
+    EPONMGR_LOG_INFO("HAL API Version: %u.%u.%u (expected %u.%u.%u)\n", 
+                     hal_major, hal_minor, hal_patch, exp_major, exp_minor, exp_patch);
+    
+    // Check major version for compatibility (must match)
+    if (hal_major != exp_major) {
+        EPONMGR_LOG_ERROR("HAL API major version mismatch: %u != %u (incompatible)\n", 
+                         hal_major, exp_major);
+        goto error;
+    }
+    
+    // Warn if minor version differs (backwards compatible but may lack features)
+    if (hal_minor < exp_minor) {
+        EPONMGR_LOG_WARN("HAL API minor version is older: %u.%u < %u.%u (may lack features)\n", 
+                        hal_major, hal_minor, exp_major, exp_minor);
+    } else if (hal_minor > exp_minor) {
+        EPONMGR_LOG_INFO("HAL API minor version is newer: %u.%u > %u.%u (compatible)\n", 
+                        hal_major, hal_minor, exp_major, exp_minor);
+    }
+    
+    EPONMGR_LOG_INFO("HAL API version compatibility check passed\n");
     
     // Step 8: Initialize stats poller
     ctrl->stats_poller = (eponMgr_stats_poller_t *)malloc(sizeof(eponMgr_stats_poller_t));

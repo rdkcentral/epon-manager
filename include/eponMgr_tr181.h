@@ -58,6 +58,13 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle);
 int eponMgr_tr181_get_param_count(void);
 
 /**
+ * @brief Print all registered TR-181 parameters
+ * 
+ * Iterates through g_tr181_params and prints element name and type.
+ */
+void eponMgr_tr181_print_registered_params(void);
+
+/**
  * @brief Register a single LLID instance dynamically
  * 
  * Registers all TR-181 parameters for a specific LLID.{i} instance.

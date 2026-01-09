@@ -215,7 +215,9 @@ int eponMgr_tr181_init(rbusHandle_t handle) {
     }
 
     EPONMGR_LOG_INFO("TR-181 parameter registration complete: %d parameters\n", g_param_count);
-    
+    /* Print all registered TR-181 parameters */
+    eponMgr_tr181_print_registered_params();
+
     /* Sync LLID table to register any existing LLIDs */
     eponMgr_tr181_sync_llid_table();
     
@@ -362,6 +364,79 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle) {
  */
 int eponMgr_tr181_get_param_count(void) {
     return g_param_count;
+}
+
+/**
+ * @brief Get capability string for a parameter based on its handlers
+ */
+static const char* get_param_capability(const rbusDataElement_t *elem) {
+    static char capability[64];
+    capability[0] = '\0';
+    
+    int has_get = (elem->cbTable.getHandler != NULL);
+    int has_set = (elem->cbTable.setHandler != NULL);
+    int has_event = (elem->cbTable.eventSubHandler != NULL);
+    int has_add_row = (elem->cbTable.tableAddRowHandler != NULL);
+    int has_remove_row = (elem->cbTable.tableRemoveRowHandler != NULL);
+    int has_method = (elem->cbTable.methodHandler != NULL);
+    
+    if (elem->type == RBUS_ELEMENT_TYPE_PROPERTY) {
+        if (has_get && has_set) {
+            strcat(capability, "ReadWrite");
+        } else if (has_get) {
+            strcat(capability, "ReadOnly");
+        }
+        if (has_event) {
+            strcat(capability, "+Sub");
+        }
+    }
+    else if (elem->type == RBUS_ELEMENT_TYPE_TABLE) {
+        strcat(capability, "Table");
+        if (has_add_row) strcat(capability, "+Add");
+        if (has_remove_row) strcat(capability, "+Del");
+    }
+    else if (elem->type == RBUS_ELEMENT_TYPE_EVENT) {
+        strcat(capability, "Event");
+    }
+    else if (elem->type == RBUS_ELEMENT_TYPE_METHOD) {
+        strcat(capability, "Method");
+    }
+    
+    return (capability[0] != '\0') ? capability : "None";
+}
+
+/**
+ * @brief Print all registered TR-181 parameters
+ */
+void eponMgr_tr181_print_registered_params(void) {
+    EPONMGR_LOG_INFO("\n=== Registered TR-181 Parameters ===\n");
+    EPONMGR_LOG_INFO("Total count: %d\n\n", g_param_count);
+    EPONMGR_LOG_INFO("%-5s | %-10s | %-15s | %s\n", "Index", "Type", "Capability", "Parameter Name");
+    EPONMGR_LOG_INFO("------|------------|-----------------|%s\n", "------------------------------------------------------------");
+    
+    for (int i = 0; i < g_param_count; i++) {
+        const char *type_str;
+        switch (g_tr181_params[i].type) {
+            case RBUS_ELEMENT_TYPE_PROPERTY:
+                type_str = "PROPERTY";
+                break;
+            case RBUS_ELEMENT_TYPE_TABLE:
+                type_str = "TABLE";
+                break;
+            case RBUS_ELEMENT_TYPE_EVENT:
+                type_str = "EVENT";
+                break;
+            case RBUS_ELEMENT_TYPE_METHOD:
+                type_str = "METHOD";
+                break;
+            default:
+                type_str = "UNKNOWN";
+                break;
+        }
+        const char *capability = get_param_capability(&g_tr181_params[i]);
+        EPONMGR_LOG_INFO("%-5d | %-10s | %-15s | %s\n", i + 1, type_str, capability, g_tr181_params[i].name);
+    }
+    EPONMGR_LOG_INFO("\n");
 }
 
 /* ============================================================================
