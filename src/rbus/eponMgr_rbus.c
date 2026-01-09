@@ -46,11 +46,9 @@ static bool g_rbus_initialized = false;
  * @brief Initialize RBUS for EPON Manager
  * 
  * @param component_name Component name for RBUS registration
- * @param hal_wrapper Pointer to HAL wrapper context
  * @return 0 on success, -1 on failure
  */
-int eponMgr_rbus_init(const char* component_name, void *hal_wrapper_ptr) {
-    (void)hal_wrapper_ptr; // Not used anymore
+int eponMgr_rbus_init(const char* component_name) {
     
     if (g_rbus_initialized) {
         EPONMGR_LOG_WARN("RBUS already initialized\n");

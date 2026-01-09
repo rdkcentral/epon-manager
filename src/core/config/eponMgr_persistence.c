@@ -53,6 +53,11 @@ int eponMgr_persistence_load(eponMgr_persistence_t *config) {
     /* Load cache TTL from PSM */
     uint32_t cache_ttl;
     if (eponMgr_psm_get_uint(PSM_EPON_CACHE_TTL, &cache_ttl) == 0) {
+        /* Validate cache TTL */
+        if (cache_ttl < 1 || cache_ttl > 300) {
+            EPONMGR_LOG_WARN("PSM: Invalid cache_ttl_seconds %u (must be 1-300), using default\n", cache_ttl);
+            cache_ttl = config->cache_ttl_seconds;
+        }
         config->cache_ttl_seconds = cache_ttl;
         EPONMGR_LOG_INFO("Loaded from PSM: cache_ttl_seconds = %u\n", cache_ttl);
     } else {
@@ -80,6 +85,11 @@ int eponMgr_persistence_load(eponMgr_persistence_t *config) {
     /* Load stats poller interval from PSM */
     uint32_t stats_poller_interval;
     if (eponMgr_psm_get_uint(PSM_EPON_STATS_POLLER_INTERVAL, &stats_poller_interval) == 0) {
+        /* Validate stats poller interval */
+        if (stats_poller_interval < 60 || stats_poller_interval > 3600) {
+            EPONMGR_LOG_WARN("PSM: Invalid stats_poller_interval_seconds %u (must be 60-3600), using default\n", stats_poller_interval);
+            stats_poller_interval = config->stats_poller_interval_seconds;
+        }
         config->stats_poller_interval_seconds = stats_poller_interval;
         EPONMGR_LOG_INFO("Loaded from PSM: stats_poller_interval_seconds = %u\n", stats_poller_interval);
     } else {
@@ -124,24 +134,3 @@ int eponMgr_persistence_save(const eponMgr_persistence_t *config) {
     return 0;
 }
 
-int eponMgr_persistence_validate(const eponMgr_persistence_t *config) {
-    if (!config) {
-        return -1;
-    }
-    
-    /* Validate cache TTL */
-    if (config->cache_ttl_seconds < 1 || config->cache_ttl_seconds > 300) {
-        EPONMGR_LOG_ERROR("Invalid cache_ttl_seconds: %u (must be 1-300)\n", 
-                config->cache_ttl_seconds);
-        return -1;
-    }
-    
-    /* Validate stats poller interval */
-    if (config->stats_poller_interval_seconds < 60 || config->stats_poller_interval_seconds > 3600) {
-        EPONMGR_LOG_ERROR("Invalid stats_poller_interval_seconds: %u (must be 60-3600)\n", 
-                config->stats_poller_interval_seconds);
-        return -1;
-    }
-    
-    return 0;
-}

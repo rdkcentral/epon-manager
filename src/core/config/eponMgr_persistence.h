@@ -67,11 +67,4 @@ int eponMgr_persistence_load(eponMgr_persistence_t *config);
  */
 int eponMgr_persistence_save(const eponMgr_persistence_t *config);
 
-/**
- * @brief Validate configuration values
- * @param config Pointer to configuration structure
- * @return 0 if valid, -1 if invalid
- */
-int eponMgr_persistence_validate(const eponMgr_persistence_t *config);
-
 #endif /* EPONMGR_PERSISTENCE_H */

@@ -406,7 +406,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     
     // Step 3: Initialize RBUS (needed for PSM operations)
     // Note: We initialize RBUS early with NULL hal_wrapper, will update later
-    if (eponMgr_rbus_init("epon_manager", NULL) != 0) {
+    if (eponMgr_rbus_init("epon_manager") != 0) {
         EPONMGR_LOG_ERROR("Failed to initialize RBUS\n");
         goto error;
     }
@@ -518,7 +518,6 @@ error:
             eponMgr_stats_poller_destroy(ctrl->stats_poller);
             free(ctrl->stats_poller);
         }
-        // hal_wrapper is now part of global eponData - no separate cleanup needed
         if (ctrl->config) {
             free(ctrl->config);
         }

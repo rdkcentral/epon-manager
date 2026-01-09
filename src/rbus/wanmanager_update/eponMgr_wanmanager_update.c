@@ -18,10 +18,10 @@
 */
 
 /**
- * @file eponMgr_wanmanager.c
- * @brief WanManager notification implementation for EPON Manager
+ * @file eponMgr_wanmanager_update.c
+ * @brief WanManager status update implementation for EPON Manager
  * 
- * This module handles PHY status notifications to WanManager via RBUS.
+ * This module handles PHY status and interface updates to WanManager via RBUS.
  * 
  * Logic:
  * - If ANY interface is UP → notify PHY_STATUS_UP
@@ -32,7 +32,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "../../../include/eponMgr_rbus.h"
-#include "eponMgr_logger.h"
+#include "../../logger/eponMgr_logger.h"
 #include <rbus/rbus.h>
 
 /* WanManager TR-181 parameters */
@@ -182,5 +182,3 @@ int eponMgr_rbus_update_virtual_interface(const char* interface_name, bool is_up
     
     return 0;
 }
-
-

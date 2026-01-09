@@ -10,7 +10,7 @@ libeponMgr_rbus_a_SOURCES = \
     eponMgr_psm.h \
     tr181/eponMgr_tr181.c \
     tr181/eponMgr_tr181.h \
-    wanmanager/eponMgr_wanmanager.c
+    wanmanager_update/eponMgr_wanmanager_update.c
 
 libeponMgr_rbus_a_CFLAGS = \
     -I$(top_srcdir)/include \
