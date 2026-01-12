@@ -1360,6 +1360,8 @@ static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t 
     (void)handle;
     (void)opts;
     
+    rbusError_t result = RBUS_ERROR_SUCCESS;
+    
     const char *param_name = rbusProperty_GetName(property);
     if (!param_name) {
         return RBUS_ERROR_INVALID_INPUT;
@@ -1375,6 +1377,7 @@ static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t 
     if (!config) {
         EPONMGR_LOG_WARN("Persistence config not available\n");
         rbusValue_Release(value);
+        eponMgr_controller_unlock_persistence_config();
         return RBUS_ERROR_BUS_ERROR;
     }
     
@@ -1392,18 +1395,19 @@ static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t 
         rbusValue_SetUInt32(value, interval);
     }
     else {
-        rbusValue_Release(value);
-        eponMgr_controller_unlock_persistence_config();
-        return RBUS_ERROR_INVALID_INPUT;
+        result = RBUS_ERROR_INVALID_INPUT;
     }
     
-    rbusProperty_SetValue(property, value);
+    if (result == RBUS_ERROR_SUCCESS) {
+        rbusProperty_SetValue(property, value);
+    }
+    
     rbusValue_Release(value);
     
     /* Unlock after we're done reading config */
     eponMgr_controller_unlock_persistence_config();
     
-    return RBUS_ERROR_SUCCESS;
+    return result;
 }
 
 /**
@@ -1412,6 +1416,8 @@ static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t 
 static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts) {
     (void)handle;
     (void)opts;
+    
+    rbusError_t result = RBUS_ERROR_SUCCESS;
     
     const char *param_name = rbusProperty_GetName(property);
     if (!param_name) {
@@ -1425,14 +1431,8 @@ static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t 
     
     EPONMGR_LOG_INFO("SET: %s\n", param_name);
     
-    /* Get controller and stats poller */
-    eponMgr_controller_t *ctrl = eponMgr_controller_get_instance();
-    if (!ctrl) {
-        EPONMGR_LOG_ERROR("Controller not available\n");
-        return RBUS_ERROR_BUS_ERROR;
-    }
-    
-    eponMgr_stats_poller_t *poller = eponMgr_controller_get_stats_poller(ctrl);
+    /* Get stats poller from controller */
+    eponMgr_stats_poller_t *poller = (eponMgr_stats_poller_t *)eponMgr_controller_get_stats_poller();
     if (!poller) {
         EPONMGR_LOG_ERROR("Stats poller not available\n");
         return RBUS_ERROR_BUS_ERROR;
@@ -1442,39 +1442,35 @@ static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t 
         bool enabled = rbusValue_GetBoolean(value);
         bool is_running = eponMgr_stats_poller_is_running(poller);
         
-        /* Validate and save to PSM */
-        if (eponMgr_psm_set_bool(PSM_EPON_STATS_POLLER_ENABLED, enabled) != 0) {
-            EPONMGR_LOG_ERROR("Failed to save stats poller enabled to PSM\n");
-            return RBUS_ERROR_BUS_ERROR;
-        }
-        
         /* Handle dynamic start/stop */
         if (enabled && !is_running) {
-            /* Start the thread and set enabled flag */
+            /* Start the thread and set enabled flag (persistence done internally) */
             if (eponMgr_stats_poller_set_enabled(poller, true) != 0) {
                 EPONMGR_LOG_ERROR("Failed to set stats poller enabled flag\n");
-                return RBUS_ERROR_BUS_ERROR;
-            }
-            if (eponMgr_stats_poller_start(poller) != 0) {
+                result = RBUS_ERROR_BUS_ERROR;
+            } else if (eponMgr_stats_poller_start(poller) != 0) {
                 EPONMGR_LOG_ERROR("Failed to start stats poller thread\n");
-                return RBUS_ERROR_BUS_ERROR;
+                result = RBUS_ERROR_BUS_ERROR;
+            } else {
+                EPONMGR_LOG_INFO("Stats poller thread started via TR-181\n");
             }
-            EPONMGR_LOG_INFO("Stats poller thread started via TR-181\n");
         } else if (!enabled && is_running) {
-            /* Stop the thread and set enabled flag */
+            /* Stop the thread and set enabled flag (persistence done internally) */
             eponMgr_stats_poller_stop(poller);
             if (eponMgr_stats_poller_set_enabled(poller, false) != 0) {
                 EPONMGR_LOG_ERROR("Failed to set stats poller enabled flag\n");
-                return RBUS_ERROR_BUS_ERROR;
+                result = RBUS_ERROR_BUS_ERROR;
+            } else {
+                EPONMGR_LOG_INFO("Stats poller thread stopped via TR-181\n");
             }
-            EPONMGR_LOG_INFO("Stats poller thread stopped via TR-181\n");
         } else {
-            /* Thread state already matches, just update the flag */
+            /* Thread state already matches, just update the flag (persistence done internally) */
             if (eponMgr_stats_poller_set_enabled(poller, enabled) != 0) {
                 EPONMGR_LOG_ERROR("Failed to set stats poller enabled flag\n");
-                return RBUS_ERROR_BUS_ERROR;
+                result = RBUS_ERROR_BUS_ERROR;
+            } else {
+                EPONMGR_LOG_INFO("Stats poller %s flag updated via TR-181\n", enabled ? "enabled" : "disabled");
             }
-            EPONMGR_LOG_INFO("Stats poller %s flag updated via TR-181\n", enabled ? "enabled" : "disabled");
         }
     }
     else if (strstr(param_name, ".PollingInterval")) {
@@ -1483,26 +1479,19 @@ static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t 
         /* Validate interval (60-3600 seconds) */
         if (interval < 60 || interval > 3600) {
             EPONMGR_LOG_ERROR("Invalid polling interval: %u (must be 60-3600)\n", interval);
-            return RBUS_ERROR_INVALID_INPUT;
-        }
-        
-        /* Save to PSM */
-        if (eponMgr_psm_set_uint(PSM_EPON_STATS_POLLER_INTERVAL, interval) != 0) {
-            EPONMGR_LOG_ERROR("Failed to save stats poller interval to PSM\n");
-            return RBUS_ERROR_BUS_ERROR;
-        }
-        
-        /* Apply runtime change */
-        if (eponMgr_stats_poller_set_interval(poller, interval) != 0) {
+            result = RBUS_ERROR_INVALID_INPUT;
+        } else if (eponMgr_stats_poller_set_interval(poller, interval) != 0) {
+            /* Apply runtime change (persistence done internally) */
             EPONMGR_LOG_ERROR("Failed to set stats poller interval\n");
-            return RBUS_ERROR_BUS_ERROR;
+            result = RBUS_ERROR_BUS_ERROR;
+        } else {
+            EPONMGR_LOG_INFO("Stats poller interval set to %u seconds via TR-181\n", interval);
         }
-        
-        EPONMGR_LOG_INFO("Stats poller interval set to %u seconds via TR-181\n", interval);
     }
     else {
-        return RBUS_ERROR_INVALID_INPUT;
+        result = RBUS_ERROR_INVALID_INPUT;
     }
     
-    return RBUS_ERROR_SUCCESS;
+    eponMgr_controller_unlock_stats_poller();
+    return result;
 }

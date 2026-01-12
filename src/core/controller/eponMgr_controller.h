@@ -92,12 +92,22 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller);
 bool eponMgr_controller_is_running(const eponMgr_controller_t *controller);
 
 /**
- * @brief Get stats poller from controller
+ * @brief Get stats poller from controller with lock
  * 
- * @param controller Pointer to controller context
- * @return Pointer to stats poller context, NULL on error
+ * Acquires the controller mutex and returns the stats poller.
+ * Caller MUST call eponMgr_controller_unlock_stats_poller() when done.
+ * 
+ * @return Pointer to stats poller context, NULL if not initialized
+ * @note Caller must call unlock to release the mutex
  */
-void* eponMgr_controller_get_stats_poller(eponMgr_controller_t *controller);
+void* eponMgr_controller_get_stats_poller(void);
+
+/**
+ * @brief Release the lock on stats poller
+ * 
+ * Releases the mutex acquired by eponMgr_controller_get_stats_poller().
+ */
+void eponMgr_controller_unlock_stats_poller(void);
 
 /**
  * @brief Get global controller instance

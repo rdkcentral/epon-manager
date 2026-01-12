@@ -730,9 +730,17 @@ bool eponMgr_controller_is_running(const eponMgr_controller_t *controller) {
     return controller->running;
 }
 
-void* eponMgr_controller_get_stats_poller(eponMgr_controller_t *controller) {
-    if (!controller) return NULL;
-    return controller->stats_poller;
+void* eponMgr_controller_get_stats_poller(void) {
+    if (!g_controller) return NULL;
+    
+    pthread_mutex_lock(&g_controller->mutex);
+    return g_controller->stats_poller;
+}
+
+void eponMgr_controller_unlock_stats_poller(void) {
+    if (!g_controller) return;
+    
+    pthread_mutex_unlock(&g_controller->mutex);
 }
 
 eponMgr_controller_t* eponMgr_controller_get_instance(void) {

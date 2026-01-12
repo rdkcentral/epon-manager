@@ -24,6 +24,8 @@
 
 #include "eponMgr_stats_poller.h"
 #include "eponMgr_logger.h"
+#include "eponMgr_controller.h"
+#include "eponMgr_persistence.h"
 #include "epon_hal.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -283,7 +285,19 @@ int eponMgr_stats_poller_set_enabled(eponMgr_stats_poller_t *poller, bool enable
     poller->enabled = enabled;
     pthread_mutex_unlock(&poller->mutex);
     
-    EPONMGR_LOG_INFO("Stats poller %s\n", enabled ? "enabled" : "disabled");
+    /* Update persistence configuration */
+    eponMgr_persistence_t *config = (eponMgr_persistence_t *)eponMgr_controller_lock_persistence_config();
+    if (config) {
+        config->stats_poller_enabled = enabled;
+        if (eponMgr_persistence_save(config) != 0) {
+            EPONMGR_LOG_ERROR("Failed to save stats poller enabled state to PSM\n");
+            eponMgr_controller_unlock_persistence_config();
+            return -1;
+        }
+        eponMgr_controller_unlock_persistence_config();
+    }
+    
+    EPONMGR_LOG_INFO("Stats poller %s (persisted)\n", enabled ? "enabled" : "disabled");
     
     return 0;
 }
@@ -296,7 +310,19 @@ int eponMgr_stats_poller_set_interval(eponMgr_stats_poller_t *poller, uint32_t i
     pthread_cond_signal(&poller->cond);  /* Wake up to apply new interval */
     pthread_mutex_unlock(&poller->mutex);
     
-    EPONMGR_LOG_INFO("Stats poller interval updated to %u seconds\n", interval_seconds);
+    /* Update persistence configuration */
+    eponMgr_persistence_t *config = (eponMgr_persistence_t *)eponMgr_controller_lock_persistence_config();
+    if (config) {
+        config->stats_poller_interval_seconds = interval_seconds;
+        if (eponMgr_persistence_save(config) != 0) {
+            EPONMGR_LOG_ERROR("Failed to save stats poller interval to PSM\n");
+            eponMgr_controller_unlock_persistence_config();
+            return -1;
+        }
+        eponMgr_controller_unlock_persistence_config();
+    }
+    
+    EPONMGR_LOG_INFO("Stats poller interval updated to %u seconds (persisted)\n", interval_seconds);
     
     return 0;
 }

@@ -8,6 +8,8 @@ libeponMgr_stats_poller_a_CFLAGS = \
     -I$(top_srcdir)/include \
     -I$(top_srcdir)/src/logger \
     -I$(top_srcdir)/src/core/data_structures \
+    -I$(top_srcdir)/src/core/controller \
+    -I$(top_srcdir)/src/core/config \
     $(RBUS_CFLAGS)
 
 libeponMgr_stats_poller_a_LIBADD = \

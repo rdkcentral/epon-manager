@@ -57,27 +57,7 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle);
  */
 int eponMgr_tr181_get_param_count(void);
 
-/**
- * @brief Register a single LLID instance dynamically
- * 
- * Registers all TR-181 parameters for a specific LLID.{i} instance.
- * Called when a new LLID is discovered/added.
- * 
- * @param instance 1-based LLID instance number (1-32)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_register_llid_instance(uint32_t instance);
 
-/**
- * @brief Unregister a single LLID instance dynamically
- * 
- * Unregisters all TR-181 parameters for a specific LLID.{i} instance.
- * Called when a LLID is removed/deregistered.
- * 
- * @param instance 1-based LLID instance number (1-32)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_unregister_llid_instance(uint32_t instance);
 
 /**
  * @brief Synchronize LLID table registrations with current LLID list
@@ -90,27 +70,7 @@ int eponMgr_tr181_unregister_llid_instance(uint32_t instance);
  */
 int eponMgr_tr181_sync_llid_table(void);
 
-/**
- * @brief Register a single CPE instance dynamically
- * 
- * Registers all TR-181 parameters for a specific DPoE.CPE.{i} instance.
- * Called when a new CPE is discovered/added.
- * 
- * @param instance 1-based CPE instance number (1-256)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_register_cpe_instance(uint32_t instance);
 
-/**
- * @brief Unregister a single CPE instance dynamically
- * 
- * Unregisters all TR-181 parameters for a specific DPoE.CPE.{i} instance.
- * Called when a CPE is removed/aged out.
- * 
- * @param instance 1-based CPE instance number (1-256)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_unregister_cpe_instance(uint32_t instance);
 
 /**
  * @brief Synchronize CPE table registrations with current CPE list
@@ -123,28 +83,7 @@ int eponMgr_tr181_unregister_cpe_instance(uint32_t instance);
  */
 int eponMgr_tr181_sync_cpe_table(void);
 
-/**
- * @brief Register a single VEIP Interface instance dynamically
- * 
- * Registers all TR-181 parameters for a specific VEIP_Interface.{i} instance.
- * Called when a new virtual interface is discovered/added.
- * 
- * @param instance 1-based VEIP instance number (1-16)
- * @param name Interface name (e.g., "veip0")
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_register_veip_instance(uint32_t instance, const char *name);
 
-/**
- * @brief Unregister a single VEIP Interface instance dynamically
- * 
- * Unregisters all TR-181 parameters for a specific VEIP_Interface.{i} instance.
- * Called when a virtual interface is removed.
- * 
- * @param instance 1-based VEIP instance number (1-16)
- * @return 0 on success, -1 on failure
- */
-int eponMgr_tr181_unregister_veip_instance(uint32_t instance);
 
 /**
  * @brief Synchronize VEIP Interface table registrations with current interface list
