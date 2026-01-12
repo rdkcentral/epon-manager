@@ -237,12 +237,18 @@ int eponMgr_tr181_init(rbusHandle_t handle) {
     return 0;
 }
 
-
-
 /**
- * @brief Ensure all LLID instances are registered (called from handlers on-demand)
+ * @brief Synchronize LLID table registrations with current LLID list
+ * 
+ * Compares current RBUS registrations with actual LLID list state
+ * and registers/unregisters instances as needed. Should be called when
+ * LLID list changes (add/remove events).
  * 
  * @return 0 on success, -1 on failure
+ * 
+ * @note Acquires data lock internally, safe to call from any thread
+ * @note Automatically registers new LLID instances in TR-181 table
+ * @note Uses 1-based indexing for TR-181 instance numbers
  */
 int eponMgr_tr181_sync_llid_table(void) {
     if (!g_rbus_handle) {
@@ -279,12 +285,18 @@ int eponMgr_tr181_sync_llid_table(void) {
     return 0;
 }
 
-
-
 /**
- * @brief Ensure all CPE instances are registered (called from handlers on-demand)
+ * @brief Synchronize CPE table registrations with current CPE list
+ * 
+ * Compares current RBUS registrations with actual CPE list state
+ * and registers/unregisters instances as needed. Should be called when
+ * CPE list changes (add/remove events) in DPoE mode.
  * 
  * @return 0 on success, -1 on failure
+ * 
+ * @note Acquires data lock internally, safe to call from any thread
+ * @note Only relevant when DPoE is enabled
+ * @note Automatically registers new CPE instances in TR-181 table
  */
 int eponMgr_tr181_sync_cpe_table(void) {
     if (!g_rbus_handle) {
@@ -320,7 +332,17 @@ int eponMgr_tr181_sync_cpe_table(void) {
 }
 
 /**
- * @brief Cleanup TR-181 parameter handlers
+ * @brief Cleanup TR-181 parameter handlers and unregister from RBUS
+ * 
+ * Unregisters all dynamic table instances (VEIP, LLID, CPE) and base
+ * parameters from RBUS. This should be called during shutdown before
+ * closing the RBUS connection.
+ * 
+ * @param handle RBUS handle
+ * 
+ * @note Safe to call with NULL handle or when already cleaned up
+ * @note Unregisters all table rows in reverse order (VEIP, LLID, CPE)
+ * @note Clears internal registration state for all instances
  */
 void eponMgr_tr181_cleanup(rbusHandle_t handle) {
     if (!handle || g_param_count == 0) {
@@ -367,7 +389,15 @@ void eponMgr_tr181_cleanup(rbusHandle_t handle) {
 }
 
 /**
- * @brief Get number of registered TR-181 parameters
+ * @brief Get number of TR-181 parameters registered
+ * 
+ * Returns the total count of registered TR-181 parameters including
+ * base parameters and dynamically registered table instances.
+ * 
+ * @return Number of registered parameters (base + dynamic tables)
+ * 
+ * @note Returns 0 if TR-181 has not been initialized
+ * @note Count increases as dynamic table rows are registered
  */
 int eponMgr_tr181_get_param_count(void) {
     return g_param_count;
@@ -375,6 +405,9 @@ int eponMgr_tr181_get_param_count(void) {
 
 /**
  * @brief Get capability string for a parameter based on its handlers
+ * 
+ * @param elem Data element to check
+ * @return String describing parameter capabilities (ReadOnly, Read+Write, etc.)
  */
 static const char* get_param_capability(const rbusDataElement_t *elem) {
     static char capability[64];
@@ -414,6 +447,8 @@ static const char* get_param_capability(const rbusDataElement_t *elem) {
 
 /**
  * @brief Print all registered TR-181 parameters
+ * 
+ * Logs parameter information in a formatted table for debugging.
  */
 void print_tr181_params(void) {
     EPONMGR_LOG_INFO("=== Registered TR-181 Parameters ===\n");
@@ -452,6 +487,9 @@ void print_tr181_params(void) {
 
 /**
  * @brief Convert encryption mode enum to string
+ * 
+ * @param mode Encryption mode enum
+ * @return String representation of encryption mode
  */
 static const char* encryption_mode_to_string(epon_encryption_mode_t mode) {
     switch (mode) {
@@ -465,6 +503,9 @@ static const char* encryption_mode_to_string(epon_encryption_mode_t mode) {
 
 /**
  * @brief Convert ONU status enum to string
+ * 
+ * @param status ONU status enum
+ * @return String representation of ONU status
  */
 static const char* onu_status_to_string(epon_onu_status_t status) {
     switch (status) {
@@ -478,6 +519,9 @@ static const char* onu_status_to_string(epon_onu_status_t status) {
 
 /**
  * @brief Convert LLID state enum to string
+ * 
+ * @param state LLID state enum
+ * @return String representation of LLID state
  */
 static const char* llid_state_to_string(epon_llid_state_t state) {
     switch (state) {
@@ -1239,12 +1283,18 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
  * VEIP Interface Dynamic Table Support (Phase 7.3)
  * ========================================================================== */
 
-
-
 /**
- * @brief Synchronize VEIP interface table with HAL interface list
+ * @brief Synchronize VEIP Interface table registrations with current interface list
  * 
- * Registers unregistered VEIP instances using RBUS table API
+ * Compares current RBUS registrations with actual interface list state
+ * and registers/unregisters instances as needed. Should be called when
+ * interface list changes (add/remove/status change events).
+ * 
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Acquires data lock internally, safe to call from any thread
+ * @note Automatically registers new VEIP instances in TR-181 table
+ * @note Stores interface name in instance table for lookup
  */
 int eponMgr_tr181_sync_veip_table(void) {
     if (!g_rbus_handle) {

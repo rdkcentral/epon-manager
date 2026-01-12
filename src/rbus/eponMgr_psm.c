@@ -32,15 +32,50 @@
 #include <string.h>
 #include <rbus/rbus.h>
 
+/**
+ * @brief Initialize PSM connection
+ * 
+ * Initializes the PSM interface. Uses RBUS handle from eponMgr_rbus module
+ * for all PSM operations, so RBUS must be initialized first.
+ * 
+ * @return 0 on success, -1 on error
+ * 
+ * @note Requires RBUS to be initialized first
+ * @note Does not create separate connection - uses existing RBUS handle
+ */
 int eponMgr_psm_init(void) {
     EPONMGR_LOG_INFO("PSM interface initialized\n");
     return 0;
 }
 
+/**
+ * @brief Close PSM connection
+ * 
+ * Closes the PSM interface. Since this implementation uses the shared RBUS
+ * handle, there is no actual connection to close.
+ * 
+ * @note This is a no-op in current implementation
+ * @note RBUS handle is managed by eponMgr_rbus module
+ */
 void eponMgr_psm_close(void) {
     EPONMGR_LOG_INFO("PSM interface closed\n");
 }
 
+/**
+ * @brief Read string value from PSM
+ * 
+ * Reads a string parameter from PSM using direct RBUS method invocation of
+ * GetPSMRecordValue(). Returns the value in the provided buffer.
+ * 
+ * @param param PSM parameter name (e.g., "dmsb.eponmanager.DpoeEnable")
+ * @param value Buffer to store value
+ * @param value_size Size of value buffer
+ * @return 0 on success, -1 on error
+ * 
+ * @note Requires RBUS handle from eponMgr_rbus_get_handle()
+ * @note Value is null-terminated and truncated if buffer too small
+ * @note Returns error if parameter not found or RBUS call fails
+ */
 int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
     if (!param || !value || value_size == 0) {
         return -1;
@@ -100,6 +135,19 @@ int eponMgr_psm_get_string(const char *param, char *value, size_t value_size) {
     return -1;
 }
 
+/**
+ * @brief Read unsigned integer value from PSM
+ * 
+ * Reads an unsigned integer parameter from PSM by first reading as string
+ * then converting to uint32_t using atoi().
+ * 
+ * @param param PSM parameter name
+ * @param value Pointer to store value
+ * @return 0 on success, -1 on error
+ * 
+ * @note Calls eponMgr_psm_get_string() internally
+ * @note Uses atoi() for conversion - invalid strings return 0
+ */
 int eponMgr_psm_get_uint(const char *param, uint32_t *value) {
     char str_value[32];
     
@@ -115,6 +163,19 @@ int eponMgr_psm_get_uint(const char *param, uint32_t *value) {
     return 0;
 }
 
+/**
+ * @brief Read boolean value from PSM
+ * 
+ * Reads a boolean parameter from PSM by first reading as string then
+ * checking for "TRUE", "true", or "1".
+ * 
+ * @param param PSM parameter name
+ * @param value Pointer to store value (true/false)
+ * @return 0 on success, -1 on error
+ * 
+ * @note Calls eponMgr_psm_get_string() internally
+ * @note Recognizes "TRUE", "true", "1" as true; all else is false
+ */
 int eponMgr_psm_get_bool(const char *param, bool *value) {
     char str_value[16];
     
@@ -130,6 +191,20 @@ int eponMgr_psm_get_bool(const char *param, bool *value) {
     return 0;
 }
 
+/**
+ * @brief Write string value to PSM
+ * 
+ * Writes a string parameter to PSM using direct RBUS method invocation of
+ * SetPSMRecordValue(). Persists the value in PSM database.
+ * 
+ * @param param PSM parameter name
+ * @param value Value to write (null-terminated string)
+ * @return 0 on success, -1 on error
+ * 
+ * @note Requires RBUS handle from eponMgr_rbus_get_handle()
+ * @note Value is persisted across reboots
+ * @note Returns error if RBUS call fails
+ */
 int eponMgr_psm_set_string(const char *param, const char *value) {
     if (!param || !value) {
         return -1;
@@ -177,12 +252,38 @@ int eponMgr_psm_set_string(const char *param, const char *value) {
     return 0;
 }
 
+/**
+ * @brief Write unsigned integer value to PSM
+ * 
+ * Writes an unsigned integer parameter to PSM by converting to string
+ * then calling eponMgr_psm_set_string().
+ * 
+ * @param param PSM parameter name
+ * @param value Value to write
+ * @return 0 on success, -1 on error
+ * 
+ * @note Calls eponMgr_psm_set_string() internally after conversion
+ * @note Value is persisted across reboots
+ */
 int eponMgr_psm_set_uint(const char *param, uint32_t value) {
     char str_value[32];
     snprintf(str_value, sizeof(str_value), "%u", value);
     return eponMgr_psm_set_string(param, str_value);
 }
 
+/**
+ * @brief Write boolean value to PSM
+ * 
+ * Writes a boolean parameter to PSM by converting to "TRUE" or "FALSE"
+ * string then calling eponMgr_psm_set_string().
+ * 
+ * @param param PSM parameter name
+ * @param value Value to write (true/false)
+ * @return 0 on success, -1 on error
+ * 
+ * @note Calls eponMgr_psm_set_string() internally with "TRUE" or "FALSE"
+ * @note Value is persisted across reboots
+ */
 int eponMgr_psm_set_bool(const char *param, bool value) {
     return eponMgr_psm_set_string(param, value ? "TRUE" : "FALSE");
 }

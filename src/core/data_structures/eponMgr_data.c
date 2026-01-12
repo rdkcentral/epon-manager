@@ -33,6 +33,22 @@
 // Global EPON data context
 static eponMgr_data_t *g_eponData = NULL;
 
+/**
+ * @brief Initialize EPON Manager data context
+ * 
+ * Initializes the central EPON Manager data context with statistics cache,
+ * ONU state management, and thread-safety primitives. Allocates and initializes
+ * sub-structures including stats data and ONU state.
+ * 
+ * @param eponData Pointer to data context structure
+ * @param config HAL configuration with callbacks and DPoE support flag
+ * @param cache_ttl Cache TTL in seconds (default 30)
+ * @return 0 on success, -1 on error
+ * 
+ * @note Caller must call eponMgr_data_destroy() to cleanup resources
+ * @note Uses recursive mutex to allow nested locks from same thread
+ * @note Sets global data context pointer for lock/unlock functions
+ */
 int eponMgr_data_init(eponMgr_data_t *eponData, 
                       epon_hal_config_t *config, 
                       uint32_t cache_ttl)
@@ -88,6 +104,19 @@ int eponMgr_data_init(eponMgr_data_t *eponData,
     return 0;
 }
 
+/**
+ * @brief Destroy EPON Manager data context and cleanup resources
+ * 
+ * Destroys the data context, frees all allocated memory including statistics data,
+ * ONU state, and dynamically allocated HAL structures. Clears the global data
+ * context pointer.
+ * 
+ * @param eponData Pointer to data context
+ * 
+ * @note Safe to call with NULL pointer
+ * @note Locks mutex before cleanup, then destroys mutex
+ * @note Clears global reference if this was the global context
+ */
 void eponMgr_data_destroy(eponMgr_data_t *eponData)
 {
     if (!eponData) return;
@@ -125,6 +154,18 @@ void eponMgr_data_destroy(eponMgr_data_t *eponData)
     EPONMGR_LOG_INFO("Core data context destroyed\n");
 }
 
+/**
+ * @brief Lock global data context for thread-safe access
+ * 
+ * Acquires the global data context mutex and returns a pointer to the locked
+ * context. This provides thread-safe access to the global EPON data.
+ * 
+ * @return Pointer to locked data context, NULL if not initialized
+ * 
+ * @note Caller MUST call eponMgr_data_unlock() after use
+ * @note Uses recursive mutex - same thread can lock multiple times
+ * @note Blocks until lock is acquired
+ */
 eponMgr_data_t* eponMgr_data_lock(void)
 {
     if (!g_eponData) return NULL;
@@ -132,17 +173,51 @@ eponMgr_data_t* eponMgr_data_lock(void)
     return g_eponData;
 }
 
+/**
+ * @brief Unlock global data context after use
+ * 
+ * Releases the mutex acquired by eponMgr_data_lock(). Must be called
+ * after finishing access to the locked data context.
+ * 
+ * @note Safe to call even if not initialized (no-op)
+ * @note Must be called from the same thread that called lock
+ */
 void eponMgr_data_unlock(void)
 {
     if (!g_eponData) return;
     pthread_mutex_unlock(&g_eponData->mutex);
 }
 
+/**
+ * @brief Get EPON HAL API version
+ * 
+ * Returns the HAL API version for compatibility checking. Version format is
+ * 0xMMmmpppp where MM=major, mm=minor, pppp=patch.
+ * 
+ * @return API version from epon_hal_get_version()
+ * 
+ * @note This is a direct passthrough to HAL API
+ * @note No locking required - version is constant
+ */
 uint32_t eponMgr_data_get_hal_version(void)
 {
     return epon_hal_get_version();
 }
 
+/**
+ * @brief Initialize EPON HAL (cached in onu_state)
+ * 
+ * Calls epon_hal_init() with the configured callbacks and marks the HAL as
+ * initialized in both data context and ONU state. This must be called before
+ * any HAL operations.
+ * 
+ * @param eponData Pointer to data context
+ * @return EPON HAL return code (EPON_HAL_SUCCESS or error code)
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Sets hal_initialized flag on success
+ * @note HAL initialization status is cached in ONU state
+ */
 int eponMgr_data_hal_init(eponMgr_data_t *eponData)
 {
     if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
@@ -164,6 +239,19 @@ int eponMgr_data_hal_init(eponMgr_data_t *eponData)
     return ret;
 }
 
+/**
+ * @brief Get link statistics (with 30s cache) - zero-copy
+ * 
+ * Returns link statistics from cache if valid within TTL, otherwise calls HAL
+ * to refresh the cache. Provides zero-copy access to cached statistics structure.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to stats if valid/cached, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Returned pointer valid until next cache invalidation
+ * @note Cache TTL is configurable (default 30 seconds)
+ */
 const epon_hal_link_stats_t* eponMgr_data_get_link_stats(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -199,6 +287,19 @@ const epon_hal_link_stats_t* eponMgr_data_get_link_stats(eponMgr_data_t *eponDat
     return NULL;
 }
 
+/**
+ * @brief Get transceiver statistics (with 30s cache) - zero-copy
+ * 
+ * Returns transceiver statistics from cache if valid within TTL, otherwise calls
+ * HAL to refresh the cache. Provides zero-copy access to cached statistics structure.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to stats if valid/cached, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Returned pointer valid until next cache invalidation
+ * @note Cache TTL is configurable (default 30 seconds)
+ */
 const epon_hal_transceiver_stats_t* eponMgr_data_get_transceiver_stats(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -234,6 +335,19 @@ const epon_hal_transceiver_stats_t* eponMgr_data_get_transceiver_stats(eponMgr_d
     return NULL;
 }
 
+/**
+ * @brief Get LLID list - zero-copy
+ * 
+ * Calls HAL to populate the internal LLID list structure and returns a const pointer.
+ * Automatically triggers TR-181 table sync if LLID count changes.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to LLID list if available, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Always calls HAL for fresh data (no cache for dynamic data)
+ * @note Triggers TR-181 sync if count changes
+ */
 const epon_llid_list_t* eponMgr_data_get_llid_info(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -262,6 +376,19 @@ const epon_llid_list_t* eponMgr_data_get_llid_info(eponMgr_data_t *eponData)
     }
 }
 
+/**
+ * @brief Get interface list - zero-copy
+ * 
+ * Calls HAL to populate the internal interface list structure and returns a const
+ * pointer. Automatically triggers TR-181 VEIP table sync if interface count changes.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to interface list if available, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Always calls HAL for fresh data (no cache for dynamic data)
+ * @note Triggers TR-181 sync if count changes
+ */
 const epon_interface_list_t* eponMgr_data_get_interface_list(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -292,6 +419,19 @@ const epon_interface_list_t* eponMgr_data_get_interface_list(eponMgr_data_t *epo
     }
 }
 
+/**
+ * @brief Get OLT information (cached with validity flag) - zero-copy
+ * 
+ * Returns OLT information from cache if valid, otherwise calls HAL to refresh.
+ * OLT information is cached because it rarely changes during ONU lifetime.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to OLT info if valid/cached, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Cache remains valid until explicit invalidation
+ * @note Typically populated during ONU registration
+ */
 const epon_olt_info_t* eponMgr_data_get_olt_info(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -323,6 +463,19 @@ const epon_olt_info_t* eponMgr_data_get_olt_info(eponMgr_data_t *eponData)
     return NULL;
 }
 
+/**
+ * @brief Get ONU manufacturer information (cached with validity flag) - zero-copy
+ * 
+ * Returns ONU manufacturer information from cache if valid, otherwise calls HAL
+ * to refresh. Manufacturer info is cached because it is constant for device lifetime.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to manufacturer info if valid/cached, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Cache remains valid until explicit invalidation
+ * @note Contains vendor name, model, serial number, etc.
+ */
 const epon_onu_manufacturer_info_t* eponMgr_data_get_onu_manufacturer_info(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -354,6 +507,19 @@ const epon_onu_manufacturer_info_t* eponMgr_data_get_onu_manufacturer_info(eponM
     return NULL;
 }
 
+/**
+ * @brief Get link information (cached with validity flag) - zero-copy
+ * 
+ * Returns link information from cache if valid, otherwise calls HAL to refresh.
+ * Link info includes mode, encryption status, and other link-level details.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to link info if valid/cached, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Cache remains valid until explicit invalidation
+ * @note Includes link mode (1G/10G) and encryption status
+ */
 const epon_hal_link_info_t* eponMgr_data_get_link_info(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -384,6 +550,19 @@ const epon_hal_link_info_t* eponMgr_data_get_link_info(eponMgr_data_t *eponData)
     return NULL;
 }
 
+/**
+ * @brief Get maximum CPE count
+ * 
+ * Returns the maximum number of CPE devices that can be supported by the ONU.
+ * This value is returned from the CPE MAC table structure.
+ * 
+ * @param eponData Pointer to data context
+ * @param max_cpe Pointer to store max CPE count
+ * @return EPON_HAL_SUCCESS on success, EPON_HAL_ERROR_INVALID_PARAM on error
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Value is from CPE table structure
+ */
 int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,
                               uint32_t *max_cpe)
 {
@@ -402,6 +581,20 @@ int eponMgr_data_get_max_cpe(eponMgr_data_t *eponData,
     return EPON_HAL_SUCCESS;
 }
 
+/**
+ * @brief Get CPE MAC address table - zero-copy
+ * 
+ * Calls DPoE HAL to populate the internal CPE table structure and returns a const
+ * pointer. Automatically triggers TR-181 CPE table sync if count changes.
+ * 
+ * @param eponData Pointer to data context
+ * @return Const pointer to CPE table if available, NULL otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Always calls HAL for fresh data (no cache for dynamic data)
+ * @note Triggers TR-181 sync if total count changes
+ * @note Total count = static_cpe_count + dynamic_cpe_count
+ */
 const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponData)
 {
     if (!eponData) return NULL;
@@ -432,6 +625,19 @@ const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponD
     }
 }
 
+/**
+ * @brief Set OAM log level (no caching)
+ * 
+ * Sets the OAM log level mask in the HAL for debugging purposes. This is a
+ * direct passthrough to the HAL without caching.
+ * 
+ * @param eponData Pointer to data context
+ * @param log_level Log level bitmask
+ * @return EPON HAL return code
+ * 
+ * @note No caching - direct HAL call
+ * @note Used for runtime debug level control
+ */
 int eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
                                     uint32_t log_level)
 {
@@ -443,6 +649,19 @@ int eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
     return epon_hal_set_oam_log_mask(log_level);
 }
 
+/**
+ * @brief Invalidate all cache entries (call on ONU status change)
+ * 
+ * Invalidates all cached statistics and ONU information, forcing fresh data
+ * to be retrieved from HAL on next access. Also resets count caches to force
+ * TR-181 table synchronization.
+ * 
+ * @param eponData Pointer to data context
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Should be called when ONU status changes significantly
+ * @note Resets all count caches to trigger TR-181 sync
+ */
 void eponMgr_data_invalidate_cache(eponMgr_data_t *eponData)
 {
     if (!eponData) return;
@@ -463,6 +682,21 @@ void eponMgr_data_invalidate_cache(eponMgr_data_t *eponData)
     pthread_mutex_unlock(&eponData->mutex);
 }
 
+/**
+ * @brief Get LLID entry by index (for TR-181 access)
+ * 
+ * Returns a copy of the LLID entry at the specified index from the internal
+ * list. Caller must populate data by calling eponMgr_data_get_llid_info() first.
+ * 
+ * @param eponData Pointer to data context
+ * @param index Zero-based index into LLID list
+ * @param llid_info Output LLID info structure (copy)
+ * @return 0 on success, -1 on error or index out of range
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Caller must call eponMgr_data_get_llid_info() first to populate list
+ * @note Returns a copy, not a pointer
+ */
 int eponMgr_data_get_llid_at_index(eponMgr_data_t *eponData, uint32_t index, epon_llid_info_t *llid_info)
 {
     if (!eponData || !llid_info) return -1;
@@ -479,6 +713,21 @@ int eponMgr_data_get_llid_at_index(eponMgr_data_t *eponData, uint32_t index, epo
     return 0;
 }
 
+/**
+ * @brief Get CPE entry by index (for TR-181 access)
+ * 
+ * Returns a copy of the CPE entry at the specified index from the internal
+ * table. Caller must populate data by calling eponMgr_data_get_cpe_mac_table() first.
+ * 
+ * @param eponData Pointer to data context
+ * @param index Zero-based index into CPE list
+ * @param cpe_entry Output CPE entry structure (copy)
+ * @return 0 on success, -1 on error or index out of range
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Caller must call eponMgr_data_get_cpe_mac_table() first to populate table
+ * @note Returns a copy, not a pointer
+ */
 int eponMgr_data_get_cpe_at_index(eponMgr_data_t *eponData, uint32_t index, dpoe_cpe_mac_entry_t *cpe_entry)
 {
     if (!eponData || !cpe_entry) return -1;
@@ -496,6 +745,21 @@ int eponMgr_data_get_cpe_at_index(eponMgr_data_t *eponData, uint32_t index, dpoe
     return 0;
 }
 
+/**
+ * @brief Get interface entry by index (for TR-181 access)
+ * 
+ * Returns a copy of the interface entry at the specified index from the internal
+ * list. Caller must populate data by calling eponMgr_data_get_interface_list() first.
+ * 
+ * @param eponData Pointer to data context
+ * @param index Zero-based index into interface list
+ * @param if_info Output interface info structure (copy)
+ * @return 0 on success, -1 on error or index out of range
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Caller must call eponMgr_data_get_interface_list() first to populate list
+ * @note Returns a copy, not a pointer
+ */
 int eponMgr_data_get_interface_at_index(eponMgr_data_t *eponData, uint32_t index, epon_onu_interface_info_t *if_info)
 {
     if (!eponData || !if_info) return -1;
@@ -512,6 +776,22 @@ int eponMgr_data_get_interface_at_index(eponMgr_data_t *eponData, uint32_t index
     return 0;
 }
 
+/**
+ * @brief Get interface entry by name (for TR-181 access)
+ * 
+ * Searches the interface list for an interface with the specified name and
+ * returns a copy. Caller must populate data by calling eponMgr_data_get_interface_list() first.
+ * 
+ * @param eponData Pointer to data context
+ * @param name Interface name to search for (e.g., "veip0")
+ * @param if_info Output interface info structure (copy)
+ * @return 0 on success, -1 on error or not found
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Caller must call eponMgr_data_get_interface_list() first to populate list
+ * @note Returns a copy, not a pointer
+ * @note Returns -1 if interface name not found
+ */
 int eponMgr_data_get_interface_by_name(eponMgr_data_t *eponData, const char *name, epon_onu_interface_info_t *if_info)
 {
     if (!eponData || !name || !if_info) return -1;

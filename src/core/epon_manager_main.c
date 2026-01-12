@@ -32,7 +32,10 @@
 #include <sys/stat.h>
 #include <signal.h>
 
-
+/**
+ * @brief Print command-line usage information
+ * @param program_name Name of the executable
+ */
 static void print_usage(const char *program_name) {
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("\nOptions:\n");
@@ -88,10 +91,8 @@ static void daemonize(void) {
 }
 
 /**
- * @brief Create PID file
- */
-/**
  * @brief Signal handler for graceful shutdown
+ * @param signum Signal number received
  */
 static void signal_handler(int signum) {
     printf("\nReceived signal %d, initiating shutdown...\n", signum);

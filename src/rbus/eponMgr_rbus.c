@@ -45,8 +45,15 @@ static bool g_rbus_initialized = false;
 /**
  * @brief Initialize RBUS for EPON Manager
  * 
- * @param component_name Component name for RBUS registration
+ * Opens RBUS connection with the specified component name. This must be called
+ * before any other RBUS operations including TR-181 registration and PSM access.
+ * 
+ * @param component_name Component name for RBUS registration (e.g., "epon_manager")
  * @return 0 on success, -1 on failure
+ * 
+ * @note Sets global RBUS handle for all RBUS operations
+ * @note Returns success if already initialized
+ * @note Must be called before PSM operations
  */
 int eponMgr_rbus_init(const char* component_name) {
     
@@ -77,6 +84,13 @@ int eponMgr_rbus_init(const char* component_name) {
 
 /**
  * @brief Cleanup and close RBUS connection
+ * 
+ * Unregisters TR-181 parameters and closes the RBUS connection. Should be
+ * called during shutdown to cleanup resources.
+ * 
+ * @note Safe to call if not initialized (no-op)
+ * @note Automatically unregisters TR-181 parameters first
+ * @note Clears global RBUS handle
  */
 void eponMgr_rbus_cleanup(void) {
     if (!g_rbus_initialized) {
@@ -103,9 +117,15 @@ void eponMgr_rbus_cleanup(void) {
 
 /**
  * @brief Register TR-181 parameters
- * Called after HAL is initialized
+ * 
+ * Registers all TR-181 Device.Optical.Interface parameters with RBUS.
+ * Should be called after HAL is initialized so data context is available.
  * 
  * @return 0 on success, -1 on failure
+ * 
+ * @note Requires RBUS to be initialized first
+ * @note Should be called after HAL initialization
+ * @note Registers both static and dynamic table parameters
  */
 int eponMgr_rbus_register_tr181(void) {
     if (!g_rbus_initialized) {
@@ -128,7 +148,13 @@ int eponMgr_rbus_register_tr181(void) {
 /**
  * @brief Get RBUS handle for direct use
  * 
+ * Returns the global RBUS handle for direct RBUS API calls. Used by
+ * PSM module and WanManager update functions.
+ * 
  * @return RBUS handle or NULL if not initialized
+ * 
+ * @note Returns opaque handle that can be cast to rbusHandle_t
+ * @note Handle is managed by this module - do not close directly
  */
 eponMgr_rbus_handle_t eponMgr_rbus_get_handle(void) {
     if (!g_rbus_initialized) {

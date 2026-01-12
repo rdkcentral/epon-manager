@@ -48,8 +48,15 @@
 /**
  * @brief Notify WanManager of PHY status change
  * 
- * @param phy_up true if PHY is UP, false if DOWN
+ * Updates the WanManager BaseInterfaceStatus parameter to indicate overall
+ * PHY status. PHY is UP if any interface is UP, DOWN if all interfaces are DOWN.
+ * 
+ * @param phy_up true if PHY should be reported as UP, false for DOWN
  * @return 0 on success, -1 on failure
+ * 
+ * @note Uses RBUS rbus_set() to update WanManager parameter
+ * @note Parameter: Device.X_RDK_WanManager.Interface.2.BaseInterfaceStatus
+ * @note Requires RBUS handle from eponMgr_rbus_get_handle()
  */
 int eponMgr_rbus_notify_wanmanager_phy_status(bool phy_up) {
     EPONMGR_LOG_INFO("PHY Status Change: %s → Notifying WanManager\n", 
@@ -82,14 +89,19 @@ int eponMgr_rbus_notify_wanmanager_phy_status(bool phy_up) {
 }
 
 /**
- * @brief Update virtual interface table entry
+ * @brief Update virtual interface table for WanManager
  * 
- * This function searches the WanManager virtual interface table for the specified
- * interface name and updates its Enable status.
+ * Searches the WanManager VirtualInterface table for the specified interface
+ * and updates its Enable status. Iterates through all table entries to find match.
  * 
- * @param interface_name Interface name (e.g., "veip0", "erouter0")
+ * @param interface_name Interface name (e.g., "veip0")
  * @param is_up true if interface is UP, false if DOWN
  * @return 0 on success, -1 on failure
+ * 
+ * @note Uses RBUS rbus_get() to query table and rbus_set() to update
+ * @note Searches Device.X_RDK_WanManager.Interface.2.VirtualInterface table
+ * @note Returns error if interface not found in table
+ * @note Requires RBUS handle from eponMgr_rbus_get_handle()
  */
 int eponMgr_rbus_update_virtual_interface(const char* interface_name, bool is_up) {
     if (!interface_name) {

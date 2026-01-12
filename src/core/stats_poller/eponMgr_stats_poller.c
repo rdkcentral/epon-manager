@@ -44,6 +44,7 @@ static void print_stats(const epon_hal_link_stats_t *link_stats, const epon_hal_
 
 /**
  * @brief Collect and update all statistics
+ * 
  * @param poller Pointer to stats poller structure
  * @return 0 on success, -1 on error
  */
@@ -101,6 +102,9 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
 
 /**
  * @brief Stats poller thread main function
+ * 
+ * Runs in background collecting statistics at configured intervals.
+ * 
  * @param arg Pointer to eponMgr_stats_poller_t structure
  * @return NULL
  */
@@ -172,6 +176,22 @@ static void* stats_poller_thread(void *arg) {
     return NULL;
 }
 
+/**
+ * @brief Initialize stats poller
+ * 
+ * Initializes the stats poller structure with configuration parameters and
+ * creates synchronization primitives for thread control.
+ * 
+ * @param poller Pointer to stats poller structure
+ * @param eponData Pointer to EPON data context for stats queries
+ * @param enabled Enable/disable polling at initialization
+ * @param interval_seconds Polling interval in seconds
+ * @return 0 on success, -1 on error
+ * 
+ * @note Caller must call eponMgr_stats_poller_destroy() to cleanup
+ * @note Thread not started until eponMgr_stats_poller_start() is called
+ * @note Default interval is 900 seconds (15 minutes)
+ */
 int eponMgr_stats_poller_init(eponMgr_stats_poller_t *poller,
                                eponMgr_data_t *eponData,
                                bool enabled,
@@ -206,6 +226,19 @@ int eponMgr_stats_poller_init(eponMgr_stats_poller_t *poller,
     return 0;
 }
 
+/**
+ * @brief Start stats polling thread
+ * 
+ * Creates and starts the background thread that periodically polls statistics
+ * from HAL and updates telemetry.
+ * 
+ * @param poller Pointer to stats poller structure
+ * @return 0 on success, -1 on error
+ * 
+ * @note Thread-safe: Uses internal mutex
+ * @note Returns error if already running
+ * @note Thread runs until eponMgr_stats_poller_stop() is called
+ */
 int eponMgr_stats_poller_start(eponMgr_stats_poller_t *poller) {
     if (!poller) {
         return -1;
@@ -232,6 +265,18 @@ int eponMgr_stats_poller_start(eponMgr_stats_poller_t *poller) {
     return 0;
 }
 
+/**
+ * @brief Stop stats polling thread
+ * 
+ * Requests thread shutdown and waits for it to terminate gracefully.
+ * Signals the condition variable to wake up sleeping thread.
+ * 
+ * @param poller Pointer to stats poller structure
+ * 
+ * @note Thread-safe: Uses internal mutex
+ * @note Blocks until thread terminates (joins thread)
+ * @note Safe to call if not running (no-op)
+ */
 void eponMgr_stats_poller_stop(eponMgr_stats_poller_t *poller) {
     if (!poller) return;
     
@@ -254,6 +299,17 @@ void eponMgr_stats_poller_stop(eponMgr_stats_poller_t *poller) {
     EPONMGR_LOG_INFO("Stats poller thread joined\n");
 }
 
+/**
+ * @brief Destroy stats poller and cleanup resources
+ * 
+ * Stops the thread if running and destroys all synchronization primitives.
+ * Should be called during shutdown to cleanup resources.
+ * 
+ * @param poller Pointer to stats poller structure
+ * 
+ * @note Ensures thread is stopped before destroying resources
+ * @note Safe to call with NULL pointer
+ */
 void eponMgr_stats_poller_destroy(eponMgr_stats_poller_t *poller) {
     if (!poller) return;
     
@@ -267,6 +323,17 @@ void eponMgr_stats_poller_destroy(eponMgr_stats_poller_t *poller) {
     EPONMGR_LOG_INFO("Stats poller destroyed\n");
 }
 
+/**
+ * @brief Check if stats poller is running
+ * 
+ * Returns whether the stats poller thread is currently active.
+ * 
+ * @param poller Pointer to stats poller structure
+ * @return true if running, false otherwise
+ * 
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Returns false if poller pointer is NULL
+ */
 bool eponMgr_stats_poller_is_running(const eponMgr_stats_poller_t *poller) {
     if (!poller) return false;
     
@@ -278,6 +345,20 @@ bool eponMgr_stats_poller_is_running(const eponMgr_stats_poller_t *poller) {
     return running;
 }
 
+/**
+ * @brief Enable/disable stats poller at runtime
+ * 
+ * Dynamically enables or disables stats polling while thread is running.
+ * Also updates the persistent configuration in PSM.
+ * 
+ * @param poller Pointer to stats poller structure
+ * @param enabled true to enable, false to disable
+ * @return 0 on success, -1 on error
+ * 
+ * @note Thread-safe: Uses internal mutex
+ * @note Persists setting to PSM configuration
+ * @note Thread continues running even when disabled, just skips collection
+ */
 int eponMgr_stats_poller_set_enabled(eponMgr_stats_poller_t *poller, bool enabled) {
     if (!poller) return -1;
     
@@ -302,6 +383,21 @@ int eponMgr_stats_poller_set_enabled(eponMgr_stats_poller_t *poller, bool enable
     return 0;
 }
 
+/**
+ * @brief Update polling interval at runtime
+ * 
+ * Changes the statistics polling interval and persists the new value to PSM.
+ * If the poller is running, signals the thread to apply the new interval
+ * immediately without waiting for the current interval to expire.
+ * 
+ * @param poller Pointer to stats poller structure
+ * @param interval_seconds New interval in seconds (must be > 0)
+ * @return 0 on success, -1 on error
+ * 
+ * @note Thread-safe: Uses internal mutex
+ * @note Persists to PSM automatically
+ * @note Wakes up poller thread to apply new interval immediately
+ */
 int eponMgr_stats_poller_set_interval(eponMgr_stats_poller_t *poller, uint32_t interval_seconds) {
     if (!poller || interval_seconds == 0) return -1;
     
@@ -327,6 +423,20 @@ int eponMgr_stats_poller_set_interval(eponMgr_stats_poller_t *poller, uint32_t i
     return 0;
 }
 
+/**
+ * @brief Trigger immediate stats collection (bypasses interval timer)
+ * 
+ * Requests an immediate statistics collection cycle without waiting for
+ * the normal polling interval. The poller thread wakes up and collects
+ * stats immediately, then continues with the regular polling schedule.
+ * 
+ * @param poller Pointer to stats poller structure
+ * @return 0 on success, -1 on error
+ * 
+ * @note Thread-safe: Uses internal mutex and condition variable
+ * @note Returns error if poller is not running
+ * @note Non-blocking: signals thread and returns immediately
+ */
 int eponMgr_stats_poller_trigger_now(eponMgr_stats_poller_t *poller) {
     if (!poller) return -1;
     

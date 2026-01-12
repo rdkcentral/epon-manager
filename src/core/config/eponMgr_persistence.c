@@ -29,6 +29,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Initialize persistence configuration with defaults
+ * 
+ * Sets all configuration values to their default values. This should be called
+ * before loading from PSM to ensure all fields have valid defaults.
+ * 
+ * @param config Pointer to configuration structure
+ * @return 0 on success, -1 on error
+ * 
+ * @note Caller must provide a valid config pointer
+ * @note All fields are zero-initialized first, then defaults are applied
+ */
 int eponMgr_persistence_init_defaults(eponMgr_persistence_t *config) {
     if (!config) return -1;
     
@@ -43,6 +55,19 @@ int eponMgr_persistence_init_defaults(eponMgr_persistence_t *config) {
     return 0;
 }
 
+/**
+ * @brief Load persistent configuration from PSM
+ * 
+ * Reads all configuration parameters from CCSP PSM storage. If a parameter is
+ * not found in PSM or has an invalid value, the existing value in config is kept.
+ * 
+ * @param config Pointer to configuration structure (should be initialized with defaults first)
+ * @return 0 on success, -1 on error
+ * 
+ * @note Caller must call eponMgr_persistence_init_defaults() first to set defaults
+ * @note PSM must be initialized before calling this function
+ * @note Invalid values are logged and defaults are used instead
+ */
 int eponMgr_persistence_load(eponMgr_persistence_t *config) {
     if (!config) {
         return -1;
@@ -99,6 +124,19 @@ int eponMgr_persistence_load(eponMgr_persistence_t *config) {
     return 0;
 }
 
+/**
+ * @brief Save configuration to PSM
+ * 
+ * Writes all configuration parameters to CCSP PSM storage for persistence across
+ * reboots. All fields are written atomically.
+ * 
+ * @param config Pointer to configuration structure
+ * @return 0 on success, -1 on error (partial save may have occurred)
+ * 
+ * @note Caller must provide a valid config pointer
+ * @note PSM must be initialized before calling this function
+ * @note If any PSM write fails, the function returns -1 immediately
+ */
 int eponMgr_persistence_save(const eponMgr_persistence_t *config) {
     if (!config) {
         return -1;

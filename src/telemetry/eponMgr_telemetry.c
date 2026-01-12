@@ -61,6 +61,9 @@ static eponMgr_telemetry_state_t g_telem_state = {
 
 /**
  * @brief Get string representation of event type
+ * 
+ * @param type Event type enum
+ * @return String representation of event type
  */
 static const char* event_type_to_string(eponMgr_telemetry_event_type_t type) {
     switch (type) {
@@ -89,6 +92,17 @@ static const char* event_type_to_string(eponMgr_telemetry_event_type_t type) {
 
 /**
  * @brief Initialize telemetry module
+ * 
+ * Initializes the telemetry system. In Phase 8 dummy mode, it simply logs that
+ * telemetry is initialized. In production, it would register with T2 telemetry
+ * service and link against libtelemetry_msgsender.so.
+ * 
+ * @param component_name Name of the component (e.g., "EponManager")
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Phase 8: Dummy implementation for testing without T2 library
+ * @note Production: Would call t2_init() to register with T2 service
+ * @note Returns success if already initialized
  */
 int eponMgr_telemetry_init(const char *component_name) {
     if (!component_name) {
@@ -125,6 +139,15 @@ int eponMgr_telemetry_init(const char *component_name) {
 
 /**
  * @brief Cleanup telemetry module
+ * 
+ * Cleanup and free telemetry resources. Logs statistics summary of total
+ * events, stats, and markers reported during session.
+ * 
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Phase 8: Logs summary statistics
+ * @note Production: Would call T2 cleanup APIs
+ * @note Safe to call if not initialized (no-op)
  */
 int eponMgr_telemetry_cleanup(void) {
     pthread_mutex_lock(&g_telem_state.mutex);
@@ -151,6 +174,20 @@ int eponMgr_telemetry_cleanup(void) {
 
 /**
  * @brief Report a telemetry event
+ * 
+ * Reports an event to the telemetry system. In Phase 8 dummy mode, this logs
+ * the event with all details. In production, this would call T2 APIs like
+ * t2_event_s() or t2_event_d().
+ * 
+ * @param event_type Type of event (ONU status, link up/down, alarm, etc.)
+ * @param event_name Event name/marker (e.g., "EPON_ONU_STATUS_CHANGE")
+ * @param event_data Event data string (optional, can be NULL)
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Phase 8: Logs event to console/log file
+ * @note Production: Would call t2_event_s() or t2_event_d()
+ * @note Thread-safe: Uses internal mutex
+ * @note Increments event counter for statistics
  */
 int eponMgr_telemetry_report_event(
     eponMgr_telemetry_event_type_t event_type,
@@ -206,6 +243,17 @@ int eponMgr_telemetry_report_event(
 
 /**
  * @brief Report ONU status change event
+ * 
+ * Convenience function for reporting ONU status changes. Formats the event
+ * data with interface name, old status, and new status.
+ * 
+ * @param interface_name Interface name (e.g., "veip0")
+ * @param old_status Old status string
+ * @param new_status New status string
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Calls eponMgr_telemetry_report_event() with formatted data
+ * @note Event name: "EPON_ONU_STATUS_CHANGE"
  */
 int eponMgr_telemetry_report_onu_status_change(
     const char *interface_name,
@@ -232,6 +280,15 @@ int eponMgr_telemetry_report_onu_status_change(
 
 /**
  * @brief Report link up event
+ * 
+ * Convenience function for reporting interface link up events.
+ * Formats the event data with interface name.
+ * 
+ * @param interface_name Interface name (e.g., "veip0")
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Calls eponMgr_telemetry_report_event() with formatted data
+ * @note Event name: "EPON_LINK_UP"
  */
 int eponMgr_telemetry_report_link_up(const char *interface_name) {
     char event_data[128];
@@ -252,6 +309,15 @@ int eponMgr_telemetry_report_link_up(const char *interface_name) {
 
 /**
  * @brief Report link down event
+ * 
+ * Convenience function for reporting interface link down events.
+ * Formats the event data with interface name.
+ * 
+ * @param interface_name Interface name (e.g., "veip0")
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Calls eponMgr_telemetry_report_event() with formatted data
+ * @note Event name: "EPON_LINK_DOWN"
  */
 int eponMgr_telemetry_report_link_down(const char *interface_name) {
     char event_data[128];
@@ -272,6 +338,18 @@ int eponMgr_telemetry_report_link_down(const char *interface_name) {
 
 /**
  * @brief Report alarm event
+ * 
+ * Reports an alarm to telemetry system with severity, alarm ID, and description.
+ * Automatically determines event type (critical/error/warning) based on severity.
+ * 
+ * @param severity Alarm severity (0=info, 1=warning, 2=error, 3+=critical)
+ * @param alarm_id Alarm identifier from HAL
+ * @param alarm_desc Alarm description string
+ * @return 0 on success, -1 on failure
+ * 
+ * @note Calls eponMgr_telemetry_report_event() with formatted data
+ * @note Event name: "EPON_ALARM_CRITICAL", "EPON_ALARM_ERROR", or "EPON_ALARM_WARNING"
+ * @note Severity mapping: >=3=critical, 2=error, <2=warning
  */
 int eponMgr_telemetry_report_alarm(
     uint32_t severity,

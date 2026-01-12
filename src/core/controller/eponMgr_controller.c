@@ -77,11 +77,12 @@ struct eponMgr_controller_context {
 // Global controller pointer for signal handler
 static eponMgr_controller_t *g_controller = NULL;
 
-
-
 /**
  * @brief HAL status callback - called when ONU status changes
- * Enqueues event and returns immediately
+ * 
+ * Enqueues event and returns immediately to avoid blocking HAL thread.
+ * 
+ * @param status New ONU status
  */
 static void hal_status_callback(epon_onu_status_t status) {
     if (!g_controller || !g_controller->event_queue) return;
@@ -102,7 +103,10 @@ static void hal_status_callback(epon_onu_status_t status) {
 
 /**
  * @brief HAL alarm callback - called when alarms are raised/cleared
- * Enqueues event and returns immediately
+ * 
+ * Enqueues event and returns immediately to avoid blocking HAL thread.
+ * 
+ * @param alarm_info Alarm information structure
  */
 static void hal_alarm_callback(epon_alarm_info_t *alarm_info) {
     if (!g_controller || !g_controller->event_queue || !alarm_info) return;
@@ -123,7 +127,10 @@ static void hal_alarm_callback(epon_alarm_info_t *alarm_info) {
 
 /**
  * @brief HAL interface status callback - called when interface status changes
- * Enqueues event and returns immediately
+ * 
+ * Enqueues event and returns immediately to avoid blocking HAL thread.
+ * 
+ * @param status Interface status information
  */
 static void hal_interface_status_callback(epon_onu_interface_info_t status) {
     if (!g_controller || !g_controller->event_queue) return;
@@ -144,6 +151,9 @@ static void hal_interface_status_callback(epon_onu_interface_info_t status) {
 
 /**
  * @brief Process ONU status event
+ * 
+ * @param ctrl Controller context
+ * @param status ONU status value
  */
 static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status_t status) {
     EPONMGR_LOG_INFO("Processing ONU Status Event: status=%d\n", status);
@@ -162,6 +172,9 @@ static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status
 
 /**
  * @brief Check if any interface is UP
+ * 
+ * @param iface_list Interface list structure
+ * @return true if at least one interface is UP, false otherwise
  */
 static bool has_any_interface_up(epon_interface_list_t *iface_list) {
     if (!iface_list) return false;
@@ -176,6 +189,9 @@ static bool has_any_interface_up(epon_interface_list_t *iface_list) {
 
 /**
  * @brief Process interface status event
+ * 
+ * @param ctrl Controller context
+ * @param info Interface information
  */
 static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_interface_info_t *info) {
     EPONMGR_LOG_INFO("Processing Interface Status Event: interface=%s, status=%d\n", 
@@ -239,6 +255,9 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
 
 /**
  * @brief Get standard alarm name string from enum value
+ * 
+ * @param alarm Alarm type enum
+ * @return String representation of alarm
  */
 static const char* get_standard_alarm_name(epon_hal_alarm_t alarm) {
     switch (alarm) {
@@ -263,6 +282,9 @@ static const char* get_standard_alarm_name(epon_hal_alarm_t alarm) {
 
 /**
  * @brief Get vendor alarm name string from enum value
+ * 
+ * @param alarm Vendor alarm type enum
+ * @return String representation of vendor alarm
  */
 static const char* get_vendor_alarm_name(epon_vendor_alarm_t alarm) {
     switch (alarm) {
@@ -289,6 +311,9 @@ static const char* get_vendor_alarm_name(epon_vendor_alarm_t alarm) {
 
 /**
  * @brief Process alarm event
+ * 
+ * @param ctrl Controller context
+ * @param alarm_info Alarm information
  */
 static void process_alarm_event(eponMgr_controller_t *ctrl, epon_alarm_info_t *alarm_info) {
     if (!alarm_info) return;
@@ -365,6 +390,20 @@ static int process_one_event(eponMgr_controller_t *ctrl) {
     return 0;
 }
 
+/**
+ * @brief Initialize the EPON Manager controller
+ * 
+ * Initializes all subsystems in the correct order: logger, PSM, RBUS, persistence
+ * configuration, event queue, EPON data context, HAL, stats poller, and TR-181
+ * parameters. Configuration values like cache_ttl are loaded from PSM.
+ * 
+ * @return Pointer to controller context on success, NULL on failure
+ * 
+ * @note Caller must call eponMgr_controller_destroy() to cleanup
+ * @note Sets up HAL callbacks for status, alarm, and interface events
+ * @note Performs HAL API version compatibility check
+ * @note Sets global controller pointer for signal handlers
+ */
 eponMgr_controller_t* eponMgr_controller_init(void) {
     // Allocate controller context
     eponMgr_controller_t *ctrl = (eponMgr_controller_t *)calloc(1, sizeof(eponMgr_controller_t));
@@ -576,6 +615,21 @@ error:
     return NULL;
 }
 
+/**
+ * @brief Run the main controller event loop
+ * 
+ * Enters the main event loop that processes events from the queue. Blocks until
+ * a shutdown signal is received via eponMgr_controller_shutdown(). Starts the
+ * stats poller thread if enabled in configuration.
+ * 
+ * @param controller Pointer to controller context
+ * @return 0 on success, -1 on error
+ * 
+ * @note This function blocks until shutdown is requested
+ * @note Processes up to 50 events per iteration to avoid starvation
+ * @note Uses condition variable wait with 500ms timeout
+ * @note Thread-safe: Uses internal mutex for state checks
+ */
 int eponMgr_controller_run(eponMgr_controller_t *controller) {
     if (!controller) {
         EPONMGR_LOG_ERROR("NULL controller provided to run()\n");
@@ -642,6 +696,18 @@ int eponMgr_controller_run(eponMgr_controller_t *controller) {
     return 0;
 }
 
+/**
+ * @brief Request controller shutdown
+ * 
+ * Requests a graceful shutdown of the controller by setting the shutdown flag
+ * and waking up the event loop. Can be called from signal handlers or other threads.
+ * Uses the internal global controller pointer.
+ * 
+ * @note Thread-safe: Uses internal mutex
+ * @note Can be called multiple times safely
+ * @note Non-blocking: returns immediately after setting flag
+ * @note Safe to call from signal handlers
+ */
 void eponMgr_controller_shutdown(void) {
     if (!g_controller) return;
     
@@ -659,6 +725,19 @@ void eponMgr_controller_shutdown(void) {
     EPONMGR_LOG_INFO("Shutdown requested\n");
 }
 
+/**
+ * @brief Destroy controller and cleanup all resources
+ * 
+ * Destroys all subsystems in reverse initialization order: RBUS, stats poller,
+ * data context, event queue, configuration, and logger. Frees all allocated memory
+ * and clears the global controller pointer.
+ * 
+ * @param controller Pointer to controller context
+ * 
+ * @note Safe to call with NULL pointer
+ * @note Stops all threads before cleanup
+ * @note Destroys synchronization primitives last
+ */
 void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
     if (!controller) return;
     
@@ -725,11 +804,35 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
     printf("EPON Manager Controller destroyed\n");
 }
 
+/**
+ * @brief Check if controller is running
+ * 
+ * Returns the running state of the controller indicating whether the event
+ * loop is active.
+ * 
+ * @param controller Pointer to controller context
+ * @return true if running, false otherwise
+ * 
+ * @note Returns false if controller pointer is NULL
+ * @note Does not use locking - reads volatile flag
+ */
 bool eponMgr_controller_is_running(const eponMgr_controller_t *controller) {
     if (!controller) return false;
     return controller->running;
 }
 
+/**
+ * @brief Get stats poller from controller with lock
+ * 
+ * Acquires the controller mutex and returns the stats poller context.
+ * Uses the global controller pointer.
+ * 
+ * @return Pointer to stats poller context, NULL if not initialized
+ * 
+ * @note Caller MUST call eponMgr_controller_unlock_stats_poller() when done
+ * @note Locks the controller mutex - must unlock to avoid deadlock
+ * @note Returns NULL if global controller not initialized
+ */
 void* eponMgr_controller_get_stats_poller(void) {
     if (!g_controller) return NULL;
     
@@ -737,12 +840,33 @@ void* eponMgr_controller_get_stats_poller(void) {
     return g_controller->stats_poller;
 }
 
+/**
+ * @brief Release the lock on stats poller
+ * 
+ * Releases the mutex acquired by eponMgr_controller_get_stats_poller().
+ * Must be called after finishing access to the stats poller.
+ * 
+ * @note Must be called to release lock acquired by get_stats_poller
+ * @note Safe to call even if not initialized (no-op)
+ */
 void eponMgr_controller_unlock_stats_poller(void) {
     if (!g_controller) return;
     
     pthread_mutex_unlock(&g_controller->mutex);
 }
 
+/**
+ * @brief Lock and get persistent configuration from controller
+ * 
+ * Acquires the controller mutex and returns the persistence configuration.
+ * Uses the global controller pointer.
+ * 
+ * @return Pointer to persistence configuration, NULL if not initialized
+ * 
+ * @note Caller MUST call eponMgr_controller_unlock_persistence_config() when done
+ * @note Locks the controller mutex - must unlock to avoid deadlock
+ * @note Returns NULL if global controller not initialized
+ */
 const eponMgr_persistence_t* eponMgr_controller_lock_persistence_config(void) {
     if (!g_controller) return NULL;
     
@@ -750,6 +874,15 @@ const eponMgr_persistence_t* eponMgr_controller_lock_persistence_config(void) {
     return g_controller->config;
 }
 
+/**
+ * @brief Release the lock on persistent configuration
+ * 
+ * Releases the mutex acquired by eponMgr_controller_lock_persistence_config().
+ * Must be called after finishing access to the configuration.
+ * 
+ * @note Must be called to release lock acquired by lock_persistence_config
+ * @note Safe to call even if not initialized (no-op)
+ */
 void eponMgr_controller_unlock_persistence_config(void) {
     if (!g_controller) return;
     

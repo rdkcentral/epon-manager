@@ -30,6 +30,20 @@
 #include "eponMgr_logger.h"
 #include <string.h>
 
+/**
+ * @brief Initialize stats data storage with mutex
+ * 
+ * Creates thread-safe statistics storage with TTL-based expiration. All fields
+ * are zero-initialized and mutex is created for concurrent access protection.
+ * 
+ * @param stats_data Pointer to stats data structure
+ * @param ttl_seconds TTL for statistics in seconds
+ * @return 0 on success, -1 on error
+ * 
+ * @note Caller must call eponMgr_statsData_destroy() to cleanup mutex
+ * @note All validity flags are initialized to false
+ * @note TTL only applies to statistics, not info data
+ */
 int eponMgr_statsData_init(eponMgr_statsData_t *stats_data, uint32_t ttl_seconds) {
     if (!stats_data) return -1;
     
@@ -45,6 +59,17 @@ int eponMgr_statsData_init(eponMgr_statsData_t *stats_data, uint32_t ttl_seconds
     return 0;
 }
 
+/**
+ * @brief Destroy stats data storage and cleanup mutex
+ * 
+ * Destroys the mutex used for thread-safe access. All cached data is lost.
+ * 
+ * @param stats_data Pointer to stats data structure
+ * 
+ * @note Caller must ensure no threads are accessing stats_data
+ * @note Safe to call with NULL pointer
+ * @note No memory is freed (stats_data is typically stack-allocated)
+ */
 void eponMgr_statsData_destroy(eponMgr_statsData_t *stats_data) {
     if (!stats_data) return;
     
@@ -53,6 +78,19 @@ void eponMgr_statsData_destroy(eponMgr_statsData_t *stats_data) {
     pthread_mutex_destroy(&stats_data->mutex);
 }
 
+/**
+ * @brief Check if statistics entry is valid (not expired)
+ * 
+ * Compares the timestamp age against the TTL to determine if cached statistics
+ * are still valid. Returns false if timestamp is 0 (never cached).
+ * 
+ * @param timestamp Entry timestamp
+ * @param ttl_seconds TTL in seconds
+ * @return true if valid (not expired), false otherwise
+ * 
+ * @note This is a stateless utility function
+ * @note Returns false for timestamp == 0 (never cached)
+ */
 bool eponMgr_statsData_is_stats_valid(time_t timestamp, uint32_t ttl_seconds) {
     if (timestamp == 0) {
         return false; /* Never cached */
@@ -64,6 +102,18 @@ bool eponMgr_statsData_is_stats_valid(time_t timestamp, uint32_t ttl_seconds) {
     return (age >= 0 && age < (time_t)ttl_seconds);
 }
 
+/**
+ * @brief Invalidate all data entries (called on ONU status change)
+ * 
+ * Marks all cached statistics and info as invalid, forcing fresh data retrieval
+ * from HAL on next access. Typically called when ONU status changes.
+ * 
+ * @param stats_data Pointer to stats data structure
+ * 
+ * @note Thread-safe - mutex is locked/unlocked internally
+ * @note Timestamps are reset to 0
+ * @note Does not actually clear the data, only marks it invalid
+ */
 void eponMgr_statsData_invalidate_all(eponMgr_statsData_t *stats_data) {
     if (!stats_data) return;
     
@@ -83,6 +133,23 @@ void eponMgr_statsData_invalidate_all(eponMgr_statsData_t *stats_data) {
     pthread_mutex_unlock(&stats_data->mutex);
 }
 
+/**
+ * @brief Calculate Bit Error Rate (BER) from link statistics
+ * 
+ * Computes BER as a string in scientific notation (e.g., "1.50e-09") using
+ * FEC corrected and uncorrectable error counts. For uncorrectable codewords,
+ * estimates 8 bit errors each (Reed-Solomon limit).
+ * 
+ * @param link_stats Pointer to link statistics structure
+ * @param ber_str Output buffer for BER string (must be at least 32 bytes)
+ * @param ber_str_len Size of output buffer
+ * @return Number of characters written to ber_str, -1 on error
+ * 
+ * @note Caller must provide valid link_stats and ber_str pointers
+ * @note Buffer must be at least 16 bytes
+ * @note Returns "0.0" if no bytes received
+ * @note BER calculation: (fec_corrected + fec_uncorrectable*8) / (bytes_received*8)
+ */
 int eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats, char *ber_str, size_t ber_str_len) {
     if (!link_stats || !ber_str || ber_str_len < 16) {
         return -1;
@@ -91,7 +158,7 @@ int eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats, cha
     if (link_stats->bytes_received == 0) {
         return snprintf(ber_str, ber_str_len, "0.0");
     }
-    
+    //TODO: Confirm if the calculation is correct
     /* BER = Total Bit Errors / Total Bits Received
      * 
      * Total Bit Errors = fec_corrected + (fec_uncorrectable * estimated_errors_per_codeword)
