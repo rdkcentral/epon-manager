@@ -110,13 +110,6 @@ void* eponMgr_controller_get_stats_poller(void);
 void eponMgr_controller_unlock_stats_poller(void);
 
 /**
- * @brief Get global controller instance
- * 
- * @return Pointer to controller context, NULL if not initialized
- */
-eponMgr_controller_t* eponMgr_controller_get_instance(void);
-
-/**
  * @brief Lock and get persistent configuration from controller
  * 
  * Acquires the controller mutex and returns the persistence configuration.

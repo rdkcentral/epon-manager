@@ -743,10 +743,6 @@ void eponMgr_controller_unlock_stats_poller(void) {
     pthread_mutex_unlock(&g_controller->mutex);
 }
 
-eponMgr_controller_t* eponMgr_controller_get_instance(void) {
-    return g_controller;
-}
-
 const eponMgr_persistence_t* eponMgr_controller_lock_persistence_config(void) {
     if (!g_controller) return NULL;
     

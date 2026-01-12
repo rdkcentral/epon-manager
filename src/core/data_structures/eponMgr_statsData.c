@@ -83,9 +83,13 @@ void eponMgr_statsData_invalidate_all(eponMgr_statsData_t *stats_data) {
     pthread_mutex_unlock(&stats_data->mutex);
 }
 
-double eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats) {
-    if (!link_stats || link_stats->bytes_received == 0) {
-        return 0.0;
+int eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats, char *ber_str, size_t ber_str_len) {
+    if (!link_stats || !ber_str || ber_str_len < 16) {
+        return -1;
+    }
+    
+    if (link_stats->bytes_received == 0) {
+        return snprintf(ber_str, ber_str_len, "0.0");
     }
     
     /* BER = Total Bit Errors / Total Bits Received
@@ -108,5 +112,6 @@ double eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats) 
     uint64_t total_bits = link_stats->bytes_received * 8;
     double ber = (double)total_bit_errors / (double)total_bits;
     
-    return ber;
+    /* Format as scientific notation string (e.g., "1.5e-9") */
+    return snprintf(ber_str, ber_str_len, "%.2e", ber);
 }

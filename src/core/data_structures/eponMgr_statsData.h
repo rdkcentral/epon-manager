@@ -119,7 +119,11 @@ void eponMgr_statsData_invalidate_all(eponMgr_statsData_t *stats_data);
 /**
  * @brief Calculate Bit Error Rate (BER) from link statistics
  * @param link_stats Pointer to link statistics structure
- * @return BER as a double (e.g., 1e-9 for 1 error per billion bits)
+ * @param ber_str Output buffer for BER string (must be at least 32 bytes)
+ * @return Number of characters written to ber_str
+ * 
+ * Returns BER as a string in scientific notation (e.g., "1.5e-9")
+ * matching TR-181 standard format.
  * 
  * BER = Total Bit Errors / Total Bits Received
  * 
@@ -127,8 +131,8 @@ void eponMgr_statsData_invalidate_all(eponMgr_statsData_t *stats_data);
  * - fec_corrected: number of corrected bit errors
  * - fec_uncorrectable: number of uncorrectable codewords (estimated as 8 errors each)
  * 
- * Returns 0.0 if no data received yet.
+ * Returns "0.0" if no data received yet.
  */
-double eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats);
+int eponMgr_statsData_calculate_ber(const epon_hal_link_stats_t *link_stats, char *ber_str, size_t ber_str_len);
 
 #endif /* EPONMGR_STATSDATA_H */
