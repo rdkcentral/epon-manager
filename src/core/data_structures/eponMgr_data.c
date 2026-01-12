@@ -356,7 +356,15 @@ const epon_llid_list_t* eponMgr_data_get_llid_info(eponMgr_data_t *eponData)
     
     pthread_mutex_lock(&eponData->mutex);
     
+    // Free old HAL-allocated memory before getting new data
+    if (eponData->llid_list.llid_list) {
+        free(eponData->llid_list.llid_list);
+        eponData->llid_list.llid_list = NULL;
+        eponData->llid_list.llid_count = 0;
+    }
+    
     // Call HAL to fill owned LLID list directly (zero-copy)
+    // HAL will allocate new memory for llid_list
     int ret = epon_hal_get_llid_info(&eponData->llid_list);
     if (ret == EPON_HAL_SUCCESS) {
         // Check if count changed for TR-181 sync
@@ -601,7 +609,16 @@ const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponD
     
     pthread_mutex_lock(&eponData->mutex);
     
+    // Free old HAL-allocated memory before getting new data
+    if (eponData->cpe_table.cpe_list) {
+        free(eponData->cpe_table.cpe_list);
+        eponData->cpe_table.cpe_list = NULL;
+        eponData->cpe_table.static_cpe_count = 0;
+        eponData->cpe_table.dynamic_cpe_count = 0;
+    }
+    
     // Call HAL to fill owned CPE table directly (zero-copy)
+    // HAL will allocate new memory for cpe_list
     int ret = dpoe_hal_get_cpe_mac_table(&eponData->cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
         uint32_t total = eponData->cpe_table.static_cpe_count + eponData->cpe_table.dynamic_cpe_count;
