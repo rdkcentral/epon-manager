@@ -1,0 +1,162 @@
+# Build outputs
+*.o
+*.a
+*.so
+*.so.*
+*.la
+*.lo
+*.obj
+*.exe
+*.trs
+
+# Build directories
+build/
+obj/
+bin/
+lib/
+.libs/
+.deps/
+
+# Autotools generated files
+/aclocal.m4
+/autom4te.cache/
+/config.guess
+/config.h
+/config.h.in
+/config.h.in~
+/config.log
+/config.status
+/config.sub
+/configure
+/depcomp
+/install-sh
+/libtool
+/ltmain.sh
+/missing
+/stamp-h1
+/test-driver
+/compile
+/ar-lib
+Makefile
+Makefile.in
+.dirstamp
+m4/libtool.m4
+m4/ltoptions.m4
+m4/ltsugar.m4
+m4/ltversion.m4
+m4/lt~obsolete.m4
+cfg/
+
+# Executables
+epon-manager
+epon_manager
+test_controller_with_mock
+
+# Test executables (but not source files)
+tests/unit/test_logger
+tests/unit/test_config
+tests/unit/test_cache
+tests/unit/test_queue
+tests/unit/test_datastructures
+tests/integration/test_event_processing
+tests/hal_mock/test_hal_*
+
+# Log files and directories
+*.log
+logs/
+*.log.*
+.lastlogin
+.bash_history
+
+# Core dumps and debug files
+core.*
+vgcore.*
+*.dSYM/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile.cmake
+*.cmake
+
+# Autotools
+.deps/
+.libs/
+*.m4
+aclocal.m4
+autom4te.cache/
+compile
+config.guess
+config.h
+config.h.in
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+stamp-h1
+Makefile.in
+
+# Backup files
+*.backup
+*.orig
+*.rej
+
+# Package files
+*.deb
+*.rpm
+*.ipk
+*.tar.gz
+*.tgz
+*.zip
+
+# Test coverage
+*.gcov
+*.gcda
+*.gcno
+coverage/
+htmlcov/
+
+# Profiling
+gmon.out
+callgrind.out.*
+perf.data
+perf.data.old
+
+# Documentation generated
+html/
+latex/
+man/
+Doxyfile.bak
+
+# Tags and cscope
+tags
+TAGS
+cscope.*
+.ccls-cache/
+compile_commands.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+.cache/
+tests/unit/test_rbus_basic
+tests/unit/test_telemetry
+tests/hal_mock/epon_hal_trigger
