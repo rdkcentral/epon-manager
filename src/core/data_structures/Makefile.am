@@ -16,4 +16,5 @@ libeponMgr_datastructures_a_CFLAGS = \
     -I$(top_srcdir)/include \
     -I$(top_srcdir)/src/logger \
     -I$(top_srcdir)/src/core/data_structures \
+    $(EPON_HAL_CFLAGS) \
     $(AM_CFLAGS)

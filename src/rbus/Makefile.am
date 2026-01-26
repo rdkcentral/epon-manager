@@ -22,6 +22,7 @@ libeponMgr_rbus_a_CFLAGS = \
     -I$(top_srcdir)/src/rbus \
     -I$(top_srcdir)/src/rbus/tr181 \
     -I$(top_srcdir)/src/telemetry \
+    $(EPON_HAL_CFLAGS) \
     $(AM_CFLAGS)
 
 endif
