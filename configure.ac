@@ -96,13 +96,6 @@ fi
 # Add common compiler flags
 CFLAGS="$CFLAGS -Wall -Wextra -Wunused-variable -Wunused-function -Wunused-parameter -fPIC"
 
-# Add external EPON HAL include path - use AC_SUBST to get sysroot
-AC_ARG_VAR([EPON_HAL_CFLAGS], [C compiler flags for external EPON HAL])
-if test "x$EPON_HAL_CFLAGS" = "x"; then
-    EPON_HAL_CFLAGS="-I${includedir}/epon"
-fi
-AC_SUBST([EPON_HAL_CFLAGS])
-
 # Configuration summary
 AC_MSG_RESULT([
     $PACKAGE_NAME $PACKAGE_VERSION Configuration:
