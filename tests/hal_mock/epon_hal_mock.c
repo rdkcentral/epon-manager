@@ -538,7 +538,7 @@ uint32_t epon_hal_get_version(void) {
     return EPON_HAL_API_VERSION;
 }
 
-int epon_hal_init(const epon_hal_config_t *config) {
+epon_hal_return_t epon_hal_init(const epon_hal_config_t *config) {
     if (!config) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -566,7 +566,32 @@ int epon_hal_init(const epon_hal_config_t *config) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_get_link_stats(epon_hal_link_stats_t *stats) {
+epon_hal_return_t epon_hal_deinit(void) {
+    if (!g_initialized) {
+        return EPON_HAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    /* Stop control thread */
+    g_control_running = false;
+    if (g_control_socket >= 0) {
+        close(g_control_socket);
+        g_control_socket = -1;
+    }
+    pthread_join(g_control_thread, NULL);
+    
+    /* Free LLID list if allocated */
+    if (g_llid_list.llid_list) {
+        free(g_llid_list.llid_list);
+        g_llid_list.llid_list = NULL;
+        g_llid_list.llid_count = 0;
+    }
+    
+    g_initialized = false;
+    printf("EPON HAL Mock: Deinitialized\n");
+    return EPON_HAL_SUCCESS;
+}
+
+epon_hal_return_t epon_hal_get_link_stats(epon_hal_link_stats_t *stats) {
     if (!stats) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -588,7 +613,7 @@ int epon_hal_get_link_stats(epon_hal_link_stats_t *stats) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_get_transceiver_stats(epon_hal_transceiver_stats_t *stats) {
+epon_hal_return_t epon_hal_get_transceiver_stats(epon_hal_transceiver_stats_t *stats) {
     if (!stats) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -610,7 +635,7 @@ int epon_hal_get_transceiver_stats(epon_hal_transceiver_stats_t *stats) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_get_llid_info(epon_llid_list_t *llid_list) {
+epon_hal_return_t epon_hal_get_llid_info(epon_llid_list_t *llid_list) {
     if (!llid_list) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -636,7 +661,7 @@ int epon_hal_get_llid_info(epon_llid_list_t *llid_list) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_get_manufacturer_info(epon_onu_manufacturer_info_t *info) {
+epon_hal_return_t epon_hal_get_manufacturer_info(epon_onu_manufacturer_info_t *info) {
     if (!info) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -653,7 +678,7 @@ int epon_hal_get_manufacturer_info(epon_onu_manufacturer_info_t *info) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_clear_stats(void) {
+epon_hal_return_t epon_hal_clear_stats(void) {
     if (!g_initialized) {
         return EPON_HAL_ERROR_NOT_INITIALIZED;
     }
@@ -680,7 +705,7 @@ int epon_hal_clear_stats(void) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_reset_onu(void) {
+epon_hal_return_t epon_hal_reset_onu(void) {
     if (!g_initialized) {
         return EPON_HAL_ERROR_NOT_INITIALIZED;
     }
@@ -698,7 +723,7 @@ int epon_hal_reset_onu(void) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_factory_reset(void) {
+epon_hal_return_t epon_hal_factory_reset(void) {
     if (!g_initialized) {
         return EPON_HAL_ERROR_NOT_INITIALIZED;
     }
@@ -711,7 +736,7 @@ int epon_hal_factory_reset(void) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_get_link_info(epon_hal_link_info_t *info) {
+epon_hal_return_t epon_hal_get_link_info(epon_hal_link_info_t *info) {
     if (!info) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -724,7 +749,7 @@ int epon_hal_get_link_info(epon_hal_link_info_t *info) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_get_interface_list(epon_interface_list_t *if_list) {
+epon_hal_return_t epon_hal_get_interface_list(epon_interface_list_t *if_list) {
     if (!if_list) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -737,7 +762,7 @@ int epon_hal_get_interface_list(epon_interface_list_t *if_list) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_get_olt_info(epon_olt_info_t *olt_info) {
+epon_hal_return_t epon_hal_get_olt_info(epon_olt_info_t *olt_info) {
     if (!olt_info) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }
@@ -754,7 +779,7 @@ int epon_hal_get_olt_info(epon_olt_info_t *olt_info) {
     return EPON_HAL_SUCCESS;
 }
 
-int epon_hal_set_oam_log_mask(uint32_t oam_log_mask) {
+epon_hal_return_t epon_hal_set_oam_log_mask(uint32_t oam_log_mask) {
     if (!g_initialized) {
         return EPON_HAL_ERROR_NOT_INITIALIZED;
     }
@@ -763,7 +788,7 @@ int epon_hal_set_oam_log_mask(uint32_t oam_log_mask) {
     return EPON_HAL_SUCCESS;
 }
 
-int dpoe_hal_get_cpe_mac_table(dpoe_cpe_mac_table_t *cpe_table) {
+epon_hal_return_t dpoe_hal_get_cpe_mac_table(dpoe_cpe_mac_table_t *cpe_table) {
     if (!cpe_table) {
         return EPON_HAL_ERROR_INVALID_PARAM;
     }

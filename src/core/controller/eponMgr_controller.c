@@ -108,7 +108,7 @@ static void hal_status_callback(epon_onu_status_t status) {
  * 
  * @param alarm_info Alarm information structure
  */
-static void hal_alarm_callback(epon_alarm_info_t *alarm_info) {
+static void hal_alarm_callback(const epon_alarm_info_t *alarm_info) {
     if (!g_controller || !g_controller->event_queue || !alarm_info) return;
     
     // Create event
@@ -520,7 +520,7 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     EPONMGR_LOG_INFO("EPON data context initialized with %us cache TTL\n", cache_ttl);
     
     // Step 7: Initialize HAL
-    int ret = eponMgr_data_hal_init(ctrl->data);
+    epon_hal_return_t ret = eponMgr_data_hal_init(ctrl->data);
     if (ret != EPON_HAL_SUCCESS) {
         EPONMGR_LOG_ERROR("Failed to initialize EPON HAL: %d\n", ret);
         goto error;
@@ -761,6 +761,12 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
         eponMgr_stats_poller_destroy(controller->stats_poller);
         free(controller->stats_poller);
         controller->stats_poller = NULL;
+    }
+    
+    // Deinitialize HAL before destroying data context
+    if (controller->data && controller->data->hal_initialized) {
+        EPONMGR_LOG_INFO("Deinitializing EPON HAL...\n");
+        epon_hal_deinit();
     }
     
     // Destroy EPON data context (this also destroys all data structures)
