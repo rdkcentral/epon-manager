@@ -7,13 +7,11 @@ Type=forking
 Environment="LOG4C_RCPATH=/etc"
 EnvironmentFile=/etc/device.properties
 WorkingDirectory=/usr/rdk/eponmanager
-ExecStartPre=/bin/sh -c 'PARTNER_ID=$(syscfg get PartnerID); if [ "$PARTNER_ID" = "Rogers" ] || [ "$PARTNER_ID" = "rogers" ]; then echo "Skipping RDK EPON Manager for Rogers partner"; exit 77; fi'
 ExecStart=/usr/bin/epon_manager
 ExecStop=/bin/sh -c 'echo "`date`: Stopping/Restarting RdkEponManager" >> ${PROCESS_RESTART_LOG}'
 PIDFile=/var/tmp/epon_manager.pid
 Restart=always
 RestartSec=5
-RestartPreventExitStatus=77
 
 [Install]
 WantedBy=multi-user.target
