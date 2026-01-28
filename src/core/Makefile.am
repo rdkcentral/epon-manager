@@ -34,7 +34,11 @@ epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a -lrbus
 endif
 
 if ENABLE_TESTS
+# Link with HAL mock library for testing
 epon_manager_LDADD += $(top_builddir)/tests/hal_mock/libepon_hal_mock.la
+else
+# Link with actual HAL library for production
+epon_manager_LDADD += -lcomcast_epon_hal
 endif
 
 epon_manager_LDADD += -lrdkloggers -lpthread
