@@ -38,7 +38,7 @@ if ENABLE_TESTS
 epon_manager_LDADD += $(top_builddir)/tests/hal_mock/libepon_hal_mock.la
 else
 # Link with actual HAL library for production
-epon_manager_LDADD += -lcomcast_epon_hal
+epon_manager_LDADD += -lhal_epon
 endif
 
 epon_manager_LDADD += -lrdkloggers -lpthread

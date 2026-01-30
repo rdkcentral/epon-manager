@@ -766,7 +766,7 @@ void eponMgr_controller_destroy(eponMgr_controller_t *controller) {
     // Deinitialize HAL before destroying data context
     if (controller->data && controller->data->hal_initialized) {
         EPONMGR_LOG_INFO("Deinitializing EPON HAL...\n");
-       // epon_hal_deinit();
+        epon_hal_deinit();
     }
     
     // Destroy EPON data context (this also destroys all data structures)

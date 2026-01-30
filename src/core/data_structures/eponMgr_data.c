@@ -225,7 +225,13 @@ epon_hal_return_t eponMgr_data_hal_init(eponMgr_data_t *eponData)
     EPONMGR_LOG_INFO("Initializing EPON HAL\n");
     
     pthread_mutex_lock(&eponData->mutex);
-    
+    EPONMGR_LOG_INFO("HAL configuration: status_cb=%p, interface_cb=%p, alarm_cb=%p, dpoe_supported=%d, config_size=%zu\n",
+                         eponData->hal_config.status_callback,
+                         eponData->hal_config.interface_status_callback,
+                         eponData->hal_config.alarm_callback,
+                         eponData->hal_config.dpoe_supported,
+                         sizeof(epon_hal_config_t));
+
     epon_hal_return_t ret = epon_hal_init(&eponData->hal_config);
     if (ret == EPON_HAL_SUCCESS) {
         eponData->hal_initialized = true;
