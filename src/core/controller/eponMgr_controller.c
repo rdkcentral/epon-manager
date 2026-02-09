@@ -41,6 +41,12 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <net/if_arp.h>
+#include <arpa/inet.h>
 
 /**
  * @brief Controller context structure
@@ -188,6 +194,242 @@ static bool has_any_interface_up(epon_interface_list_t *iface_list) {
 }
 
 /**
+ * @brief Set MAC address for a network interface
+ * 
+ * @param ifname Interface name (e.g., "veip0")
+ * @param mac_addr MAC address array (6 bytes)
+ * @return 0 on success, -1 on failure
+ */
+static int set_interface_mac_address(const char *ifname, const uint8_t *mac_addr) {
+    int sockfd;
+    struct ifreq ifr;
+    
+    if (!ifname || !mac_addr) {
+        EPONMGR_LOG_ERROR("Invalid parameters for set_interface_mac_address\n");
+        return -1;
+    }
+    
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        EPONMGR_LOG_ERROR("Failed to create socket: %s\n", strerror(errno));
+        return -1;
+    }
+    
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);
+    
+    // Set interface down first (required for MAC address change)
+    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {
+        EPONMGR_LOG_ERROR("Failed to get interface flags for %s: %s\n", ifname, strerror(errno));
+        close(sockfd);
+        return -1;
+    }
+    
+    int original_flags = ifr.ifr_flags;
+    ifr.ifr_flags &= ~IFF_UP;
+    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0) {
+        EPONMGR_LOG_WARN("Failed to bring interface %s down: %s\n", ifname, strerror(errno));
+    }
+    
+    // Set MAC address
+    ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+    memcpy(ifr.ifr_hwaddr.sa_data, mac_addr, 6);
+    
+    if (ioctl(sockfd, SIOCSIFHWADDR, &ifr) < 0) {
+        EPONMGR_LOG_ERROR("Failed to set MAC address for %s: %s\n", ifname, strerror(errno));
+        close(sockfd);
+        return -1;
+    }
+    
+    // Restore interface flags
+    ifr.ifr_flags = original_flags;
+    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0) {
+        EPONMGR_LOG_WARN("Failed to restore interface %s flags: %s\n", ifname, strerror(errno));
+    }
+    
+    close(sockfd);
+    
+    EPONMGR_LOG_INFO("Set MAC address for %s to %02x:%02x:%02x:%02x:%02x:%02x\n",
+                     ifname, mac_addr[0], mac_addr[1], mac_addr[2],
+                     mac_addr[3], mac_addr[4], mac_addr[5]);
+    
+    return 0;
+}
+
+/**
+ * @brief Create MAC VLAN interface for VEIP with calculated MAC address
+ * 
+ * Retrieves device MAC address using deviceinfo.sh -cmac command,
+ * calculates MAC address with offset based on interface number,
+ * and creates a MAC VLAN interface with suffix .0 (e.g., veip0.0)
+ * 
+ * @param ctrl Controller context
+ * @param ifname VEIP interface name (e.g., "veip0", "veip1", "veip2")
+ * @param macvlan_name Output buffer for created MACVLAN name (e.g., "veip0.0")
+ * @param macvlan_name_size Size of macvlan_name buffer
+ * @return 0 on success, -1 on failure
+ */
+static int create_veip_macvlan(eponMgr_controller_t *ctrl, const char *ifname, 
+                               char *macvlan_name, size_t macvlan_name_size) {
+    if (!ifname || !macvlan_name || macvlan_name_size == 0) {
+        EPONMGR_LOG_ERROR("Invalid parameters\n");
+        return -1;
+    }
+    
+    // Extract VEIP interface number from name (e.g., "veip0" -> 0)
+    int veip_num = -1;
+    if (sscanf(ifname, "veip%d", &veip_num) != 1 || veip_num < 0) {
+        EPONMGR_LOG_WARN("Invalid VEIP interface name: %s\n", ifname);
+        return -1;
+    }
+    
+    // Build MACVLAN interface name (e.g., "veip0.0")
+    memset(macvlan_name, 0, macvlan_name_size);
+    int len = snprintf(macvlan_name, macvlan_name_size, "%s.0", ifname);
+    if (len < 0 || len >= (int)macvlan_name_size) {
+        EPONMGR_LOG_ERROR("Failed to format MACVLAN name for %s (len=%d, size=%zu)\n", 
+                         ifname, len, macvlan_name_size);
+        return -1;
+    }
+    EPONMGR_LOG_DEBUG("MACVLAN name set to: '%s' (from ifname='%s')\n", macvlan_name, ifname);
+    
+    // Get device MAC address using popen to run deviceinfo.sh -cmac
+    FILE *fp = popen("deviceinfo.sh -cmac", "r");
+    if (!fp) {
+        EPONMGR_LOG_WARN("Failed to execute deviceinfo.sh -cmac for %s\n", ifname);
+        return -1;
+    }
+    
+    char mac_str[64] = {0};
+    if (fgets(mac_str, sizeof(mac_str), fp) == NULL) {
+        EPONMGR_LOG_WARN("Failed to read MAC from deviceinfo.sh for %s\n", ifname);
+        pclose(fp);
+        return -1;
+    }
+    pclose(fp);
+    
+    // Parse MAC address string (format: "98:2C:C6:70:F2:88")
+    uint8_t device_mac[6];
+    if (sscanf(mac_str, "%02x:%02x:%02x:%02x:%02x:%02x",
+               (unsigned int*)&device_mac[0], (unsigned int*)&device_mac[1],
+               (unsigned int*)&device_mac[2], (unsigned int*)&device_mac[3],
+               (unsigned int*)&device_mac[4], (unsigned int*)&device_mac[5]) != 6) {
+        EPONMGR_LOG_WARN("Failed to parse MAC address from: %s\n", mac_str);
+        return -1;
+    }
+    
+    // Calculate MAC offset based on VEIP number
+    uint8_t mac_offset = veip_num + 2;
+    
+    // Calculate new MAC address
+    uint8_t new_mac[6];
+    memcpy(new_mac, device_mac, 6);
+    
+    // Subtract offset from last byte of MAC address
+    new_mac[5] -= mac_offset;
+    
+    EPONMGR_LOG_INFO("Creating MACVLAN %s: Device MAC=%02x:%02x:%02x:%02x:%02x:%02x - offset=%u\n",
+                     macvlan_name,
+                     device_mac[0], device_mac[1], device_mac[2],
+                     device_mac[3], device_mac[4], device_mac[5],
+                     mac_offset);
+    
+    // Create MACVLAN interface using ip link command
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), 
+             "ip link add link %s name %s address %02x:%02x:%02x:%02x:%02x:%02x type macvlan mode bridge 2>&1",
+             ifname, macvlan_name,
+             new_mac[0], new_mac[1], new_mac[2],
+             new_mac[3], new_mac[4], new_mac[5]);
+    
+    EPONMGR_LOG_DEBUG("Executing: %s\n", cmd);
+    
+    FILE *fp_create = popen(cmd, "r");
+    if (!fp_create) {
+        EPONMGR_LOG_ERROR("Failed to execute MACVLAN creation command for %s\n", macvlan_name);
+        return -1;
+    }
+    
+    // Read any output/errors
+    char output[512] = {0};
+    char line[256];
+    size_t total_len = 0;
+    while (fgets(line, sizeof(line), fp_create) != NULL) {
+        size_t line_len = strlen(line);
+        if (total_len + line_len < sizeof(output) - 1) {
+            strcat(output, line);
+            total_len += line_len;
+        }
+    }
+    
+    // Remove trailing newline
+    if (total_len > 0 && output[total_len-1] == '\n') {
+        output[total_len-1] = '\0';
+    }
+    
+    int ret = pclose(fp_create);
+    if (ret != 0) {
+        if (strlen(output) > 0) {
+            EPONMGR_LOG_ERROR("Failed to create MACVLAN interface %s (exit=%d): %s\n", 
+                            macvlan_name, ret, output);
+        } else {
+            EPONMGR_LOG_ERROR("Failed to create MACVLAN interface %s (exit=%d)\n", 
+                            macvlan_name, ret);
+        }
+        return -1;
+    }
+    
+    if (strlen(output) > 0) {
+        EPONMGR_LOG_DEBUG("MACVLAN creation output: %s\n", output);
+    }
+    
+    // Bring up the MACVLAN interface
+    snprintf(cmd, sizeof(cmd), "ip link set %s up 2>&1", macvlan_name);
+    FILE *fp_up = popen(cmd, "r");
+    if (!fp_up) {
+        EPONMGR_LOG_WARN("Failed to execute interface up command for %s\n", macvlan_name);
+        // Don't fail - interface may be brought up by WanManager
+    } else {
+        // Read any output/errors
+        memset(output, 0, sizeof(output));
+        total_len = 0;
+        while (fgets(line, sizeof(line), fp_up) != NULL) {
+            size_t line_len = strlen(line);
+            if (total_len + line_len < sizeof(output) - 1) {
+                strcat(output, line);
+                total_len += line_len;
+            }
+        }
+        
+        // Remove trailing newline
+        if (total_len > 0 && output[total_len-1] == '\n') {
+            output[total_len-1] = '\0';
+        }
+        
+        ret = pclose(fp_up);
+        if (ret != 0) {
+            if (strlen(output) > 0) {
+                EPONMGR_LOG_WARN("Failed to bring up MACVLAN interface %s (exit=%d): %s\n", 
+                               macvlan_name, ret, output);
+            } else {
+                EPONMGR_LOG_WARN("Failed to bring up MACVLAN interface %s (exit=%d)\n", 
+                               macvlan_name, ret);
+            }
+            // Don't fail - interface may be brought up by WanManager
+        } else if (strlen(output) > 0) {
+            EPONMGR_LOG_DEBUG("Interface up output: %s\n", output);
+        }
+    }
+    
+    EPONMGR_LOG_INFO("Successfully created MACVLAN interface %s with MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
+                     macvlan_name,
+                     new_mac[0], new_mac[1], new_mac[2],
+                     new_mac[3], new_mac[4], new_mac[5]);
+    
+    return 0;
+}
+
+/** 
  * @brief Process interface status event
  * 
  * @param ctrl Controller context
@@ -222,10 +464,25 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     }
     
     // Phase 6/7 - Update WanManager via RBus
-    // Step 1: Update virtual interface table with interface name and status
-    if (eponMgr_rbus_update_virtual_interface(info->name, 
+    // Step 1a: If VEIP interface is coming UP, create MACVLAN interface
+    char wanmanager_if_name[64];
+    if (info->status == EPON_ONU_INTF_STATUS_LINK_UP && 
+        strncmp(info->name, "veip", 4) == 0) {
+        
+        // Create MACVLAN interface (e.g., veip0 -> veip0.0)
+        if (create_veip_macvlan(ctrl, info->name, wanmanager_if_name, sizeof(wanmanager_if_name)) != 0) {
+            EPONMGR_LOG_ERROR("Failed to create MACVLAN for %s, using original name\n", info->name);
+            snprintf(wanmanager_if_name, sizeof(wanmanager_if_name), "%s", info->name);
+        }
+    } else {
+        // For non-VEIP or link down, use original interface name
+        snprintf(wanmanager_if_name, sizeof(wanmanager_if_name), "%s", info->name);
+    }
+    
+    // Step 1: Update virtual interface table with MACVLAN interface name and status
+    if (eponMgr_rbus_update_virtual_interface(wanmanager_if_name, 
                                              info->status == EPON_ONU_INTF_STATUS_LINK_UP) != 0) {
-        EPONMGR_LOG_WARN("Failed to update virtual interface %s in WanManager\n", info->name);
+        EPONMGR_LOG_WARN("Failed to update virtual interface %s in WanManager\n", wanmanager_if_name);
     }
     
     // Step 2: Check overall PHY status and notify WanManager
@@ -248,7 +505,7 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     }
     
     EPONMGR_LOG_INFO("WanManager updated: interface=%s, PHY status=%s\n", 
-                info->name, phy_is_up ? "UP" : "DOWN");
+                wanmanager_if_name, phy_is_up ? "UP" : "DOWN");
     
     // TODO: Phase 7 - Report telemetry event for interface status change
 }
