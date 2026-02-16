@@ -18,6 +18,7 @@ epon_manager_CFLAGS = \
     -I$(top_srcdir)/src/rbus \
     -I$(top_srcdir)/src/rbus/tr181 \
     -I$(top_srcdir)/src/telemetry \
+    -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/epon \
     -Wunused-variable -Wunused-function -Wunused-parameter \
     $(AM_CFLAGS)
 
@@ -33,7 +34,11 @@ epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a -lrbus
 endif
 
 if ENABLE_TESTS
+# Link with HAL mock library for testing
 epon_manager_LDADD += $(top_builddir)/tests/hal_mock/libepon_hal_mock.la
+else
+# Link with actual HAL library for production
+epon_manager_LDADD += -lhal_epon
 endif
 
 epon_manager_LDADD += -lrdkloggers -lpthread

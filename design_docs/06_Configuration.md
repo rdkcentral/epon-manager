@@ -160,7 +160,6 @@ Required:
 - pthread (POSIX threads)
 - RDK common libraries
   - rbus
-  - ccsp-common-library
   - rdklogger
 - EPON HAL library
 

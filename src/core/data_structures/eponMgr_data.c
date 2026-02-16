@@ -218,15 +218,21 @@ uint32_t eponMgr_data_get_hal_version(void)
  * @note Sets hal_initialized flag on success
  * @note HAL initialization status is cached in ONU state
  */
-int eponMgr_data_hal_init(eponMgr_data_t *eponData)
+epon_hal_return_t eponMgr_data_hal_init(eponMgr_data_t *eponData)
 {
     if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
     
     EPONMGR_LOG_INFO("Initializing EPON HAL\n");
     
     pthread_mutex_lock(&eponData->mutex);
-    
-    int ret = epon_hal_init(&eponData->hal_config);
+    EPONMGR_LOG_INFO("HAL configuration: status_cb=%p, interface_cb=%p, alarm_cb=%p, dpoe_supported=%d, config_size=%zu\n",
+                         eponData->hal_config.status_callback,
+                         eponData->hal_config.interface_status_callback,
+                         eponData->hal_config.alarm_callback,
+                         eponData->hal_config.dpoe_supported,
+                         sizeof(epon_hal_config_t));
+
+    epon_hal_return_t ret = epon_hal_init(&eponData->hal_config);
     if (ret == EPON_HAL_SUCCESS) {
         eponData->hal_initialized = true;
         eponMgr_onu_state_set_hal_initialized(eponData->onu_state);
@@ -271,7 +277,7 @@ const epon_hal_link_stats_t* eponMgr_data_get_link_stats(eponMgr_data_t *eponDat
     epon_hal_link_stats_t* ptr = &eponData->stats_data->link_stats.data;
     ptr->struct_size = sizeof(epon_hal_link_stats_t);
     
-    int ret = epon_hal_get_link_stats(ptr);
+    epon_hal_return_t ret = epon_hal_get_link_stats(ptr);
     if (ret == EPON_HAL_SUCCESS) {
         // Update timestamp and validity
         eponData->stats_data->link_stats.timestamp = time(NULL);
@@ -319,7 +325,7 @@ const epon_hal_transceiver_stats_t* eponMgr_data_get_transceiver_stats(eponMgr_d
     epon_hal_transceiver_stats_t* ptr = &eponData->stats_data->transceiver_stats.data;
     ptr->struct_size = sizeof(epon_hal_transceiver_stats_t);
     
-    int ret = epon_hal_get_transceiver_stats(ptr);
+    epon_hal_return_t ret = epon_hal_get_transceiver_stats(ptr);
     if (ret == EPON_HAL_SUCCESS) {
         // Update timestamp and validity
         eponData->stats_data->transceiver_stats.timestamp = time(NULL);
@@ -365,7 +371,7 @@ const epon_llid_list_t* eponMgr_data_get_llid_info(eponMgr_data_t *eponData)
     
     // Call HAL to fill owned LLID list directly (zero-copy)
     // HAL will allocate new memory for llid_list
-    int ret = epon_hal_get_llid_info(&eponData->llid_list);
+    epon_hal_return_t ret = epon_hal_get_llid_info(&eponData->llid_list);
     if (ret == EPON_HAL_SUCCESS) {
         // Check if count changed for TR-181 sync
         if (eponData->llid_list.llid_count != eponData->llid_count_cache) {
@@ -406,7 +412,7 @@ const epon_interface_list_t* eponMgr_data_get_interface_list(eponMgr_data_t *epo
     pthread_mutex_lock(&eponData->mutex);
     
     // Call HAL to fill owned interface list directly (zero-copy)
-    int ret = epon_hal_get_interface_list(&eponData->interface_list);
+    epon_hal_return_t ret = epon_hal_get_interface_list(&eponData->interface_list);
     if (ret == EPON_HAL_SUCCESS) {
         EPONMGR_LOG_INFO("Retrieved %u interface(s) from HAL\n", eponData->interface_list.interface_count);
         
@@ -457,7 +463,7 @@ const epon_olt_info_t* eponMgr_data_get_olt_info(eponMgr_data_t *eponData)
     epon_olt_info_t* ptr = &eponData->onu_state->olt_info;
     ptr->struct_size = sizeof(epon_olt_info_t);
     
-    int ret = epon_hal_get_olt_info(ptr);
+    epon_hal_return_t ret = epon_hal_get_olt_info(ptr);
     if (ret == EPON_HAL_SUCCESS) {
         eponData->onu_state->olt_info_valid = true;
         EPONMGR_LOG_INFO("OLT information retrieved from HAL and cached\n");
@@ -501,7 +507,7 @@ const epon_onu_manufacturer_info_t* eponMgr_data_get_onu_manufacturer_info(eponM
     epon_onu_manufacturer_info_t* ptr = &eponData->onu_state->manufacturer_info;
     ptr->struct_size = sizeof(epon_onu_manufacturer_info_t);
     
-    int ret = epon_hal_get_manufacturer_info(ptr);
+    epon_hal_return_t ret = epon_hal_get_manufacturer_info(ptr);
     if (ret == EPON_HAL_SUCCESS) {
         eponData->onu_state->manufacturer_info_valid = true;
         EPONMGR_LOG_INFO("ONU manufacturer information retrieved from HAL and cached\n");
@@ -544,7 +550,7 @@ const epon_hal_link_info_t* eponMgr_data_get_link_info(eponMgr_data_t *eponData)
     // Cache invalid - call HAL to fill directly
     epon_hal_link_info_t* ptr = &eponData->onu_state->link_info;
     
-    int ret = epon_hal_get_link_info(ptr);
+    epon_hal_return_t ret = epon_hal_get_link_info(ptr);
     if (ret == EPON_HAL_SUCCESS) {
         eponData->onu_state->link_info_valid = true;
         EPONMGR_LOG_INFO("Link information retrieved from HAL and cached\n");
@@ -619,7 +625,7 @@ const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponD
     
     // Call HAL to fill owned CPE table directly (zero-copy)
     // HAL will allocate new memory for cpe_list
-    int ret = dpoe_hal_get_cpe_mac_table(&eponData->cpe_table);
+    epon_hal_return_t ret = dpoe_hal_get_cpe_mac_table(&eponData->cpe_table);
     if (ret == EPON_HAL_SUCCESS) {
         uint32_t total = eponData->cpe_table.static_cpe_count + eponData->cpe_table.dynamic_cpe_count;
         EPONMGR_LOG_DEBUG("Retrieved CPE MAC table: %u static, %u dynamic entries\n",
@@ -655,7 +661,7 @@ const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponD
  * @note No caching - direct HAL call
  * @note Used for runtime debug level control
  */
-int eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
+epon_hal_return_t eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
                                     uint32_t log_level)
 {
     if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;

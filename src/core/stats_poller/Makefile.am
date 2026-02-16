@@ -10,6 +10,7 @@ libeponMgr_stats_poller_a_CFLAGS = \
     -I$(top_srcdir)/src/core/data_structures \
     -I$(top_srcdir)/src/core/controller \
     -I$(top_srcdir)/src/core/config \
+    -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/epon \
     $(RBUS_CFLAGS)
 
 libeponMgr_stats_poller_a_LIBADD = \

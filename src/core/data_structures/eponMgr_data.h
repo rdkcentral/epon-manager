@@ -122,7 +122,7 @@ uint32_t eponMgr_data_get_hal_version(void);
  * @param eponData Pointer to data context
  * @return EPON HAL return code
  */
-int eponMgr_data_hal_init(eponMgr_data_t *eponData);
+epon_hal_return_t eponMgr_data_hal_init(eponMgr_data_t *eponData);
 
 /**
  * @brief Get link statistics (with 30s cache) - zero-copy
@@ -195,7 +195,7 @@ const dpoe_cpe_mac_table_t* eponMgr_data_get_cpe_mac_table(eponMgr_data_t *eponD
  * @param log_level Log level bitmask
  * @return EPON HAL return code
  */
-int eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
+epon_hal_return_t eponMgr_data_set_oam_log_level(eponMgr_data_t *eponData,
                                     uint32_t log_level);
 
 /**

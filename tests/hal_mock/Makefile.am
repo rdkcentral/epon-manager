@@ -11,6 +11,7 @@ libepon_hal_mock_la_SOURCES = \
 libepon_hal_mock_la_CFLAGS = \
     -I$(top_srcdir)/include \
     -I$(top_srcdir)/tests/hal_mock \
+    -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/epon \
     $(AM_CFLAGS)
 
 libepon_hal_mock_la_LDFLAGS = \
@@ -25,6 +26,7 @@ epon_hal_trigger_SOURCES = epon_hal_trigger.c
 epon_hal_trigger_CFLAGS = \
     -I$(top_srcdir)/include \
     -I$(top_srcdir)/tests/hal_mock \
+    -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/epon \
     $(AM_CFLAGS)
 
 epon_hal_trigger_LDADD =
