@@ -121,6 +121,7 @@ AC_CONFIG_FILES([
     src/core/config/Makefile
     src/core/data_structures/Makefile
     src/core/stats_poller/Makefile
+    src/core/hal_test/Makefile
     src/core/controller/Makefile
     src/rbus/Makefile
     src/telemetry/Makefile

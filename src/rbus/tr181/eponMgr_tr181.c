@@ -40,6 +40,7 @@
 #include "eponMgr_psm.h"
 #include "eponMgr_stats_poller.h"
 #include "eponMgr_statsData.h"
+#include "eponMgr_hal_test.h"
 
 #include <rbus/rbus.h>
 
@@ -199,6 +200,9 @@ static rbusDataElement_t g_tr181_params[] = {
     /* Stats Poller Configuration (2 parameters) */
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.Enable", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.PollingInterval", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
+
+    /* HAL Validation Test Method */
+    {TR181_BASE_PATH ".X_RDK_EPON.RunHALTest", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, eponMgr_hal_test_rbus_handler}},
 };
 
 /**
