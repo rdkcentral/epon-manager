@@ -94,9 +94,11 @@ typedef struct {
  * Safe to call while the EPON Manager is running - uses the already-initialized HAL.
  *
  * @param[out] report  Pointer to report structure to fill (caller-allocated)
+ * @param[in]  include_destructive  If true, run destructive tests (reset_onu, factory_reset)
+ *                                  that will cause service disruption. Default: false.
  * @return 0 on success (report generated), -1 on error (could not run tests)
  */
-int eponMgr_hal_test_run_all(hal_test_report_t *report);
+int eponMgr_hal_test_run_all(hal_test_report_t *report, bool include_destructive);
 
 /**
  * @brief Write the test report to the report file and RDK logs
@@ -118,6 +120,9 @@ int eponMgr_hal_test_write_report(const hal_test_report_t *report);
  *   - "Failed"       (uint32)
  *   - "Skipped"      (uint32)
  *   - "ReportFile"   (string) - path to detailed report
+ *
+ * Input parameters (optional, via inParams):
+ *   - "IncludeDestructive" (bool) - if true, run reset_onu and factory_reset tests
  *
  * @return RBUS_ERROR_SUCCESS on success
  */

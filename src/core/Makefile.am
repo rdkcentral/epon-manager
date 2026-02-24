@@ -25,14 +25,15 @@ epon_manager_CFLAGS = \
 
 epon_manager_LDADD = \
     $(top_builddir)/src/core/controller/libeponMgr_controller.a \
-    $(top_builddir)/src/core/hal_test/libeponMgr_hal_test.a \
     $(top_builddir)/src/core/stats_poller/libeponMgr_stats_poller.a \
     $(top_builddir)/src/core/data_structures/libeponMgr_datastructures.a \
     $(top_builddir)/src/core/config/libeponMgr_persistence.a \
     -lpthread
 
 if ENABLE_RBUS
-epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a -lrbus
+epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a
+epon_manager_LDADD += $(top_builddir)/src/core/hal_test/libeponMgr_hal_test.a
+epon_manager_LDADD += -lrbus
 endif
 
 if ENABLE_TESTS

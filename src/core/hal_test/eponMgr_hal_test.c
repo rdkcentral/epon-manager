@@ -44,6 +44,7 @@
 #include <time.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 /* ========================================================================== */
 /*  Internal helpers                                                          */
@@ -1108,6 +1109,99 @@ static void test_get_transceiver_stats_bad_size(hal_test_report_t *rpt)
     }
 }
 
+/**
+ * TC-32: epon_hal_reset_onu() - destructive test
+ *
+ * NOTE: This test is DESTRUCTIVE - it triggers an ONU reset which causes
+ * temporary service disruption. Only runs when explicitly requested via
+ * the IncludeDestructive input parameter.
+ *
+ * After reset, the ONU will deregister from the OLT and re-register.
+ * We verify the API returns SUCCESS and then confirm the HAL is still
+ * functional by calling epon_hal_get_link_info() after a short delay.
+ */
+static void test_reset_onu(hal_test_report_t *rpt)
+{
+    const char *method = "Direct HAL call: epon_hal_reset_onu(). "
+                         "DESTRUCTIVE: Triggers ONU soft reset and re-registration. "
+                         "Expects SUCCESS, then waits 5s and re-queries link info to confirm HAL is alive.";
+    double t0 = now_ms();
+
+    EPONMGR_LOG_WARN("[HAL-TEST] TC-32: Executing DESTRUCTIVE test - epon_hal_reset_onu()\n");
+
+    epon_hal_return_t rc = epon_hal_reset_onu();
+    double elapsed = now_ms() - t0;
+
+    char detail[HAL_TEST_DETAIL_LEN];
+    snprintf(detail, sizeof(detail), "rc=%s", rc_str(rc));
+
+    if (rc == EPON_HAL_SUCCESS) {
+        /* Wait for the ONU to begin re-registration */
+        EPONMGR_LOG_INFO("[HAL-TEST] TC-32: Reset returned SUCCESS, waiting 5s for re-registration...\n");
+        sleep(5);
+
+        /* Verify HAL is still functional after reset */
+        epon_hal_link_info_t info;
+        memset(&info, 0, sizeof(info));
+        epon_hal_return_t rc2 = epon_hal_get_link_info(&info);
+        snprintf(detail + strlen(detail), sizeof(detail) - strlen(detail),
+                 ", post-reset get_link_info rc=%s mode='%s'",
+                 rc_str(rc2), info.mode);
+
+        if (rc2 == EPON_HAL_SUCCESS || rc2 == EPON_HAL_ERROR_NOT_INITIALIZED) {
+            /* NOT_INITIALIZED is acceptable since ONU is still re-registering */
+            add_result(rpt, "TC-32 epon_hal_reset_onu", HAL_TEST_PASS, detail, method, elapsed);
+        } else {
+            add_result(rpt, "TC-32 epon_hal_reset_onu", HAL_TEST_WARN, detail, method, elapsed);
+        }
+    } else {
+        add_result(rpt, "TC-32 epon_hal_reset_onu", HAL_TEST_FAIL, detail, method, elapsed);
+    }
+}
+
+/**
+ * TC-33: epon_hal_factory_reset() - destructive test
+ *
+ * NOTE: This test is DESTRUCTIVE - it resets all HAL configuration to
+ * factory defaults. Service will be disrupted and re-initialization is
+ * required. Only runs when explicitly requested via IncludeDestructive.
+ *
+ * After factory reset, epon_hal_init() would need to be called again.
+ * Since we are running inside the EPON Manager, we do NOT re-init here;
+ * we only verify the API returns SUCCESS or an expected error.
+ */
+static void test_factory_reset(hal_test_report_t *rpt)
+{
+    const char *method = "Direct HAL call: epon_hal_factory_reset(). "
+                         "DESTRUCTIVE: Resets all HAL config to factory defaults. "
+                         "Expects SUCCESS. WARNING: epon_hal_init() is required after this call.";
+    double t0 = now_ms();
+
+    EPONMGR_LOG_WARN("[HAL-TEST] TC-33: Executing DESTRUCTIVE test - epon_hal_factory_reset()\n");
+
+    epon_hal_return_t rc = epon_hal_factory_reset();
+    double elapsed = now_ms() - t0;
+
+    char detail[HAL_TEST_DETAIL_LEN];
+    snprintf(detail, sizeof(detail), "rc=%s", rc_str(rc));
+
+    if (rc == EPON_HAL_SUCCESS) {
+        snprintf(detail + strlen(detail), sizeof(detail) - strlen(detail),
+                 " [Factory reset completed - HAL re-init required]");
+        add_result(rpt, "TC-33 epon_hal_factory_reset", HAL_TEST_PASS, detail, method, elapsed);
+    } else if (rc == EPON_HAL_ERROR_CONFIG) {
+        snprintf(detail + strlen(detail), sizeof(detail) - strlen(detail),
+                 " [Could not restore default config]");
+        add_result(rpt, "TC-33 epon_hal_factory_reset", HAL_TEST_FAIL, detail, method, elapsed);
+    } else if (rc == EPON_HAL_ERROR_HW_FAILURE) {
+        snprintf(detail + strlen(detail), sizeof(detail) - strlen(detail),
+                 " [HW failure during factory reset]");
+        add_result(rpt, "TC-33 epon_hal_factory_reset", HAL_TEST_FAIL, detail, method, elapsed);
+    } else {
+        add_result(rpt, "TC-33 epon_hal_factory_reset", HAL_TEST_FAIL, detail, method, elapsed);
+    }
+}
+
 /* ========================================================================== */
 /*  Public API                                                                */
 /* ========================================================================== */
@@ -1115,7 +1209,7 @@ static void test_get_transceiver_stats_bad_size(hal_test_report_t *rpt)
 /**
  * @brief Run the full EPON HAL validation test suite
  */
-int eponMgr_hal_test_run_all(hal_test_report_t *report)
+int eponMgr_hal_test_run_all(hal_test_report_t *report, bool include_destructive)
 {
     if (!report) return -1;
 
@@ -1182,6 +1276,23 @@ int eponMgr_hal_test_run_all(hal_test_report_t *report)
 
     /* --- Stability/Consistency --- */
     test_link_stats_consistency(report);
+
+    /* --- Destructive Tests (reset/factory_reset) --- */
+    if (include_destructive) {
+        EPONMGR_LOG_WARN("========================================\n");
+        EPONMGR_LOG_WARN("  DESTRUCTIVE TESTS ENABLED\n");
+        EPONMGR_LOG_WARN("  These tests will disrupt ONU service!\n");
+        EPONMGR_LOG_WARN("========================================\n");
+        test_reset_onu(report);
+        test_factory_reset(report);
+    } else {
+        add_result(report, "TC-32 epon_hal_reset_onu", HAL_TEST_SKIP,
+                   "Skipped: destructive test not requested (set IncludeDestructive=true)",
+                   "Requires IncludeDestructive=true input parameter to execute", 0.0);
+        add_result(report, "TC-33 epon_hal_factory_reset", HAL_TEST_SKIP,
+                   "Skipped: destructive test not requested (set IncludeDestructive=true)",
+                   "Requires IncludeDestructive=true input parameter to execute", 0.0);
+    }
 
     report->total_elapsed_ms = now_ms() - suite_start;
 
@@ -1282,7 +1393,8 @@ int eponMgr_hal_test_write_report(const hal_test_report_t *report)
  *   rbusMethod_Invoke(handle, "Device.Optical.Interface.1.X_RDK_EPON.RunHALTest", in, &out)
  *
  * Or from CLI:
- *   rbusmethod_invoke epon_manager Device.Optical.Interface.1.X_RDK_EPON.RunHALTest()
+ *   rbusmethod_invoke epon_manager Device.Optical.Interface.1.X_RDK_EPON.RunHALTest() 
+ *   rbusmethod_invoke epon_manager Device.Optical.Interface.1.X_RDK_EPON.RunHALTest() IncludeDestructive:bool:true
  */
 rbusError_t eponMgr_hal_test_rbus_handler(rbusHandle_t handle,
                                           char const *methodName,
@@ -1296,13 +1408,23 @@ rbusError_t eponMgr_hal_test_rbus_handler(rbusHandle_t handle,
 
     EPONMGR_LOG_INFO("RBUS method invoked: %s\n", methodName ? methodName : "(null)");
 
+    /* Check if destructive tests are requested via input parameter */
+    bool include_destructive = false;
+    if (inParams) {
+        rbusValue_t destructive_val = rbusObject_GetValue(inParams, "IncludeDestructive");
+        if (destructive_val) {
+            include_destructive = rbusValue_GetBoolean(destructive_val);
+        }
+    }
+    EPONMGR_LOG_INFO("IncludeDestructive=%s\n", include_destructive ? "true" : "false");
+
     hal_test_report_t *report = (hal_test_report_t *)calloc(1, sizeof(hal_test_report_t));
     if (!report) {
         EPONMGR_LOG_ERROR("Failed to allocate test report\n");
         return RBUS_ERROR_OUT_OF_RESOURCES;
     }
 
-    int ret = eponMgr_hal_test_run_all(report);
+    int ret = eponMgr_hal_test_run_all(report, include_destructive);
     if (ret != 0) {
         EPONMGR_LOG_ERROR("HAL test suite execution failed\n");
         free(report);
