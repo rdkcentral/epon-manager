@@ -113,15 +113,16 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".LowerLayers", RBUS_ELEMENT_TYPE_PROPERTY, {base_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Upstream", RBUS_ELEMENT_TYPE_PROPERTY, {base_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
 
-    /* Optical Parameters (6 parameters) */
+    /* Optical Parameters (7 parameters) */
     {TR181_BASE_PATH ".OpticalSignalLevel", RBUS_ELEMENT_TYPE_PROPERTY, {optical_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".LowerOpticalThreshold", RBUS_ELEMENT_TYPE_PROPERTY, {optical_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".UpperOpticalThreshold", RBUS_ELEMENT_TYPE_PROPERTY, {optical_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".TransmitOpticalLevel", RBUS_ELEMENT_TYPE_PROPERTY, {optical_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".LowerTransmitPowerThreshold", RBUS_ELEMENT_TYPE_PROPERTY, {optical_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".UpperTransmitPowerThreshold", RBUS_ELEMENT_TYPE_PROPERTY, {optical_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".SFPReferenceList", RBUS_ELEMENT_TYPE_PROPERTY, {optical_param_get_handler, NULL, NULL, NULL, NULL, NULL}},
 
-    /* Standard Stats (15 parameters) */
+    /* Standard Stats (12 parameters) */
     {TR181_BASE_PATH ".Stats.BytesSent", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.BytesReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.PacketsSent", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
@@ -132,16 +133,17 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".Stats.UnicastPacketsReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.DiscardPacketsSent", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.DiscardPacketsReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".Stats.MulticastPacketsSent", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".Stats.MulticastPacketsReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".Stats.BroadcastPacketsSent", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
-    {TR181_BASE_PATH ".Stats.BroadcastPacketsReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.UnknownProtoPacketsReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".Stats.MaxBitRate", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
 
-    /* X_RDK Stats (5 parameters) */
+    /* X_RDK Stats (11 parameters) */
     {TR181_BASE_PATH ".Stats.X_RDK_FECCorrected", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.X_RDK_FECUncorrectable", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.X_RDK_BER", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".Stats.X_RDK_BroadcastPacketsSent", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".Stats.X_RDK_BroadcastPacketsReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".Stats.X_RDK_MulticastPacketsSent", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
+    {TR181_BASE_PATH ".Stats.X_RDK_MulticastPacketsReceived", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.X_RDK_RangingResyncs", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".Stats.X_RDK_MACResets", RBUS_ELEMENT_TYPE_PROPERTY, {stats_get_handler, NULL, NULL, NULL, NULL, NULL}},
 
@@ -699,6 +701,9 @@ static rbusError_t optical_param_get_handler(rbusHandle_t handle, rbusProperty_t
         int32_t threshold = (int32_t)(trans_stats->upper_transmit_power_threshold * 10.0f);
         rbusValue_SetInt32(value, threshold);
     }
+    else if (strstr(param_name, "SFPReferenceList")) {
+        rbusValue_SetString(value, "");
+    }
     
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
@@ -768,20 +773,11 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
         uint64_t unicast = link_stats->packets_received - link_stats->multicast_packets_received - link_stats->broadcast_packets_received;
         rbusValue_SetUInt64(value, unicast);
     }
-    else if (strstr(param_name, "MulticastPacketsSent")) {
-        rbusValue_SetUInt64(value, link_stats->multicast_packets_sent);
-    }
-    else if (strstr(param_name, "MulticastPacketsReceived")) {
-        rbusValue_SetUInt64(value, link_stats->multicast_packets_received);
-    }
-    else if (strstr(param_name, "BroadcastPacketsSent")) {
-        rbusValue_SetUInt64(value, link_stats->broadcast_packets_sent);
-    }
-    else if (strstr(param_name, "BroadcastPacketsReceived")) {
-        rbusValue_SetUInt64(value, link_stats->broadcast_packets_received);
-    }
     else if (strstr(param_name, "UnknownProtoPacketsReceived")) {
         rbusValue_SetUInt32(value, 0);  // Not available in HAL
+    }
+    else if (strstr(param_name, "MaxBitRate")) {
+        rbusValue_SetUInt32(value, (uint32_t)link_stats->max_bit_rate);
     }
     /* X_RDK Statistics */
     else if (strstr(param_name, "FECCorrected")) {
@@ -789,6 +785,18 @@ static rbusError_t stats_get_handler(rbusHandle_t handle, rbusProperty_t propert
     }
     else if (strstr(param_name, "FECUncorrectable")) {
         rbusValue_SetUInt64(value, link_stats->fec_uncorrectable);
+    }
+    else if (strstr(param_name, "X_RDK_BroadcastPacketsSent")) {
+        rbusValue_SetUInt64(value, link_stats->broadcast_packets_sent);
+    }
+    else if (strstr(param_name, "X_RDK_BroadcastPacketsReceived")) {
+        rbusValue_SetUInt64(value, link_stats->broadcast_packets_received);
+    }
+    else if (strstr(param_name, "X_RDK_MulticastPacketsSent")) {
+        rbusValue_SetUInt64(value, link_stats->multicast_packets_sent);
+    }
+    else if (strstr(param_name, "X_RDK_MulticastPacketsReceived")) {
+        rbusValue_SetUInt64(value, link_stats->multicast_packets_received);
     }
     else if (strstr(param_name, "BER")) {
         // Calculate BER from FEC corrected bit errors (returns string in scientific notation)
@@ -1262,11 +1270,10 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
                  cpe_entry.mac_address[4], cpe_entry.mac_address[5]);
         rbusValue_SetString(value, mac_str);
     }
-    else if (strcmp(param_name + strlen(param_name) - 9, ".AddedTime") == 0) {
-        char time_str[32];
-        time_t added_time = time(NULL) - cpe_entry.age_time;
-        strftime(time_str, sizeof(time_str), "%Y-%m-%dT%H:%M:%S", localtime(&added_time));
-        rbusValue_SetString(value, time_str);
+    else if (strcmp(param_name + strlen(param_name) - 8, ".AgeTime") == 0) {
+        uint32_t age = cpe_entry.age_time;
+        if (age > 65535) age = 65535;
+        rbusValue_SetUInt32(value, age);
     }
     else if (strcmp(param_name + strlen(param_name) - 5, ".Type") == 0) {
         const char *type_str = (cpe_entry.type == DPOE_CPE_MAC_STATIC) ? "Static" : "Dynamic";
