@@ -22,40 +22,43 @@ This HAL implementation supports the TR-181 Device.Optical.Interface data model 
 |-----------------|------|------------|-------------|
 | `Device.Optical.Interface.{i}.Status` | string | `epon_hal_init()` (callback) | Operational status of the optical interface. Maps from `epon_onu_status_t` enum. |
 | `Device.Optical.Interface.{i}.Name` | string | `epon_hal_get_interface_list()` | Interface name (e.g., "veip0"). |
-| `Device.Optical.Interface.{i}.LowerLayers` | string | N/A | Lower layer interface reference (not a HAL dependent). |
+| `Device.Optical.Interface.{i}.LowerLayers` | string | N/A | Lower layer interface reference (readOnly, not a HAL dependent). |
 | `Device.Optical.Interface.{i}.Upstream` | boolean | Constant | (not a HAL dependent). |
+| `Device.Optical.Interface.{i}.MaxBitRate` | int32 | `epon_hal_get_link_stats()` | Maximum PHY bit rate in Mbps (-1 = auto). ReadOnly. Per BBF TR-181 v2.18. |
 
 **Status Mapping:**
 - `EPON_ONU_STATUS_REGISTRATION` → "Up"
 - `EPON_ONU_STATUS_DEREGISTRATION` → "Down"
-- `EPON_ONU_STATUS_LOS` → "LowerLayerDown"
+- `EPON_ONU_STATUS_LOS` → "NotPresent"
 - `EPON_ONU_STATUS_DOWNSTREAM_SIGNAL_DETECTED` → "Dormant"
+
+> **Note:** Per BBF TR-181, "LowerLayerDown" SHOULD never be used for layer 1 optical interfaces.
 
 #### 1.1.2 Optical Parameters
 
 | TR-181 Parameter | Type | Source API | Description |
 |-----------------|------|------------|-------------|
-| `Device.Optical.Interface.{i}.TransmitOpticalLevel` | float | `epon_hal_get_transceiver_stats()` | Current optical transmit power level in dBm. |
-| `Device.Optical.Interface.{i}.OpticalSignalLevel` | float | `epon_hal_get_transceiver_stats()` | Received optical power level in dBm. |
-| `Device.Optical.Interface.{i}.LowerOpticalThreshold` | float | `epon_hal_get_transceiver_stats()` | Lower receive power threshold in dBm. |
-| `Device.Optical.Interface.{i}.UpperOpticalThreshold` | float | `epon_hal_get_transceiver_stats()` | Upper receive power threshold in dBm. |
-| `Device.Optical.Interface.{i}.LowerTransmitPowerThreshold` | float | `epon_hal_get_transceiver_stats()` | Lower transmit power threshold in dBm. |
-| `Device.Optical.Interface.{i}.UpperTransmitPowerThreshold` | float | `epon_hal_get_transceiver_stats()` | Upper transmit power threshold in dBm. |
+| `Device.Optical.Interface.{i}.TransmitOpticalLevel` | int32 | `epon_hal_get_transceiver_stats()` | Current optical transmit power level (Dbm1000 coded). |
+| `Device.Optical.Interface.{i}.OpticalSignalLevel` | int32 | `epon_hal_get_transceiver_stats()` | Received optical power level (Dbm1000 coded). |
 | `Device.Optical.Interface.{i}.SFPReferenceList` | string | N/A |(not a HAL dependent) |
+
+> **Note:** `LowerOpticalThreshold`, `UpperOpticalThreshold`, `LowerTransmitPowerThreshold`, and `UpperTransmitPowerThreshold` were deprecated (v2.15), obsoleted (v2.17), and deleted (v2.18) from the BBF TR-181 standard. These have been moved to `X_RDK_Transceiver` namespace. See Section 1.3.2.
 
 ### 1.2 Device.Optical.Interface.{i}.Stats Object
 
 | TR-181 Parameter | Type | Source API | Description |
 |-----------------|------|------------|-------------|
+| `Device.Optical.Interface.{i}.Stats.Reset` | boolean | N/A | Set to true to reset all stats counters. Per BBF TR-181 v2.18. |
 | `Device.Optical.Interface.{i}.Stats.BytesSent` | uint64 | `epon_hal_get_link_stats()` | Total bytes transmitted. |
 | `Device.Optical.Interface.{i}.Stats.BytesReceived` | uint64 | `epon_hal_get_link_stats()` | Total bytes received. |
 | `Device.Optical.Interface.{i}.Stats.PacketsSent` | uint64 | `epon_hal_get_link_stats()` | Total packets transmitted. |
 | `Device.Optical.Interface.{i}.Stats.PacketsReceived` | uint64 | `epon_hal_get_link_stats()` | Total packets received. |
-| `Device.Optical.Interface.{i}.Stats.ErrorsSent` | uint64 | `epon_hal_get_link_stats()` | Errors on transmission. |
-| `Device.Optical.Interface.{i}.Stats.ErrorsReceived` | uint64 | `epon_hal_get_link_stats()` | Errors on reception. |
-| `Device.Optical.Interface.{i}.Stats.DiscardPacketsSent` | uint64 | `epon_hal_get_link_stats()` | Packets discarded prior to transmission. |
-| `Device.Optical.Interface.{i}.Stats.DiscardPacketsReceived` | uint64 | `epon_hal_get_link_stats()` | Packets discarded on reception. |
-| `Device.Optical.Interface.{i}.Stats.MaxBitRate` | uint32 | `epon_hal_get_link_stats()` | Maximum bit rate in Mbps. |
+| `Device.Optical.Interface.{i}.Stats.ErrorsSent` | uint32 | `epon_hal_get_link_stats()` | Errors on transmission. |
+| `Device.Optical.Interface.{i}.Stats.ErrorsReceived` | uint32 | `epon_hal_get_link_stats()` | Errors on reception. |
+| `Device.Optical.Interface.{i}.Stats.DiscardPacketsSent` | uint32 | `epon_hal_get_link_stats()` | Packets discarded prior to transmission. |
+| `Device.Optical.Interface.{i}.Stats.DiscardPacketsReceived` | uint32 | `epon_hal_get_link_stats()` | Packets discarded on reception. |
+
+> **Note:** `MaxBitRate` has been moved to the interface level per BBF TR-181 v2.18. `UnicastPacketsSent` and `UnicastPacketsReceived` are not part of BBF Optical.Interface.Stats and have been moved to X_RDK namespace. See Section 1.3.1.
 
 ### 1.3 RDK Extended Parameters (X_RDK Namespace)
 
@@ -71,6 +74,8 @@ The following parameters extend TR-181 with EPON-specific metrics not covered by
 | `Device.Optical.Interface.{i}.Stats.X_RDK_BroadcastPacketsReceived` | uint64 | `epon_hal_get_link_stats()` | Broadcast packets received. |
 | `Device.Optical.Interface.{i}.Stats.X_RDK_MulticastPacketsSent` | uint64 | `epon_hal_get_link_stats()` | Multicast packets transmitted. |
 | `Device.Optical.Interface.{i}.Stats.X_RDK_MulticastPacketsReceived` | uint64 | `epon_hal_get_link_stats()` | Multicast packets received. |
+| `Device.Optical.Interface.{i}.Stats.X_RDK_UnicastPacketsSent` | uint64 | `epon_hal_get_link_stats()` | Unicast packets transmitted (computed: Total - Multicast - Broadcast). |
+| `Device.Optical.Interface.{i}.Stats.X_RDK_UnicastPacketsReceived` | uint64 | `epon_hal_get_link_stats()` | Unicast packets received (computed: Total - Multicast - Broadcast). |
 
 | `Device.Optical.Interface.{i}.Stats.X_RDK_RangingResyncs` | uint64 | `epon_hal_get_link_stats()` | Number of ranging resynchronizations. |
 | `Device.Optical.Interface.{i}.Stats.X_RDK_MACResets` | uint64 | `epon_hal_get_link_stats()` | Number of MAC layer resets. |
@@ -84,6 +89,10 @@ The following parameters extend TR-181 with EPON-specific metrics not covered by
 | `Device.Optical.Interface.{i}.X_RDK_Transceiver.BiasCurrent` | float | `epon_hal_get_transceiver_stats()` | Laser bias current in milliamperes. |
 | `Device.Optical.Interface.{i}.X_RDK_Transceiver.Temperature` | float | `epon_hal_get_transceiver_stats()` | Module temperature in Celsius. |
 | `Device.Optical.Interface.{i}.X_RDK_Transceiver.SupplyVoltage` | float | `epon_hal_get_transceiver_stats()` | Supply voltage in volts. |
+| `Device.Optical.Interface.{i}.X_RDK_Transceiver.LowerOpticalThreshold` | float | `epon_hal_get_transceiver_stats()` | Lower receive power threshold in dBm. Moved from BBF-deleted standard path. |
+| `Device.Optical.Interface.{i}.X_RDK_Transceiver.UpperOpticalThreshold` | float | `epon_hal_get_transceiver_stats()` | Upper receive power threshold in dBm. Moved from BBF-deleted standard path. |
+| `Device.Optical.Interface.{i}.X_RDK_Transceiver.LowerTransmitPowerThreshold` | float | `epon_hal_get_transceiver_stats()` | Lower transmit power threshold in dBm. Moved from BBF-deleted standard path. |
+| `Device.Optical.Interface.{i}.X_RDK_Transceiver.UpperTransmitPowerThreshold` | float | `epon_hal_get_transceiver_stats()` | Upper transmit power threshold in dBm. Moved from BBF-deleted standard path. |
 
 #### 1.3.3 Device.Optical.Interface.{i}.X_RDK_EPON Object
 
@@ -113,12 +122,12 @@ LLID (Logical Link Identifier) table for multi-LLID support:
 
 | Parameter | Type | Source API | Description |
 |-----------|------|------------|-------------|
-| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.LLIDValue` | uint16 | `epon_hal_get_llid_info()` | Logical Link Identifier value. |
+| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.LLID` | uint16 | `epon_hal_get_llid_info()` | Logical Link Identifier value. |
+| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.Status` | string | `epon_hal_get_llid_info()` | "Unregistered", "Registering", "Registered", "Deregistering", "Failed". |
+| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.MACAddress` | string | `epon_hal_get_llid_info()` | MAC address associated with this LLID. |
 | `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.Mode` | string | `epon_hal_get_llid_info()` | "Unicast" or "Broadcast". |
-| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.State` | string | `epon_hal_get_llid_info()` | "Unregistered", "Registering", "Registered", "Deregistering", "Failed". |
-| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.ForwardingState` | string | `epon_hal_get_llid_info()` | "Disabled", "Enabled", "Learning". |
 | `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.EncryptionEnabled` | boolean | `epon_hal_get_llid_info()` | Encryption enabled for this LLID. Encryption type is specified in Device.Optical.Interface.{i}.X_RDK_EPON.EncryptionMode. |
-| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.LocalMACAddress` | string | `epon_hal_get_llid_info()` | MAC address associated with this LLID. |
+| `Device.Optical.Interface.{i}.X_RDK_EPON.LLID.{i}.ForwardingState` | string | `epon_hal_get_llid_info()` | "Disabled", "Enabled", "Learning". |
 
 #### 1.3.5 Device.Optical.Interface.{i}.X_RDK_EPON.OLT Object
 
