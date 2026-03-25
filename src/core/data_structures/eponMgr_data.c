@@ -832,3 +832,33 @@ int eponMgr_data_get_interface_by_name(eponMgr_data_t *eponData, const char *nam
     pthread_mutex_unlock(&eponData->mutex);
     return -1;
 }
+
+/**
+ * @brief Clear all statistics counters
+ * 
+ * Resets all statistics counters in the EPON data context and calls
+ * the HAL clear_stats function if available.
+ * 
+ * @param eponData Pointer to data context
+ */
+void eponMgr_data_clear_stats(eponMgr_data_t *eponData)
+{
+    if (!eponData) return;
+    
+    pthread_mutex_lock(&eponData->mutex);
+    
+    /* Clear stats_data contents if allocated, but preserve its internal mutex and TTL */
+    if (eponData->stats_data) {
+        /* Invalidate all cached statistics without touching internal synchronization primitives */
+        eponMgr_statsData_invalidate_all(eponData->stats_data);
+
+        /* Clear link stats cache payloads so they read back as zeroed data */
+        memset(&eponData->stats_data->cached_link_stats, 0, sizeof(epon_hal_link_stats_t));
+        memset(&eponData->stats_data->cached_transceiver_stats, 0, sizeof(epon_hal_transceiver_stats_t));
+    }
+    
+    pthread_mutex_unlock(&eponData->mutex);
+    
+    /* Call HAL clear stats function */
+    epon_hal_clear_stats();
+}
