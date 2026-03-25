@@ -830,13 +830,11 @@ static rbusError_t stats_set_handler(rbusHandle_t handle, rbusProperty_t propert
     if (strstr(param_name, ".Reset")) {
         bool reset = rbusValue_GetBoolean(value);
         if (reset) {
-            eponMgr_data_t *eponData = eponMgr_data_lock();
-            if (eponData) {
-                eponMgr_data_clear_stats(eponData);
-                eponMgr_data_unlock();
-                EPONMGR_LOG_INFO("Stats counters reset via TR-181 Stats.Reset\n");
-            }
-            return RBUS_ERROR_SUCCESS;
+            /* TODO: Implement statistics reset via HAL
+             * Currently this feature is not implemented.
+             * Need to design proper stats clearing mechanism. */
+            EPONMGR_LOG_WARN("Stats reset via TR-181 Stats.Reset is not yet implemented\n");
+            return RBUS_ERROR_BUS_ERROR;
         }
     }
 
