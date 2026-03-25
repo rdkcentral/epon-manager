@@ -859,7 +859,5 @@ void eponMgr_data_clear_stats(eponMgr_data_t *eponData)
     pthread_mutex_unlock(&eponData->mutex);
     
     /* Call HAL clear stats function */
-    if (epon_hal_clear_stats) {
-        epon_hal_clear_stats();
-    }
+    epon_hal_clear_stats();
 }
