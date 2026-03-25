@@ -272,14 +272,4 @@ static inline uint32_t eponMgr_data_get_interface_count(eponMgr_data_t *eponData
     return eponData ? eponData->interface_list.interface_count : 0;
 }
 
-/**
- * @brief Clear all statistics counters
- * 
- * Resets all statistics counters in the EPON data context and calls
- * the HAL clear_stats function if available.
- * 
- * @param eponData Pointer to data context
- */
-void eponMgr_data_clear_stats(eponMgr_data_t *eponData);
-
 #endif /* EPONMGR_DATA_H */
