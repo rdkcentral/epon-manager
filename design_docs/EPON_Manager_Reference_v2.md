@@ -108,17 +108,17 @@ Per BBF TR-181 `Device.Optical.Interface.{i}.Stats`.
 
 ### 1.5 X\_RDK\_Transceiver Parameters
 
-Optical thresholds relocated here per BBF TR-181 v2.18 (removed from standard path).
+Optical thresholds relocated here per BBF TR-181 v2.18 (removed from standard path). All values are represented as signed integers with fixed-point scaling (×1000) since BBF TR-181 does not support floating-point types.
 
 | # | TR-181 Parameter | Description | Data Type | Access |
 |---|-----------------|-------------|-----------|--------|
-| 32 | `Device.Optical.Interface.1.X_RDK_Transceiver.Temperature` | Optical transceiver module temperature (°C). | double | RO |
-| 33 | `Device.Optical.Interface.1.X_RDK_Transceiver.SupplyVoltage` | Transceiver supply voltage (V). Typical ~3.3 V. | double | RO |
-| 34 | `Device.Optical.Interface.1.X_RDK_Transceiver.BiasCurrent` | Laser bias current (mA). Rising trend indicates laser aging. | double | RO |
-| 35 | `Device.Optical.Interface.1.X_RDK_Transceiver.LowerOpticalThreshold` | Lower RX optical power alarm threshold (dBm). Moved from BBF-deleted standard path. | double | RO |
-| 36 | `Device.Optical.Interface.1.X_RDK_Transceiver.UpperOpticalThreshold` | Upper RX optical power alarm threshold (dBm). Moved from BBF-deleted standard path. | double | RO |
-| 37 | `Device.Optical.Interface.1.X_RDK_Transceiver.LowerTransmitPowerThreshold` | Lower TX optical power alarm threshold (dBm). Moved from BBF-deleted standard path. | double | RO |
-| 38 | `Device.Optical.Interface.1.X_RDK_Transceiver.UpperTransmitPowerThreshold` | Upper TX optical power alarm threshold (dBm). Moved from BBF-deleted standard path. | double | RO |
+| 32 | `Device.Optical.Interface.1.X_RDK_Transceiver.Temperature` | Optical transceiver module temperature in millidegrees Celsius (m°C). Value = °C × 1000. Example: 45200 = 45.2 °C. | int32 | RO |
+| 33 | `Device.Optical.Interface.1.X_RDK_Transceiver.SupplyVoltage` | Transceiver supply voltage in millivolts (mV). Value = V × 1000. Example: 3300 = 3.3 V. | int32 | RO |
+| 34 | `Device.Optical.Interface.1.X_RDK_Transceiver.BiasCurrent` | Laser bias current in microamps (µA). Value = mA × 1000. Rising trend indicates laser aging. Example: 25500 = 25.5 mA. | int32 | RO |
+| 35 | `Device.Optical.Interface.1.X_RDK_Transceiver.LowerOpticalThreshold` | Lower RX optical power alarm threshold in Dbm1000 units (dBm × 1000). Moved from BBF-deleted standard path. Example: −28000 = −28.0 dBm. | int32 | RO |
+| 36 | `Device.Optical.Interface.1.X_RDK_Transceiver.UpperOpticalThreshold` | Upper RX optical power alarm threshold in Dbm1000 units (dBm × 1000). Moved from BBF-deleted standard path. Example: −8000 = −8.0 dBm. | int32 | RO |
+| 37 | `Device.Optical.Interface.1.X_RDK_Transceiver.LowerTransmitPowerThreshold` | Lower TX optical power alarm threshold in Dbm1000 units (dBm × 1000). Moved from BBF-deleted standard path. Example: −1000 = −1.0 dBm. | int32 | RO |
+| 38 | `Device.Optical.Interface.1.X_RDK_Transceiver.UpperTransmitPowerThreshold` | Upper TX optical power alarm threshold in Dbm1000 units (dBm × 1000). Moved from BBF-deleted standard path. Example: 5000 = 5.0 dBm. | int32 | RO |
 
 ---
 
@@ -401,28 +401,30 @@ Source: `epon_hal_get_link_stats()`
 | `data.FECUncorrectable` | FEC uncorrectable codeword count — indicates severe signal degradation (EPON extension). | union[null, long] | count |
 | `data.RangingResyncs` | MPCP ranging resynchronisation count. Frequent resyncs indicate distance/timing issues (EPON extension). | union[null, long] | count |
 | `data.MACResets` | MAC layer reset count. Indicates serious link-level recovery events (EPON extension). | union[null, long] | count |
+| `data.UnicastPacketsSent` | Unicast packets transmitted (TR-181: `Stats.X_RDK_UnicastPacketsSent`). | union[null, long] | packets |
+| `data.UnicastPacketsReceived` | Unicast packets received (TR-181: `Stats.X_RDK_UnicastPacketsReceived`). | union[null, long] | packets |
+| `data.BER` | Calculated Bit Error Rate in scientific notation (TR-181: `Stats.X_RDK_BER`). Example: _1.5e-09_. | union[null, string] | — |
 
 #### 3.1.3 Transceiver (Optical) Statistics
 
-Source: `epon_hal_get_transceiver_stats()`
+Source: `epon_hal_get_transceiver_stats()`. All values are represented as signed integers with fixed-point scaling (×1000) for consistency with TR-181 parameters. Avro does not require this (it supports double), but uniform integer types simplify parsing and avoid floating-point comparison issues.
 
 | Field | Description | Avro Type | Unit |
 |-------|-------------|-----------|------|
-| `data.TransmitOpticalLevel` | TX optical power. Typical: −6 to +3 dBm. | union[null, double] | dBm |
-| `data.OpticalSignalLevel` | RX optical power. Typical: −30 to 0 dBm. | union[null, double] | dBm |
-| `data.LowerOpticalThreshold` | Lower RX optical power alarm threshold. | union[null, double] | dBm |
-| `data.UpperOpticalThreshold` | Upper RX optical power alarm threshold. | union[null, double] | dBm |
-| `data.LowerTransmitPowerThreshold` | Lower TX optical power alarm threshold. | union[null, double] | dBm |
-| `data.UpperTransmitPowerThreshold` | Upper TX optical power alarm threshold. | union[null, double] | dBm |
-| `data.TransceiverTemperature` | Transceiver module temperature. High values indicate hardware stress. | union[null, double] | °C |
-| `data.SupplyVoltage` | Transceiver supply voltage. Typical ~3.3 V. | union[null, double] | V |
-| `data.LaserBiasCurrent` | Laser bias current. Increasing trend indicates laser degradation. | union[null, double] | mA |
+| `data.TransmitOpticalLevel` | TX optical power. Typical: −6000 to +3000. | union[null, int] | Dbm1000 (dBm × 1000) |
+| `data.OpticalSignalLevel` | RX optical power. Typical: −30000 to 0. | union[null, int] | Dbm1000 (dBm × 1000) |
+| `data.LowerOpticalThreshold` | Lower RX optical power alarm threshold. | union[null, int] | Dbm1000 (dBm × 1000) |
+| `data.UpperOpticalThreshold` | Upper RX optical power alarm threshold. | union[null, int] | Dbm1000 (dBm × 1000) |
+| `data.LowerTransmitPowerThreshold` | Lower TX optical power alarm threshold. | union[null, int] | Dbm1000 (dBm × 1000) |
+| `data.UpperTransmitPowerThreshold` | Upper TX optical power alarm threshold. | union[null, int] | Dbm1000 (dBm × 1000) |
+| `data.TransceiverTemperature` | Transceiver module temperature. High values indicate hardware stress. | union[null, int] | m°C (°C × 1000) |
+| `data.SupplyVoltage` | Transceiver supply voltage. Typical ~3300. | union[null, int] | mV (V × 1000) |
+| `data.LaserBiasCurrent` | Laser bias current. Increasing trend indicates laser degradation. | union[null, int] | µA (mA × 1000) |
 
-#### 3.1.4 Interface & ONU Status
+#### 3.1.4 ONU Status
 
 | Field | Description | Avro Type | Unit |
 |-------|-------------|-----------|------|
-| `data.InterfaceCount` | Number of active VEIP interfaces on the ONU. | union[null, int] | count |
 | `data.OperationalMode` | EPON operational mode, e.g., _1G-EPON_ or _10G-EPON_. | union[null, string] | — |
 | `data.EncryptionMode` | Current encryption: 0=Disabled, 1=AES-128, 2=Triple Churning, 3=AES-256. | union[null, int] | — |
 | `data.ONUStatus` | ONU status: 0=LOS, 1=DS Signal Detected, 2=Registered, 3=Deregistering. | union[null, int] | — |
@@ -515,16 +517,18 @@ Source: `epon_hal_get_transceiver_stats()`
                     {"name": "FECUncorrectable",         "type": ["null", "long"],   "doc": "Number of FEC uncorrectable codewords - indicates severe signal degradation (EPON extension)",                               "default": null},
                     {"name": "RangingResyncs",           "type": ["null", "long"],   "doc": "Number of MPCP ranging resynchronisations between ONU and OLT (EPON extension). Frequent resyncs may indicate distance or timing issues", "default": null},
                     {"name": "MACResets",                "type": ["null", "long"],   "doc": "Number of MAC layer resets on the EPON interface (EPON extension). Indicates serious link-level recovery events",            "default": null},
-                    {"name": "TransmitOpticalLevel",     "type": ["null", "double"], "doc": "Transmit (TX) optical power in dBm (TR-181: Device.Optical.Interface.{i}.TransmitOpticalLevel). Typical range: -6 to +3 dBm", "default": null},
-                    {"name": "OpticalSignalLevel",       "type": ["null", "double"], "doc": "Receive (RX) optical power in dBm (TR-181: Device.Optical.Interface.{i}.OpticalSignalLevel). Typical range: -30 to 0 dBm",   "default": null},
-                    {"name": "LowerOpticalThreshold",    "type": ["null", "double"], "doc": "Lower receive optical power alarm threshold in dBm (TR-181: Device.Optical.Interface.{i}.LowerOpticalThreshold)",            "default": null},
-                    {"name": "UpperOpticalThreshold",    "type": ["null", "double"], "doc": "Upper receive optical power alarm threshold in dBm (TR-181: Device.Optical.Interface.{i}.UpperOpticalThreshold)",            "default": null},
-                    {"name": "LowerTransmitPowerThreshold", "type": ["null", "double"], "doc": "Lower transmit optical power alarm threshold in dBm (TR-181: Device.Optical.Interface.{i}.LowerTransmitPowerThreshold)",  "default": null},
-                    {"name": "UpperTransmitPowerThreshold", "type": ["null", "double"], "doc": "Upper transmit optical power alarm threshold in dBm (TR-181: Device.Optical.Interface.{i}.UpperTransmitPowerThreshold)",  "default": null},
-                    {"name": "TransceiverTemperature",   "type": ["null", "double"], "doc": "Optical transceiver module temperature in degrees Celsius (vendor extension). High temperature may indicate hardware stress",  "default": null},
-                    {"name": "SupplyVoltage",            "type": ["null", "double"], "doc": "Optical transceiver supply voltage in Volts (vendor extension). Typical value around 3.3V",                                  "default": null},
-                    {"name": "LaserBiasCurrent",         "type": ["null", "double"], "doc": "Laser bias current in milliamperes (vendor extension). Increasing bias current over time may indicate laser degradation",     "default": null},
-                    {"name": "InterfaceCount",           "type": ["null", "int"],    "doc": "Number of active VEIP (Virtual Ethernet Interface Point) interfaces on the ONU",                                             "default": null},
+                    {"name": "UnicastPacketsSent",       "type": ["null", "long"],   "doc": "Unicast packets transmitted on the EPON optical interface (TR-181: Stats.X_RDK_UnicastPacketsSent)",                       "default": null},
+                    {"name": "UnicastPacketsReceived",   "type": ["null", "long"],   "doc": "Unicast packets received on the EPON optical interface (TR-181: Stats.X_RDK_UnicastPacketsReceived)",                       "default": null},
+                    {"name": "BER",                      "type": ["null", "string"], "doc": "Calculated Bit Error Rate in scientific notation (TR-181: Stats.X_RDK_BER). Example: 1.5e-09",                               "default": null},
+                    {"name": "TransmitOpticalLevel",     "type": ["null", "int"],    "doc": "Transmit (TX) optical power in Dbm1000 units (dBm x 1000). Typical range: -6000 to +3000",                                     "default": null},
+                    {"name": "OpticalSignalLevel",       "type": ["null", "int"],    "doc": "Receive (RX) optical power in Dbm1000 units (dBm x 1000). Typical range: -30000 to 0",                                        "default": null},
+                    {"name": "LowerOpticalThreshold",    "type": ["null", "int"],    "doc": "Lower receive optical power alarm threshold in Dbm1000 units (dBm x 1000)",                                                    "default": null},
+                    {"name": "UpperOpticalThreshold",    "type": ["null", "int"],    "doc": "Upper receive optical power alarm threshold in Dbm1000 units (dBm x 1000)",                                                    "default": null},
+                    {"name": "LowerTransmitPowerThreshold", "type": ["null", "int"], "doc": "Lower transmit optical power alarm threshold in Dbm1000 units (dBm x 1000)",                                                   "default": null},
+                    {"name": "UpperTransmitPowerThreshold", "type": ["null", "int"], "doc": "Upper transmit optical power alarm threshold in Dbm1000 units (dBm x 1000)",                                                   "default": null},
+                    {"name": "TransceiverTemperature",   "type": ["null", "int"],    "doc": "Optical transceiver module temperature in millidegrees Celsius (C x 1000). High temperature may indicate hardware stress",       "default": null},
+                    {"name": "SupplyVoltage",            "type": ["null", "int"],    "doc": "Optical transceiver supply voltage in millivolts (V x 1000). Typical value around 3300 mV (3.3V)",                              "default": null},
+                    {"name": "LaserBiasCurrent",         "type": ["null", "int"],    "doc": "Laser bias current in microamps (mA x 1000). Increasing bias current over time may indicate laser degradation",                "default": null},
                     {"name": "OperationalMode",          "type": ["null", "string"], "doc": "EPON operational mode string, e.g. '1G-EPON' or '10G-EPON'",                                                                 "default": null},
                     {"name": "EncryptionMode",           "type": ["null", "int"],    "doc": "Current encryption mode: 0=Disabled, 1=AES-128 (IEEE 802.3ah), 2=Triple Churning, 3=AES-256",                                "default": null},
                     {"name": "ONUStatus",                "type": ["null", "int"],    "doc": "Current ONU registration status: 0=LOS (no signal), 1=Downstream Signal Detected, 2=Registered, 3=Deregistering",           "default": null}

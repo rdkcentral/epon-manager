@@ -869,32 +869,33 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
         return RBUS_ERROR_BUS_ERROR;
     }
     
+    /* All transceiver values scaled ×1000 to int32 (BBF TR-181 has no float/double) */
     if (strstr(param_name, "Temperature")) {
-        int32_t temp = (int32_t)(trans_stats->temperature * 10.0f);  /* 0.1°C units */
+        int32_t temp = (int32_t)(trans_stats->temperature * 1000.0f);  /* m°C (millidegrees Celsius) */
         rbusValue_SetInt32(value, temp);
     }
     else if (strstr(param_name, "SupplyVoltage")) {
-        int32_t voltage = (int32_t)(trans_stats->supply_voltage * 1000.0f);  /* mV units */
+        int32_t voltage = (int32_t)(trans_stats->supply_voltage * 1000.0f);  /* mV (millivolts) */
         rbusValue_SetInt32(value, voltage);
     }
     else if (strstr(param_name, "BiasCurrent")) {
-        int32_t current = (int32_t)(trans_stats->bias_current * 10.0f);  /* 0.1 mA units */
+        int32_t current = (int32_t)(trans_stats->bias_current * 1000.0f);  /* µA (microamps) */
         rbusValue_SetInt32(value, current);
     }
     else if (strstr(param_name, "LowerOpticalThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->lower_optical_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->lower_optical_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "UpperOpticalThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->upper_optical_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->upper_optical_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "LowerTransmitPowerThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->lower_transmit_power_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->lower_transmit_power_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "UpperTransmitPowerThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->upper_transmit_power_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->upper_transmit_power_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     
