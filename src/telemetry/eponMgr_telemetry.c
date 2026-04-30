@@ -19,513 +19,365 @@
 
 /**
  * @file eponMgr_telemetry.c
- * @brief EPON Manager Telemetry Module Implementation (Dummy/Stub Version)
+ * @brief Self-contained telemetry event module.
  *
- * This is a Phase 8 dummy implementation that provides telemetry API stubs
- * without requiring actual T2 library integration. All telemetry calls are
- * logged for verification and testing.
+ * Sections (all internal symbols are file-static):
+ *   1. Event descriptor table  -- marker / priority / value-format
+ *   2. Value formatter         -- builds T2 value string from ctx
+ *   3. HAL alarm mapper        -- HAL alarm struct -> event id
+ *   4. T2 backend              -- t2_event_s() shim, log-only stub
+ *   5. Dispatcher              -- public producer API entry points
  *
- * Production implementation would:
- * - Link against libtelemetry_msgsender.so
- * - Call real T2 APIs (t2_init, t2_event_s, t2_event_d, t2_marker)
- * - Actually send data to T2 backend
+ * Marker names and severities track design_docs/EPON_Manager_Reference_v2.md §2.
  */
 
 #include "eponMgr_telemetry.h"
 #include "eponMgr_logger.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
-/* Global telemetry state */
+#ifdef HAVE_LIBT2
+extern int t2_event_s(char *marker, char *value);
+#endif
+
+/* ====================================================================== *
+ * 1. Event descriptor table                                                *
+ * ====================================================================== */
+
+typedef enum {
+    PRIO_INFO     = 0,
+    PRIO_WARNING  = 1,
+    PRIO_ERROR    = 2,
+    PRIO_CRITICAL = 3
+} priority_t;
+
+typedef enum {
+    FMT_NONE = 0,        /* value = ""                                  */
+    FMT_INTF,            /* value = "Interface=<ifname>"                */
+    FMT_ALARM            /* value = "RAISED"|"CLEARED"[,LLID=<n>]"      */
+} fmt_t;
+
 typedef struct {
-    bool initialized;
-    bool enabled;
-    char component_name[128];
-    pthread_mutex_t mutex;
-    uint64_t event_count;
-    uint64_t stat_count;
-    uint64_t marker_count;
-} eponMgr_telemetry_state_t;
+    const char *marker;
+    priority_t  priority;
+    fmt_t       fmt;
+} event_desc_t;
 
-static eponMgr_telemetry_state_t g_telem_state = {
-    .initialized = false,
-    .enabled = false,
-    .component_name = {0},
-    .mutex = PTHREAD_MUTEX_INITIALIZER,
-    .event_count = 0,
-    .stat_count = 0,
-    .marker_count = 0
+static const event_desc_t k_table[EPON_TELEM_EVENT_ID_MAX] = {
+    /* §2.1 ONU Status -------------------------------------------------- */
+    [EPON_TELEM_ONU_LOS]                          = { "EPON_ONU_LOS",                          PRIO_CRITICAL, FMT_NONE  },
+    [EPON_TELEM_ONU_DOWNSTREAM_SIGNAL_DETECTED]   = { "EPON_ONU_DOWNSTREAM_SIGNAL_DETECTED",   PRIO_INFO,     FMT_NONE  },
+    [EPON_TELEM_ONU_REGISTRATION]                 = { "EPON_ONU_REGISTRATION",                 PRIO_INFO,     FMT_NONE  },
+    [EPON_TELEM_ONU_DEREGISTRATION]               = { "EPON_ONU_DEREGISTRATION",               PRIO_WARNING,  FMT_NONE  },
+
+    /* §2.2 Link Status ------------------------------------------------- */
+    [EPON_TELEM_INTF_LINK_UP]                     = { "EPON_INTF_LINK_UP",                     PRIO_INFO,     FMT_INTF  },
+    [EPON_TELEM_INTF_LINK_DOWN]                   = { "EPON_INTF_LINK_DOWN",                   PRIO_WARNING,  FMT_INTF  },
+    [EPON_TELEM_PHY_STATUS_UP]                    = { "EPON_PHY_STATUS_UP",                    PRIO_INFO,     FMT_NONE  },
+    [EPON_TELEM_PHY_STATUS_DOWN]                  = { "EPON_PHY_STATUS_DOWN",                  PRIO_CRITICAL, FMT_NONE  },
+
+    /* §2.3 Standard 802.3ah alarms ------------------------------------ */
+    [EPON_TELEM_ALARM_STD_LOFI]                   = { "EPON_ALARM_STD_LOFI",                   PRIO_CRITICAL, FMT_ALARM },
+    [EPON_TELEM_ALARM_STD_ERROR_SYMBOL_PERIOD]    = { "EPON_ALARM_STD_ERROR_SYMBOL_PERIOD",    PRIO_ERROR,    FMT_ALARM },
+    [EPON_TELEM_ALARM_STD_ERROR_FRAME]            = { "EPON_ALARM_STD_ERROR_FRAME",            PRIO_ERROR,    FMT_ALARM },
+    [EPON_TELEM_ALARM_STD_ERROR_FRAME_PERIOD]     = { "EPON_ALARM_STD_ERROR_FRAME_PERIOD",     PRIO_ERROR,    FMT_ALARM },
+    [EPON_TELEM_ALARM_STD_ERROR_FRAME_SECONDS]    = { "EPON_ALARM_STD_ERROR_FRAME_SECONDS",    PRIO_WARNING,  FMT_ALARM },
+    [EPON_TELEM_ALARM_STD_OAM_SESSION_LOST]       = { "EPON_ALARM_STD_OAM_SESSION_LOST",       PRIO_CRITICAL, FMT_ALARM },
+    [EPON_TELEM_ALARM_STD_EQUIPMENT_FAILURE]      = { "EPON_ALARM_STD_EQUIPMENT_FAILURE",      PRIO_CRITICAL, FMT_ALARM },
+
+    /* §2.4 Vendor (DPoE) alarms --------------------------------------- */
+    [EPON_TELEM_ALARM_VENDOR_LOS]                 = { "EPON_ALARM_VENDOR_LOS",                 PRIO_CRITICAL, FMT_ALARM },
+    [EPON_TELEM_ALARM_VENDOR_DYING_GASP]          = { "EPON_ALARM_VENDOR_DYING_GASP",          PRIO_CRITICAL, FMT_ALARM },
+    [EPON_TELEM_ALARM_VENDOR_POWER_LOW]           = { "EPON_ALARM_VENDOR_POWER_LOW",           PRIO_WARNING,  FMT_ALARM },
+    [EPON_TELEM_ALARM_VENDOR_POWER_HIGH]          = { "EPON_ALARM_VENDOR_POWER_HIGH",          PRIO_WARNING,  FMT_ALARM },
+    [EPON_TELEM_ALARM_VENDOR_TEMPERATURE]         = { "EPON_ALARM_VENDOR_TEMPERATURE",         PRIO_ERROR,    FMT_ALARM },
+    [EPON_TELEM_ALARM_VENDOR_FEC_THRESHOLD]       = { "EPON_ALARM_VENDOR_FEC_THRESHOLD",       PRIO_ERROR,    FMT_ALARM },
+    [EPON_TELEM_ALARM_VENDOR_LASER_BIAS_CURRENT]  = { "EPON_ALARM_VENDOR_LASER_BIAS_CURRENT",  PRIO_ERROR,    FMT_ALARM },
+    [EPON_TELEM_ALARM_VENDOR_SUPPLY_VOLTAGE]      = { "EPON_ALARM_VENDOR_SUPPLY_VOLTAGE",      PRIO_ERROR,    FMT_ALARM },
+
+    /* §2.5 System lifecycle ------------------------------------------- */
+    [EPON_TELEM_SYSTEM_INIT_SUCCESS]              = { "EPON_SYSTEM_INIT_SUCCESS",              PRIO_INFO,     FMT_NONE  },
+    [EPON_TELEM_SYSTEM_INIT_FAILURE]              = { "EPON_SYSTEM_INIT_FAILURE",              PRIO_CRITICAL, FMT_NONE  },
+    [EPON_TELEM_SYSTEM_SHUTDOWN]                  = { "EPON_SYSTEM_SHUTDOWN",                  PRIO_INFO,     FMT_NONE  },
+    [EPON_TELEM_SYSTEM_HAL_WRONG_PON_MODE]        = { "EPON_SYSTEM_HAL_WRONG_PON_MODE",        PRIO_CRITICAL, FMT_NONE  },
+    [EPON_TELEM_SYSTEM_FACTORY_RESET]             = { "EPON_SYSTEM_FACTORY_RESET",             PRIO_WARNING,  FMT_NONE  },
+    [EPON_TELEM_SYSTEM_ONU_RESET]                 = { "EPON_SYSTEM_ONU_RESET",                 PRIO_WARNING,  FMT_NONE  },
+
+    /* §2.6 Error events ----------------------------------------------- */
+    [EPON_TELEM_ERROR_HAL_CALL_FAILED]            = { "EPON_ERROR_HAL_CALL_FAILED",            PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_EVENT_QUEUE_FULL]           = { "EPON_ERROR_EVENT_QUEUE_FULL",           PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_STATS_COLLECTION_FAILED]    = { "EPON_ERROR_STATS_COLLECTION_FAILED",    PRIO_WARNING,  FMT_NONE  },
+    [EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED]        = { "EPON_ERROR_RBUS_PUBLISH_FAILED",        PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_PSM_ACCESS_FAILED]          = { "EPON_ERROR_PSM_ACCESS_FAILED",          PRIO_ERROR,    FMT_NONE  },
 };
 
-/**
- * @brief Get string representation of event type
- * 
- * @param type Event type enum
- * @return String representation of event type
- */
-static const char* event_type_to_string(eponMgr_telemetry_event_type_t type) {
-    switch (type) {
-        case EPON_TELEM_EVENT_ONU_STATUS_CHANGE:
-            return "ONU_STATUS_CHANGE";
-        case EPON_TELEM_EVENT_LINK_UP:
-            return "LINK_UP";
-        case EPON_TELEM_EVENT_LINK_DOWN:
-            return "LINK_DOWN";
-        case EPON_TELEM_EVENT_ALARM_CRITICAL:
-            return "ALARM_CRITICAL";
-        case EPON_TELEM_EVENT_ALARM_ERROR:
-            return "ALARM_ERROR";
-        case EPON_TELEM_EVENT_ALARM_WARNING:
-            return "ALARM_WARNING";
-        case EPON_TELEM_EVENT_REGISTRATION:
-            return "REGISTRATION";
-        case EPON_TELEM_EVENT_DEREGISTRATION:
-            return "DEREGISTRATION";
-        case EPON_TELEM_EVENT_ERROR:
-            return "ERROR";
-        default:
-            return "UNKNOWN";
+static const event_desc_t *lookup(eponMgr_telemetry_event_id_t id)
+{
+    if ((unsigned)id >= EPON_TELEM_EVENT_ID_MAX) return NULL;
+    if (k_table[id].marker == NULL) return NULL;
+    return &k_table[id];
+}
+
+/* ====================================================================== *
+ * 2. Value formatter                                                       *
+ * ====================================================================== */
+
+typedef struct {
+    const char *ifname;
+    bool        raised;
+    uint16_t    llid;
+} ctx_t;
+
+static int format_value(const event_desc_t *desc,
+                        const ctx_t        *ctx,
+                        char               *out,
+                        size_t              cap)
+{
+    if (out == NULL || cap == 0) return -1;
+    out[0] = '\0';
+    int n = 0;
+
+    switch (desc->fmt) {
+    case FMT_NONE:
+        return 0;
+    case FMT_INTF: {
+        const char *ifn = (ctx && ctx->ifname) ? ctx->ifname : "unknown";
+        n = snprintf(out, cap, "Interface=%s", ifn);
+        break;
+    }
+    case FMT_ALARM: {
+        const char *state = (ctx && ctx->raised) ? "RAISED" : "CLEARED";
+        if (ctx && ctx->llid != EPON_LLID_NOT_APPLICABLE) {
+            n = snprintf(out, cap, "%s,LLID=%u", state, (unsigned)ctx->llid);
+        } else {
+            n = snprintf(out, cap, "%s", state);
+        }
+        break;
+    }
+    default:
+        return -1;
+    }
+    if (n < 0 || (size_t)n >= cap) {
+        out[cap - 1] = '\0';
+        return -1;
+    }
+    return n;
+}
+
+/* ====================================================================== *
+ * 3. HAL alarm mapper                                                      *
+ * ====================================================================== */
+
+static eponMgr_telemetry_event_id_t map_std_alarm(epon_hal_alarm_t a)
+{
+    switch (a) {
+    case EPON_HAL_ALARM_LOFI:                 return EPON_TELEM_ALARM_STD_LOFI;
+    case EPON_HAL_ALARM_ERROR_SYMBOL_PERIOD:  return EPON_TELEM_ALARM_STD_ERROR_SYMBOL_PERIOD;
+    case EPON_HAL_ALARM_ERROR_FRAME:          return EPON_TELEM_ALARM_STD_ERROR_FRAME;
+    case EPON_HAL_ALARM_ERROR_FRAME_PERIOD:   return EPON_TELEM_ALARM_STD_ERROR_FRAME_PERIOD;
+    case EPON_HAL_ALARM_ERROR_FRAME_SECONDS:  return EPON_TELEM_ALARM_STD_ERROR_FRAME_SECONDS;
+    case EPON_HAL_ALARM_OAM_SESSION_LOST:     return EPON_TELEM_ALARM_STD_OAM_SESSION_LOST;
+    case EPON_HAL_ALARM_EQUIPMENT_FAILURE:    return EPON_TELEM_ALARM_STD_EQUIPMENT_FAILURE;
+    default:                                  return EPON_TELEM_EVENT_ID_MAX;
     }
 }
 
-/**
- * @brief Initialize telemetry module
- * 
- * Initializes the telemetry system. In Phase 8 dummy mode, it simply logs that
- * telemetry is initialized. In production, it would register with T2 telemetry
- * service and link against libtelemetry_msgsender.so.
- * 
- * @param component_name Name of the component (e.g., "EponManager")
- * @return 0 on success, -1 on failure
- * 
- * @note Phase 8: Dummy implementation for testing without T2 library
- * @note Production: Would call t2_init() to register with T2 service
- * @note Returns success if already initialized
- */
-int eponMgr_telemetry_init(const char *component_name) {
-    if (!component_name) {
-        EPONMGR_LOG_ERROR("Telemetry init: NULL component name\n");
+static eponMgr_telemetry_event_id_t map_vendor_alarm(epon_vendor_alarm_t a)
+{
+    switch (a) {
+    case EPON_VENDOR_ALARM_LOS:                return EPON_TELEM_ALARM_VENDOR_LOS;
+    case EPON_VENDOR_ALARM_DYING_GASP:         return EPON_TELEM_ALARM_VENDOR_DYING_GASP;
+    case EPON_VENDOR_ALARM_POWER_LOW:          return EPON_TELEM_ALARM_VENDOR_POWER_LOW;
+    case EPON_VENDOR_ALARM_POWER_HIGH:         return EPON_TELEM_ALARM_VENDOR_POWER_HIGH;
+    case EPON_VENDOR_ALARM_TEMPERATURE:        return EPON_TELEM_ALARM_VENDOR_TEMPERATURE;
+    case EPON_VENDOR_ALARM_FEC_THRESHOLD:      return EPON_TELEM_ALARM_VENDOR_FEC_THRESHOLD;
+    case EPON_VENDOR_ALARM_LASER_BIAS_CURRENT: return EPON_TELEM_ALARM_VENDOR_LASER_BIAS_CURRENT;
+    case EPON_VENDOR_ALARM_SUPPLY_VOLTAGE:     return EPON_TELEM_ALARM_VENDOR_SUPPLY_VOLTAGE;
+    default:                                   return EPON_TELEM_EVENT_ID_MAX;
+    }
+}
+
+static eponMgr_telemetry_event_id_t map_alarm(const epon_alarm_info_t *info)
+{
+    if (info == NULL) return EPON_TELEM_EVENT_ID_MAX;
+    if (info->alarm_type == EPON_ALARM_TYPE_STANDARD)
+        return map_std_alarm(info->standard_alarm);
+    if (info->alarm_type == EPON_ALARM_TYPE_VENDOR_SPECIFIC)
+        return map_vendor_alarm(info->vendor_alarm);
+    return EPON_TELEM_EVENT_ID_MAX;
+}
+
+/* ====================================================================== *
+ * 4. T2 backend                                                            *
+ * ====================================================================== */
+
+static const char *prio_str(priority_t p)
+{
+    switch (p) {
+    case PRIO_INFO:     return "INFO";
+    case PRIO_WARNING:  return "WARNING";
+    case PRIO_ERROR:    return "ERROR";
+    case PRIO_CRITICAL: return "CRITICAL";
+    default:            return "UNKNOWN";
+    }
+}
+
+static int t2_send(const char *marker, const char *value, priority_t prio)
+{
+    if (marker == NULL) return 0;
+    if (value == NULL) value = "";
+
+    EPONMGR_LOG_INFO("[T2] %-9s %s%s%s\n",
+                     prio_str(prio),
+                     marker,
+                     value[0] ? " " : "",
+                     value);
+
+#ifdef HAVE_LIBT2
+    char m[160], v[256];
+    strncpy(m, marker, sizeof(m) - 1); m[sizeof(m) - 1] = '\0';
+    strncpy(v, value,  sizeof(v) - 1); v[sizeof(v) - 1] = '\0';
+    (void)t2_event_s(m, v);
+#endif
+    return 0;
+}
+
+/* ====================================================================== *
+ * 5. Dispatcher + Public API                                               *
+ * ====================================================================== */
+
+static struct {
+    pthread_mutex_t mtx;
+    bool            initialized;
+    bool            enabled;
+    char            component[128];
+    uint64_t        events_sent;
+    uint64_t        events_dropped;
+} g_state = {
+    .mtx         = PTHREAD_MUTEX_INITIALIZER,
+    .initialized = false,
+    .enabled     = false,
+};
+
+static int dispatch(eponMgr_telemetry_event_id_t id, const ctx_t *ctx)
+{
+    const event_desc_t *desc = lookup(id);
+    if (desc == NULL) {
+        EPONMGR_LOG_WARN("telemetry: unknown event id %d\n", (int)id);
+        pthread_mutex_lock(&g_state.mtx);
+        g_state.events_dropped++;
+        pthread_mutex_unlock(&g_state.mtx);
         return -1;
     }
 
-    pthread_mutex_lock(&g_telem_state.mutex);
+    pthread_mutex_lock(&g_state.mtx);
+    bool ok = g_state.initialized && g_state.enabled;
+    if (ok) g_state.events_sent++;
+    else    g_state.events_dropped++;
+    pthread_mutex_unlock(&g_state.mtx);
 
-    if (g_telem_state.initialized) {
-        EPONMGR_LOG_WARN("Telemetry already initialized\n");
-        pthread_mutex_unlock(&g_telem_state.mutex);
+    if (!ok) return 0;
+
+    char value[256];
+    if (format_value(desc, ctx, value, sizeof(value)) < 0) {
+        EPONMGR_LOG_WARN("telemetry: failed to format value for %s\n",
+                         desc->marker);
+        return -1;
+    }
+    return t2_send(desc->marker, value, desc->priority);
+}
+
+int eponMgr_telemetry_init(const char *component_name)
+{
+    if (component_name == NULL) return -1;
+
+    pthread_mutex_lock(&g_state.mtx);
+    if (g_state.initialized) {
+        pthread_mutex_unlock(&g_state.mtx);
         return 0;
     }
+    strncpy(g_state.component, component_name, sizeof(g_state.component) - 1);
+    g_state.component[sizeof(g_state.component) - 1] = '\0';
+    g_state.initialized   = true;
+    g_state.enabled       = true;
+    g_state.events_sent   = 0;
+    g_state.events_dropped = 0;
+    pthread_mutex_unlock(&g_state.mtx);
 
-    strncpy(g_telem_state.component_name, component_name, 
-            sizeof(g_telem_state.component_name) - 1);
-    g_telem_state.component_name[sizeof(g_telem_state.component_name) - 1] = '\0';
-    
-    g_telem_state.enabled = true;
-    g_telem_state.initialized = true;
-    g_telem_state.event_count = 0;
-    g_telem_state.stat_count = 0;
-    g_telem_state.marker_count = 0;
-
-    pthread_mutex_unlock(&g_telem_state.mutex);
-
-    EPONMGR_LOG_INFO("Telemetry initialized (DUMMY MODE) for component: %s\n", 
-                     component_name);
-    EPONMGR_LOG_INFO("Telemetry: Using stub implementation - no actual T2 integration\n");
-
+    EPONMGR_LOG_INFO("telemetry: initialized component=%s (%s)\n",
+                     component_name,
+#ifdef HAVE_LIBT2
+                     "T2 production"
+#else
+                     "T2 stub"
+#endif
+                     );
     return 0;
 }
 
-/**
- * @brief Cleanup telemetry module
- * 
- * Cleanup and free telemetry resources. Logs statistics summary of total
- * events, stats, and markers reported during session.
- * 
- * @return 0 on success, -1 on failure
- * 
- * @note Phase 8: Logs summary statistics
- * @note Production: Would call T2 cleanup APIs
- * @note Safe to call if not initialized (no-op)
- */
-int eponMgr_telemetry_cleanup(void) {
-    pthread_mutex_lock(&g_telem_state.mutex);
-
-    if (!g_telem_state.initialized) {
-        pthread_mutex_unlock(&g_telem_state.mutex);
+int eponMgr_telemetry_cleanup(void)
+{
+    pthread_mutex_lock(&g_state.mtx);
+    if (!g_state.initialized) {
+        pthread_mutex_unlock(&g_state.mtx);
         return 0;
     }
-
-    EPONMGR_LOG_INFO("Telemetry cleanup - Statistics:\n");
-    EPONMGR_LOG_INFO("  Total events reported: %lu\n", g_telem_state.event_count);
-    EPONMGR_LOG_INFO("  Total stats reported: %lu\n", g_telem_state.stat_count);
-    EPONMGR_LOG_INFO("  Total markers sent: %lu\n", g_telem_state.marker_count);
-
-    g_telem_state.initialized = false;
-    g_telem_state.enabled = false;
-    memset(g_telem_state.component_name, 0, sizeof(g_telem_state.component_name));
-
-    pthread_mutex_unlock(&g_telem_state.mutex);
-
-    EPONMGR_LOG_INFO("Telemetry cleanup complete\n");
+    EPONMGR_LOG_INFO("telemetry: cleanup (sent=%lu, dropped=%lu)\n",
+                     (unsigned long)g_state.events_sent,
+                     (unsigned long)g_state.events_dropped);
+    g_state.initialized = false;
+    g_state.enabled     = false;
+    g_state.component[0] = '\0';
+    pthread_mutex_unlock(&g_state.mtx);
     return 0;
 }
 
-/**
- * @brief Report a telemetry event
- * 
- * Reports an event to the telemetry system. In Phase 8 dummy mode, this logs
- * the event with all details. In production, this would call T2 APIs like
- * t2_event_s() or t2_event_d().
- * 
- * @param event_type Type of event (ONU status, link up/down, alarm, etc.)
- * @param event_name Event name/marker (e.g., "EPON_ONU_STATUS_CHANGE")
- * @param event_data Event data string (optional, can be NULL)
- * @return 0 on success, -1 on failure
- * 
- * @note Phase 8: Logs event to console/log file
- * @note Production: Would call t2_event_s() or t2_event_d()
- * @note Thread-safe: Uses internal mutex
- * @note Increments event counter for statistics
- */
-int eponMgr_telemetry_report_event(
-    eponMgr_telemetry_event_type_t event_type,
-    const char *event_name,
-    const char *event_data)
+bool eponMgr_telemetry_is_enabled(void)
 {
-    if (!event_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_event: NULL event name\n");
-        return -1;
-    }
+    pthread_mutex_lock(&g_state.mtx);
+    bool e = g_state.initialized && g_state.enabled;
+    pthread_mutex_unlock(&g_state.mtx);
+    return e;
+}
 
-    pthread_mutex_lock(&g_telem_state.mutex);
-
-    if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
-        pthread_mutex_unlock(&g_telem_state.mutex);
-        return -1;
-    }
-
-    if (!g_telem_state.enabled) {
-        pthread_mutex_unlock(&g_telem_state.mutex);
-        return 0;  // Silently skip if disabled
-    }
-
-    g_telem_state.event_count++;
-
-    pthread_mutex_unlock(&g_telem_state.mutex);
-
-    // Log the telemetry event (dummy implementation)
-    if (event_data) {
-        EPONMGR_LOG_INFO("TELEMETRY_EVENT[%lu]: Type=%s, Name=%s, Data=%s\n",
-                        g_telem_state.event_count,
-                        event_type_to_string(event_type),
-                        event_name,
-                        event_data);
-    } else {
-        EPONMGR_LOG_INFO("TELEMETRY_EVENT[%lu]: Type=%s, Name=%s\n",
-                        g_telem_state.event_count,
-                        event_type_to_string(event_type),
-                        event_name);
-    }
-
-    /* Production code would call:
-     * if (event_data) {
-     *     t2_event_s(event_name, event_data);
-     * } else {
-     *     t2_event_d(event_name, 1);
-     * }
-     */
-
+int eponMgr_telemetry_set_enabled(bool enabled)
+{
+    pthread_mutex_lock(&g_state.mtx);
+    g_state.enabled = enabled;
+    pthread_mutex_unlock(&g_state.mtx);
+    EPONMGR_LOG_INFO("telemetry: %s\n", enabled ? "enabled" : "disabled");
     return 0;
 }
 
-/**
- * @brief Report ONU status change event
- * 
- * Convenience function for reporting ONU status changes. Formats the event
- * data with interface name, old status, and new status.
- * 
- * @param interface_name Interface name (e.g., "veip0")
- * @param old_status Old status string
- * @param new_status New status string
- * @return 0 on success, -1 on failure
- * 
- * @note Calls eponMgr_telemetry_report_event() with formatted data
- * @note Event name: "EPON_ONU_STATUS_CHANGE"
- */
-int eponMgr_telemetry_report_onu_status_change(
-    const char *interface_name,
-    const char *old_status,
-    const char *new_status)
+int eponMgr_telemetry_raise_simple(eponMgr_telemetry_event_id_t id)
 {
-    char event_data[256];
-    
-    if (!interface_name || !old_status || !new_status) {
-        EPONMGR_LOG_ERROR("Telemetry report_onu_status_change: NULL parameter\n");
-        return -1;
-    }
-
-    snprintf(event_data, sizeof(event_data), 
-             "Interface=%s, Old=%s, New=%s",
-             interface_name, old_status, new_status);
-
-    return eponMgr_telemetry_report_event(
-        EPON_TELEM_EVENT_ONU_STATUS_CHANGE,
-        "EPON_ONU_STATUS_CHANGE",
-        event_data
-    );
+    return dispatch(id, NULL);
 }
 
-/**
- * @brief Report link up event
- * 
- * Convenience function for reporting interface link up events.
- * Formats the event data with interface name.
- * 
- * @param interface_name Interface name (e.g., "veip0")
- * @return 0 on success, -1 on failure
- * 
- * @note Calls eponMgr_telemetry_report_event() with formatted data
- * @note Event name: "EPON_LINK_UP"
- */
-int eponMgr_telemetry_report_link_up(const char *interface_name) {
-    char event_data[128];
-    
-    if (!interface_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_link_up: NULL interface name\n");
-        return -1;
-    }
-
-    snprintf(event_data, sizeof(event_data), "Interface=%s", interface_name);
-
-    return eponMgr_telemetry_report_event(
-        EPON_TELEM_EVENT_LINK_UP,
-        "EPON_LINK_UP",
-        event_data
-    );
-}
-
-/**
- * @brief Report link down event
- * 
- * Convenience function for reporting interface link down events.
- * Formats the event data with interface name.
- * 
- * @param interface_name Interface name (e.g., "veip0")
- * @return 0 on success, -1 on failure
- * 
- * @note Calls eponMgr_telemetry_report_event() with formatted data
- * @note Event name: "EPON_LINK_DOWN"
- */
-int eponMgr_telemetry_report_link_down(const char *interface_name) {
-    char event_data[128];
-    
-    if (!interface_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_link_down: NULL interface name\n");
-        return -1;
-    }
-
-    snprintf(event_data, sizeof(event_data), "Interface=%s", interface_name);
-
-    return eponMgr_telemetry_report_event(
-        EPON_TELEM_EVENT_LINK_DOWN,
-        "EPON_LINK_DOWN",
-        event_data
-    );
-}
-
-/**
- * @brief Report alarm event
- * 
- * Reports an alarm to telemetry system with severity, alarm ID, and description.
- * Automatically determines event type (critical/error/warning) based on severity.
- * 
- * @param severity Alarm severity (0=info, 1=warning, 2=error, 3+=critical)
- * @param alarm_id Alarm identifier from HAL
- * @param alarm_desc Alarm description string
- * @return 0 on success, -1 on failure
- * 
- * @note Calls eponMgr_telemetry_report_event() with formatted data
- * @note Event name: "EPON_ALARM_CRITICAL", "EPON_ALARM_ERROR", or "EPON_ALARM_WARNING"
- * @note Severity mapping: >=3=critical, 2=error, <2=warning
- */
-int eponMgr_telemetry_report_alarm(
-    uint32_t severity,
-    uint32_t alarm_id,
-    const char *alarm_desc)
+int eponMgr_telemetry_raise_intf(eponMgr_telemetry_event_id_t id,
+                                 const char *ifname)
 {
-    char event_name[128];
-    char event_data[256];
-    eponMgr_telemetry_event_type_t event_type;
-
-    if (!alarm_desc) {
-        alarm_desc = "Unknown alarm";
-    }
-
-    // Determine event type based on severity
-    if (severity >= 3) {
-        event_type = EPON_TELEM_EVENT_ALARM_CRITICAL;
-        snprintf(event_name, sizeof(event_name), "EPON_ALARM_CRITICAL");
-    } else if (severity == 2) {
-        event_type = EPON_TELEM_EVENT_ALARM_ERROR;
-        snprintf(event_name, sizeof(event_name), "EPON_ALARM_ERROR");
-    } else {
-        event_type = EPON_TELEM_EVENT_ALARM_WARNING;
-        snprintf(event_name, sizeof(event_name), "EPON_ALARM_WARNING");
-    }
-
-    snprintf(event_data, sizeof(event_data),
-             "Severity=%u, AlarmID=%u, Desc=%s",
-             severity, alarm_id, alarm_desc);
-
-    return eponMgr_telemetry_report_event(event_type, event_name, event_data);
+    ctx_t ctx = { .ifname = ifname,
+                  .raised = false,
+                  .llid   = EPON_LLID_NOT_APPLICABLE };
+    return dispatch(id, &ctx);
 }
 
-/**
- * @brief Report statistics to telemetry
- */
-int eponMgr_telemetry_report_stats(
-    const eponMgr_telemetry_stat_t *stats,
-    size_t count)
+int eponMgr_telemetry_raise_alarm(const epon_alarm_info_t *info)
 {
-    if (!stats || count == 0) {
-        EPONMGR_LOG_ERROR("Telemetry report_stats: Invalid parameters\n");
+    if (info == NULL) return -1;
+    eponMgr_telemetry_event_id_t id = map_alarm(info);
+    if (id == EPON_TELEM_EVENT_ID_MAX) {
+        EPONMGR_LOG_WARN("telemetry: unknown HAL alarm (type=%d)\n",
+                         (int)info->alarm_type);
         return -1;
     }
-
-    pthread_mutex_lock(&g_telem_state.mutex);
-
-    if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
-        pthread_mutex_unlock(&g_telem_state.mutex);
-        return -1;
-    }
-
-    if (!g_telem_state.enabled) {
-        pthread_mutex_unlock(&g_telem_state.mutex);
-        return 0;  // Silently skip if disabled
-    }
-
-    g_telem_state.stat_count += count;
-
-    pthread_mutex_unlock(&g_telem_state.mutex);
-
-    // Log statistics batch (dummy implementation)
-    EPONMGR_LOG_INFO("TELEMETRY_STATS: Reporting %zu statistics\n", count);
-    
-    for (size_t i = 0; i < count; i++) {
-        EPONMGR_LOG_DEBUG("  [%zu] %s = %lu (timestamp: %ld)\n",
-                         i,
-                         stats[i].stat_name,
-                         stats[i].value,
-                         stats[i].timestamp);
-    }
-
-    /* Production code would call:
-     * for (size_t i = 0; i < count; i++) {
-     *     char marker[256];
-     *     snprintf(marker, sizeof(marker), "%s_split", stats[i].stat_name);
-     *     t2_event_d(marker, stats[i].value);
-     * }
-     */
-
-    return 0;
-}
-
-/**
- * @brief Report a single statistic
- */
-int eponMgr_telemetry_report_single_stat(
-    const char *stat_name,
-    uint64_t value)
-{
-    eponMgr_telemetry_stat_t stat;
-    
-    if (!stat_name) {
-        EPONMGR_LOG_ERROR("Telemetry report_single_stat: NULL stat name\n");
-        return -1;
-    }
-
-    strncpy(stat.stat_name, stat_name, sizeof(stat.stat_name) - 1);
-    stat.stat_name[sizeof(stat.stat_name) - 1] = '\0';
-    stat.value = value;
-    stat.timestamp = time(NULL);
-
-    return eponMgr_telemetry_report_stats(&stat, 1);
-}
-
-/**
- * @brief Send a custom telemetry marker
- */
-int eponMgr_telemetry_send_marker(const eponMgr_telemetry_marker_t *marker) {
-    if (!marker) {
-        EPONMGR_LOG_ERROR("Telemetry send_marker: NULL marker\n");
-        return -1;
-    }
-
-    pthread_mutex_lock(&g_telem_state.mutex);
-
-    if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
-        pthread_mutex_unlock(&g_telem_state.mutex);
-        return -1;
-    }
-
-    if (!g_telem_state.enabled) {
-        pthread_mutex_unlock(&g_telem_state.mutex);
-        return 0;  // Silently skip if disabled
-    }
-
-    g_telem_state.marker_count++;
-
-    pthread_mutex_unlock(&g_telem_state.mutex);
-
-    // Log the marker (dummy implementation)
-    EPONMGR_LOG_INFO("TELEMETRY_MARKER[%lu]: Name=%s, Value=%s, Time=%ld\n",
-                    g_telem_state.marker_count,
-                    marker->marker_name,
-                    marker->value,
-                    marker->timestamp);
-
-    /* Production code would call:
-     * t2_marker(marker->marker_name, marker->value);
-     */
-
-    return 0;
-}
-
-/**
- * @brief Check if telemetry is enabled
- */
-bool eponMgr_telemetry_is_enabled(void) {
-    bool enabled;
-    
-    pthread_mutex_lock(&g_telem_state.mutex);
-    enabled = g_telem_state.enabled && g_telem_state.initialized;
-    pthread_mutex_unlock(&g_telem_state.mutex);
-
-    return enabled;
-}
-
-/**
- * @brief Enable/disable telemetry
- */
-int eponMgr_telemetry_set_enabled(bool enabled) {
-    pthread_mutex_lock(&g_telem_state.mutex);
-
-    if (!g_telem_state.initialized) {
-        EPONMGR_LOG_ERROR("Telemetry not initialized\n");
-        pthread_mutex_unlock(&g_telem_state.mutex);
-        return -1;
-    }
-
-    g_telem_state.enabled = enabled;
-
-    pthread_mutex_unlock(&g_telem_state.mutex);
-
-    EPONMGR_LOG_INFO("Telemetry %s\n", enabled ? "enabled" : "disabled");
-
-    return 0;
+    ctx_t ctx = { .ifname = NULL,
+                  .raised = info->is_active,
+                  .llid   = info->llid };
+    return dispatch(id, &ctx);
 }

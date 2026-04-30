@@ -27,6 +27,7 @@
 #include "eponMgr_psm.h"
 #include "eponMgr_rbus.h"
 #include "eponMgr_logger.h"
+#include "eponMgr_telemetry.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -245,6 +246,7 @@ int eponMgr_psm_set_string(const char *param, const char *value) {
     
     if (rc != RBUS_ERROR_SUCCESS) {
         EPONMGR_LOG_ERROR("PSM set failed for %s: rc=%d\n", param, rc);
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_PSM_ACCESS_FAILED);
         return -1;
     }
     

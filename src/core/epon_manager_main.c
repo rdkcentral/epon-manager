@@ -23,6 +23,7 @@
  */
 
 #include "controller/eponMgr_controller.h"
+#include "eponMgr_telemetry.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,6 +97,7 @@ static void daemonize(void) {
  */
 static void signal_handler(int signum) {
     printf("\nReceived signal %d, initiating shutdown...\n", signum);
+    (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_SHUTDOWN);
     eponMgr_controller_shutdown();
 }
 
@@ -150,17 +152,31 @@ int main(int argc, char *argv[]) {
     signal(SIGTERM, signal_handler);
     printf("Signal handlers registered (SIGINT, SIGTERM)\n");
     
+    // Initialize telemetry first so init success/failure can be reported.
+    (void)eponMgr_telemetry_init("EponManager");
+
+    // Initialize harvester (periodic Avro reports).
+    // Default poll cadence: 900s (15 min) - matches rdk-xdslmanager default.
+    (void)eponMgr_harvester_init(900, true);
+
     // Initialize controller
     eponMgr_controller_t *controller = eponMgr_controller_init();
     if (!controller) {
         fprintf(stderr, "FATAL: Failed to initialize EPON Manager controller\n");
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_INIT_FAILURE);
+        (void)eponMgr_telemetry_cleanup();
         return 1;
     }
+
+    (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_INIT_SUCCESS);
+
         // Run main event loop (blocks until shutdown)
     int ret = eponMgr_controller_run(controller);
-    
+
     // Cleanup
     eponMgr_controller_destroy(controller);
+    eponMgr_harvester_cleanup();
+    (void)eponMgr_telemetry_cleanup();
     
     printf("\n=== EPON Manager Stopped ===\n");
     return ret;
