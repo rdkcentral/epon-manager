@@ -421,7 +421,6 @@ static const char* get_param_capability(const rbusDataElement_t *elem) {
     int has_event = (elem->cbTable.eventSubHandler != NULL);
     int has_add_row = (elem->cbTable.tableAddRowHandler != NULL);
     int has_remove_row = (elem->cbTable.tableRemoveRowHandler != NULL);
-    int has_method = (elem->cbTable.methodHandler != NULL);
     
     if (elem->type == RBUS_ELEMENT_TYPE_PROPERTY) {
         if (has_get && has_set) {

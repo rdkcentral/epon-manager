@@ -30,7 +30,7 @@ epon_manager_LDADD = \
     -lpthread
 
 if ENABLE_TELEMETRY
-epon_manager_LDADD += $(top_builddir)/src/telemetry/libepon_telemetry.a $(AVRO_LIBS) $(T2_LIBS) $(PARODUS_LIBS) $(CRYPTO_LIBS)
+epon_manager_LDADD += $(top_builddir)/src/telemetry/libepon_telemetry.a $(AVRO_LIBS) $(T2_LIBS) $(PARODUS_LIBS) $(CRYPTO_LIBS) -lm
 endif
 
 if ENABLE_RBUS
