@@ -49,7 +49,6 @@
 
 /* Forward declaration; full definition lives in
  * src/core/data_structures/eponMgr_data.h */
-struct eponMgr_data;
 typedef struct eponMgr_data eponMgr_data_t;
 
 #ifdef __cplusplus

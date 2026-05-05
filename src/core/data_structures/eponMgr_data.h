@@ -54,7 +54,7 @@
  * - HAL initialization state and configuration
  * - Thread-safety through internal mutex
  */
-typedef struct {
+typedef struct eponMgr_data {
     // Statistics data storage (with TTL)
     eponMgr_statsData_t *stats_data;
     
