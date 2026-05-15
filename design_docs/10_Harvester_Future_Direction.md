@@ -2,7 +2,7 @@
 
 **Version:** 1.0  |  **Date:** May 15, 2026
 **Status:** Deferred — not part of current telemetry implementation
-**Prerequisite:** Telemetry markers implemented per [07_Telemetry_Implementation_Plan.md](07_Telemetry_Implementation_Plan.md)
+**Prerequisite:** Telemetry markers implemented per [07_Telemetry_Design.md](07_Telemetry_Design.md)
 
 ---
 

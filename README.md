@@ -1,6 +1,11 @@
 # epon-manager
 
-The RDK EPON Manager is an RDK application responsible for controlling and configuring EPON lower layers. It serves as middleware between the EPON HAL and other RDK components.
+The RDK EPON Manager is an RDK application responsible for controlling and
+configuring EPON lower layers. It serves as middleware between the EPON HAL
+and other RDK components.
+
+See **[design_docs/](design_docs/README.md)** for the full architecture and
+design documentation.
 
 ## Building
 
@@ -100,13 +105,20 @@ epon-manager/
 ├── systemd/                  # Systemd service files
 │   └── utils/
 │       └── rdkeponmanager.service
-├── design_docs/              # Architecture documentation
+├── design_docs/              # Architecture & design documentation
 │   ├── 01_Requirements.md
 │   ├── 02_Architecture.md
 │   ├── 03_Component_Design.md
 │   ├── 04_Sequence_Diagrams.md
 │   ├── 05_Thread_Architecture.md
-│   └── 06_Configuration.md
+│   ├── 06_Configuration.md
+│   ├── 07_Telemetry_Design.md
+│   ├── 09_Telemetry_Acceptance_Criteria.md
+│   ├── 10_Harvester_Future_Direction.md
+│   ├── EPON_Manager_Reference_v2.md
+│   ├── EPON_Manager_Reference_v2.html
+│   ├── EPON_HAL_Proposal.md
+│   └── README.md             # Design docs index
 ├── configure.ac              # Autoconf configuration
 ├── Makefile.am              # Automake top-level
 └── cfg/                     # Autotools auxiliary files
@@ -124,3 +136,19 @@ epon-manager/
 - **Thread-Safe**: Event-driven architecture with mutex/condition variables
 - **Multi-LLID Support**: Dynamic LLID table management
 - **DPoE Support**: CPE MAC table and VEIP interface management
+
+## Documentation
+
+| # | Document | Description |
+|---|----------|-------------|
+| 01 | [Requirements](design_docs/01_Requirements.md) | Functional and non-functional requirements |
+| 02 | [Architecture](design_docs/02_Architecture.md) | High-level system architecture and diagrams |
+| 03 | [Component Design](design_docs/03_Component_Design.md) | Detailed component specifications |
+| 04 | [Sequence Diagrams](design_docs/04_Sequence_Diagrams.md) | Event flows and interactions |
+| 05 | [Thread Architecture](design_docs/05_Thread_Architecture.md) | Multi-threading design |
+| 06 | [Configuration](design_docs/06_Configuration.md) | Configuration and deployment |
+| 07 | [Telemetry Design](design_docs/07_Telemetry_Design.md) | Telemetry module design, rate-limiting, and T2 integration |
+| 09 | [Telemetry Acceptance Criteria](design_docs/09_Telemetry_Acceptance_Criteria.md) | MoSCoW acceptance criteria for the telemetry story |
+| 10 | [Harvester Future Direction](design_docs/10_Harvester_Future_Direction.md) | Deferred: design guide for future Avro periodic report |
+| — | [Reference (Markdown)](design_docs/EPON_Manager_Reference_v2.md) | TR-181 parameters and telemetry event spec |
+| — | [Reference (HTML)](design_docs/EPON_Manager_Reference_v2.html) | Printable / browsable version of the reference |

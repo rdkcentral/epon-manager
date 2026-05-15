@@ -1,16 +1,20 @@
-﻿# RdkEponManager - Design Documentation
+﻿# RdkEponManager — Design Documentation
 
-**Version:** 1.0  
-**Date:** December 2, 2025  
+**Version:** 1.1  
+**Date:** May 15, 2026  
 **Project:** RDK EPON Manager
 
 ## Overview
 
-The RdkEponManager is an RDK (Reference Design Kit) application responsible for controlling and configuring EPON (Ethernet Passive Optical Network) lower layers. It serves as a middleware between the EPON HAL (Hardware Abstraction Layer) and other RDK components.
+The RdkEponManager is an RDK (Reference Design Kit) application responsible for
+controlling and configuring EPON (Ethernet Passive Optical Network) lower layers.
+It serves as middleware between the EPON HAL (Hardware Abstraction Layer) and
+other RDK components.
 
 ## Purpose
 
-RdkEponManager provides a unified interface for EPON management in RDK-based systems, handling:
+RdkEponManager provides a unified interface for EPON management in RDK-based
+systems, handling:
 - EPON HAL initialization and event management
 - TR-181 data model implementation via RBus/DBus
 - Telemetry and statistics collection
@@ -21,37 +25,42 @@ RdkEponManager provides a unified interface for EPON management in RDK-based sys
 - **Event-driven architecture** for HAL event processing
 - **Multi-threaded design** for concurrent operations
 - **Statistics caching mechanism** (30-second TTL)
-- **Periodic statistics harvesting** (every 15 minutes)
 - **Comprehensive logging and telemetry integration**
 
 ## Documentation Structure
 
-This design is organized into the following documents:
-
-1. **[Requirements](01_Requirements.md)** - Functional and non-functional requirements
-2. **[Architecture](02_Architecture.md)** - High-level system architecture and diagrams
-3. **[Component Design](03_Component_Design.md)** - Detailed component specifications
-4. **[Sequence Diagrams](04_Sequence_Diagrams.md)** - Event flows and interactions
-5. **[Thread Architecture](05_Thread_Architecture.md)** - Multi-threading design
-6. **[Data Flow](06_Data_Flow.md)** - Data flow through the system
-7. **[Configuration](07_Configuration.md)** - Configuration and deployment
+| # | Document | Description |
+|---|----------|-------------|
+| 01 | [Requirements](01_Requirements.md) | Functional and non-functional requirements |
+| 02 | [Architecture](02_Architecture.md) | High-level system architecture and diagrams |
+| 03 | [Component Design](03_Component_Design.md) | Detailed component specifications |
+| 04 | [Sequence Diagrams](04_Sequence_Diagrams.md) | Event flows and interactions |
+| 05 | [Thread Architecture](05_Thread_Architecture.md) | Multi-threading design |
+| 06 | [Configuration](06_Configuration.md) | Configuration and deployment |
+| 07 | [Telemetry Design](07_Telemetry_Design.md) | Telemetry module design, rate-limiting, T2 integration |
+| ~~08~~ | *(merged into 07)* | Module design merged into doc 07 (v1.2) |
+| 09 | [Telemetry Acceptance Criteria](09_Telemetry_Acceptance_Criteria.md) | MoSCoW acceptance criteria for the telemetry story |
+| 10 | [Harvester Future Direction](10_Harvester_Future_Direction.md) | Deferred: design guide for future Avro periodic report |
+| — | [Reference (Markdown)](EPON_Manager_Reference_v2.md) | TR-181 parameters and telemetry event spec |
+| — | [Reference (HTML)](EPON_Manager_Reference_v2.html) | Printable / browsable HTML reference |
+| — | [EPON HAL Proposal](EPON_HAL_Proposal.md) | HAL interface proposal |
 
 ## Quick Start
 
 ### System Components
 
-- **EPON Controller** - Main coordinator and initializer
-- **RBus/DBus Thread** - TR-181 DML handler
-- **HAL Event Listener Thread** - Processes HAL events
-- **Stats Polling Thread** - Periodic statistics harvester
-- **Logger Module** - RDK logger integration
-- **Telemetry Module** - T2 integration
+- **EPON Controller** — Main coordinator and initializer
+- **RBus/DBus Thread** — TR-181 DML handler
+- **HAL Event Listener Thread** — Processes HAL events
+- **Stats Polling Thread** — Periodic statistics collection
+- **Logger Module** — RDK logger integration
+- **Telemetry Module** — T2 integration (34 event markers)
 
 ### Key Technologies
 
 - **Communication Bus**: RBus/DBus
 - **Data Model**: TR-181
-- **Telemetry**: T2
+- **Telemetry**: T2 (`t2_event_s` / `t2_event_d`)
 - **Hardware Interface**: EPON HAL
 
 ## Glossary
@@ -79,5 +88,5 @@ This design is organized into the following documents:
 
 ---
 
-**Document Status:** Draft  
-**Last Updated:** December 2, 2025
+**Document Status:** Active  
+**Last Updated:** May 15, 2026

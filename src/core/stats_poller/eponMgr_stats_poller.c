@@ -138,6 +138,12 @@ static void* stats_poller_thread(void *arg) {
             /* Collect statistics */
             if (collect_all_stats(poller) == 0) {
                 EPONMGR_LOG_INFO("Stats poller: Successfully collected all statistics\n");
+                /* TODO(harvester): publish collected stats to cloud analytics pipeline.
+                 * When the Harvester periodic Avro report is implemented, call
+                 * eponMgr_harvester_publish_now(poller->eponData) here so that each
+                 * successful poll cycle ships one EPONTelemetryDiagnostics Avro record
+                 * to the Kestrel pipeline via libparodus.
+                 * See design_docs/10_Harvester_Future_Direction.md for the full design. */
             } else {
                 EPONMGR_LOG_WARN("Stats poller: Some statistics collection failed\n");
                 (void)eponMgr_telemetry_raise_simple(
