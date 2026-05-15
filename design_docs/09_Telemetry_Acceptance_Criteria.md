@@ -302,5 +302,5 @@ A story is considered **done** when, in addition to a clean
   every callback path.
 * No marker string and no `t2_event_*` symbol is found outside
   `src/telemetry/` (verified via `grep -R` in CI).
-* `eponMgr_telemetry_set_enabled(false)` blocks events; flipping
-  back to `true` resumes them within one event.
+* Telemetry is always enabled after `eponMgr_telemetry_init()`; there
+  is no runtime on/off toggle.

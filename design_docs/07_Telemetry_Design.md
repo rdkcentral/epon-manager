@@ -122,8 +122,6 @@ int eponMgr_telemetry_raise_alarm (const epon_alarm_info_t *info);
 /* ---- Lifecycle ----------------------------------------------------- */
 int  eponMgr_telemetry_init      (const char *component_name);
 int  eponMgr_telemetry_cleanup   (void);
-bool eponMgr_telemetry_is_enabled(void);
-int  eponMgr_telemetry_set_enabled(bool enabled);
 ```
 
 ---

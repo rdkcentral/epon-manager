@@ -295,26 +295,19 @@ typedef struct {
 static struct {
     pthread_mutex_t mtx;
     bool            initialized;
-    bool            enabled;
     char            component[128];
-    uint64_t        events_sent;
-    uint64_t        events_dropped;
     err_rate_t      rate[EPON_TELEM_EVENT_ID_MAX]; /* zero-init: fires on first call */
 } g_state = {
     .mtx         = PTHREAD_MUTEX_INITIALIZER,
     .initialized = false,
-    .enabled     = false,
 };
 
 /* Error-event path: accumulate count; flush via t2_event_d when window expires. */
-static int dispatch_error(eponMgr_telemetry_event_id_t id)
+static int error_event(eponMgr_telemetry_event_id_t id)
 {
     const event_desc_t *desc = lookup(id);
     if (desc == NULL) {
         EPONMGR_LOG_WARN("telemetry: unknown error event id %d\n", (int)id);
-        pthread_mutex_lock(&g_state.mtx);
-        g_state.events_dropped++;
-        pthread_mutex_unlock(&g_state.mtx);
         return -1;
     }
 
@@ -323,8 +316,7 @@ static int dispatch_error(eponMgr_telemetry_event_id_t id)
 
     pthread_mutex_lock(&g_state.mtx);
 
-    if (!g_state.initialized || !g_state.enabled) {
-        g_state.events_dropped++;
+    if (!g_state.initialized) {
         pthread_mutex_unlock(&g_state.mtx);
         return 0;
     }
@@ -342,7 +334,6 @@ static int dispatch_error(eponMgr_telemetry_event_id_t id)
     uint64_t count = rs->pending;
     rs->pending    = 0;
     rs->last_sent  = now;
-    g_state.events_sent++;
     pthread_mutex_unlock(&g_state.mtx);
 
     return t2_send_count(desc->marker, count, desc->priority);
@@ -351,24 +342,19 @@ static int dispatch_error(eponMgr_telemetry_event_id_t id)
 static int dispatch(eponMgr_telemetry_event_id_t id, const ctx_t *ctx)
 {
     if (is_error_event(id))
-        return dispatch_error(id);
+        return error_event(id);
 
     const event_desc_t *desc = lookup(id);
     if (desc == NULL) {
         EPONMGR_LOG_WARN("telemetry: unknown event id %d\n", (int)id);
-        pthread_mutex_lock(&g_state.mtx);
-        g_state.events_dropped++;
-        pthread_mutex_unlock(&g_state.mtx);
         return -1;
     }
 
     pthread_mutex_lock(&g_state.mtx);
-    bool ok = g_state.initialized && g_state.enabled;
-    if (ok) g_state.events_sent++;
-    else    g_state.events_dropped++;
+    bool ready = g_state.initialized;
     pthread_mutex_unlock(&g_state.mtx);
 
-    if (!ok) return 0;
+    if (!ready) return 0;
 
     char value[256];
     if (format_value(desc, ctx, value, sizeof(value)) < 0) {
@@ -390,10 +376,7 @@ int eponMgr_telemetry_init(const char *component_name)
     }
     strncpy(g_state.component, component_name, sizeof(g_state.component) - 1);
     g_state.component[sizeof(g_state.component) - 1] = '\0';
-    g_state.initialized   = true;
-    g_state.enabled       = true;
-    g_state.events_sent   = 0;
-    g_state.events_dropped = 0;
+    g_state.initialized = true;
     pthread_mutex_unlock(&g_state.mtx);
 
     EPONMGR_LOG_INFO("telemetry: initialized component=%s (%s)\n",
@@ -414,30 +397,10 @@ int eponMgr_telemetry_cleanup(void)
         pthread_mutex_unlock(&g_state.mtx);
         return 0;
     }
-    EPONMGR_LOG_INFO("telemetry: cleanup (sent=%lu, dropped=%lu)\n",
-                     (unsigned long)g_state.events_sent,
-                     (unsigned long)g_state.events_dropped);
-    g_state.initialized = false;
-    g_state.enabled     = false;
+    EPONMGR_LOG_INFO("telemetry: cleanup component=%s\n", g_state.component);
+    g_state.initialized  = false;
     g_state.component[0] = '\0';
     pthread_mutex_unlock(&g_state.mtx);
-    return 0;
-}
-
-bool eponMgr_telemetry_is_enabled(void)
-{
-    pthread_mutex_lock(&g_state.mtx);
-    bool e = g_state.initialized && g_state.enabled;
-    pthread_mutex_unlock(&g_state.mtx);
-    return e;
-}
-
-int eponMgr_telemetry_set_enabled(bool enabled)
-{
-    pthread_mutex_lock(&g_state.mtx);
-    g_state.enabled = enabled;
-    pthread_mutex_unlock(&g_state.mtx);
-    EPONMGR_LOG_INFO("telemetry: %s\n", enabled ? "enabled" : "disabled");
     return 0;
 }
 

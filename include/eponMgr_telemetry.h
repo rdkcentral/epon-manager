@@ -132,19 +132,6 @@ int eponMgr_telemetry_init(const char *component_name);
  */
 int eponMgr_telemetry_cleanup(void);
 
-/**
- * @brief Check whether telemetry is currently enabled.
- */
-bool eponMgr_telemetry_is_enabled(void);
-
-/**
- * @brief Enable or disable telemetry event delivery globally.
- *
- * When disabled, raise_* calls succeed but do not push to the T2 backend.
- * @return 0 on success, -1 on failure.
- */
-int eponMgr_telemetry_set_enabled(bool enabled);
-
 
 /* ------------------------------------------------------------------ *
  * Event producer API (3 entry points)                                 *
