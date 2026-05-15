@@ -155,10 +155,6 @@ int main(int argc, char *argv[]) {
     // Initialize telemetry first so init success/failure can be reported.
     (void)eponMgr_telemetry_init("EponManager");
 
-    // Initialize harvester (periodic Avro reports).
-    // Default poll cadence: 900s (15 min) - matches rdk-xdslmanager default.
-    (void)eponMgr_harvester_init(900, true);
-
     // Initialize controller
     eponMgr_controller_t *controller = eponMgr_controller_init();
     if (!controller) {
@@ -175,7 +171,6 @@ int main(int argc, char *argv[]) {
 
     // Cleanup
     eponMgr_controller_destroy(controller);
-    eponMgr_harvester_cleanup();
     (void)eponMgr_telemetry_cleanup();
     
     printf("\n=== EPON Manager Stopped ===\n");

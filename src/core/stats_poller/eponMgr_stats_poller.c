@@ -138,8 +138,6 @@ static void* stats_poller_thread(void *arg) {
             /* Collect statistics */
             if (collect_all_stats(poller) == 0) {
                 EPONMGR_LOG_INFO("Stats poller: Successfully collected all statistics\n");
-                /* Hand off to harvester for periodic Avro report. */
-                (void)eponMgr_harvester_publish_now(poller->eponData);
             } else {
                 EPONMGR_LOG_WARN("Stats poller: Some statistics collection failed\n");
                 (void)eponMgr_telemetry_raise_simple(

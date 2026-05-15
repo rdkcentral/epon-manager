@@ -19,20 +19,17 @@
 
 /**
  * @file eponMgr_telemetry.h
- * @brief EPON Manager Telemetry & Harvester Public API
+ * @brief EPON Manager Telemetry Public API
  *
  * The rest of the EPON Manager code base only ever interacts with telemetry
  * through this header. All marker-name selection, severity mapping, value
- * formatting, T2 dispatch and Avro/Harvester encoding live inside
- * src/telemetry/ and are private to that module.
+ * formatting and T2 dispatch live inside src/telemetry/ and are private
+ * to that module.
  *
  * Producer surface:
  *   - eponMgr_telemetry_raise_simple(id)
  *   - eponMgr_telemetry_raise_intf  (id, ifname)
  *   - eponMgr_telemetry_raise_alarm (id, raised, llid)
- *
- * Harvester surface:
- *   - eponMgr_harvester_init / _publish_now / _cleanup
  *
  * See design_docs/07_Telemetry_Implementation_Plan.md and
  * design_docs/08_Telemetry_Design.md for details.
@@ -46,10 +43,6 @@
 #include <stddef.h>
 
 #include "epon_hal.h"
-
-/* Forward declaration; full definition lives in
- * src/core/data_structures/eponMgr_data.h */
-typedef struct eponMgr_data eponMgr_data_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -194,41 +187,6 @@ int eponMgr_telemetry_raise_intf(eponMgr_telemetry_event_id_t id,
  * @return 0 on success, -1 on failure (incl. unknown alarm).
  */
 int eponMgr_telemetry_raise_alarm(const epon_alarm_info_t *info);
-
-
-/* ------------------------------------------------------------------ *
- * Harvester API (periodic Avro report)                                *
- * ------------------------------------------------------------------ */
-
-/**
- * @brief Initialize the Harvester sub-module.
- *
- * Loads EponReport.avsc, prepares the Avro writer, optionally starts a
- * background publish thread that fires every @p interval_seconds.
- *
- * @param interval_seconds Reporting period in seconds. 0 disables periodic
- *                         publishing (callers may still invoke
- *                         eponMgr_harvester_publish_now() manually).
- * @param enabled          Initial enable state.
- * @return 0 on success, -1 on failure.
- */
-int eponMgr_harvester_init(uint32_t interval_seconds, bool enabled);
-
-/**
- * @brief Publish a single EPONTelemetryDiagnostics Avro report immediately.
- *
- * May be called from the stats-poller thread after a successful
- * collection cycle; the harvester's own timer thread also calls this.
- *
- * @param data Pointer to the EPON Manager data context. Must not be NULL.
- * @return 0 on success, -1 on failure.
- */
-int eponMgr_harvester_publish_now(eponMgr_data_t *data);
-
-/**
- * @brief Stop the harvester thread and release Avro resources.
- */
-void eponMgr_harvester_cleanup(void);
 
 
 #ifdef __cplusplus

@@ -74,18 +74,8 @@ AC_ARG_ENABLE([telemetry],
     [enable_telemetry=yes])
 AM_CONDITIONAL([ENABLE_TELEMETRY], [test "x$enable_telemetry" = "xyes"])
 
-# Avro support is required when telemetry harvester is built.
+# T2 telemetry library detection.
 if test "x$enable_telemetry" = "xyes"; then
-    PKG_CHECK_MODULES([AVRO], [avro-c], [
-        AC_DEFINE([HAVE_AVRO], [1], [Define to 1 if libavro-c is available])
-    ], [
-        AC_MSG_WARN([avro-c not found via pkg-config; falling back to -lavro])
-        AVRO_CFLAGS=""
-        AVRO_LIBS="-lavro"
-        AC_SUBST([AVRO_CFLAGS])
-        AC_SUBST([AVRO_LIBS])
-    ])
-
     # libtelemetry_msgsender (T2) - optional.
     AC_CHECK_LIB([telemetry_msgsender], [t2_event_s], [
         T2_LIBS="-ltelemetry_msgsender"
@@ -95,26 +85,6 @@ if test "x$enable_telemetry" = "xyes"; then
         AC_MSG_NOTICE([libtelemetry_msgsender not found; T2 markers will be logged only])
     ])
     AC_SUBST([T2_LIBS])
-
-    # libparodus (WebPA transport) - optional.
-    AC_CHECK_LIB([parodus], [libparodus_init], [
-        PARODUS_LIBS="-lparodus -lwrp-c -lcjson -lnanomsg -ltrower-base64 -lpthread"
-        AC_DEFINE([HAVE_LIBPARODUS], [1], [Define to 1 if libparodus is available])
-    ], [
-        PARODUS_LIBS=""
-        AC_MSG_NOTICE([libparodus not found; harvester reports will be logged only])
-    ])
-    AC_SUBST([PARODUS_LIBS])
-
-    # libcrypto (OpenSSL MD5) - optional but recommended.
-    AC_CHECK_LIB([crypto], [MD5_Init], [
-        CRYPTO_LIBS="-lcrypto"
-        AC_DEFINE([HAVE_LIBCRYPTO], [1], [Define to 1 if OpenSSL libcrypto is available])
-    ], [
-        CRYPTO_LIBS=""
-        AC_MSG_NOTICE([libcrypto not found; schema MD5 left zero])
-    ])
-    AC_SUBST([CRYPTO_LIBS])
 fi
 
 # Option to enable/disable HAL mock library
