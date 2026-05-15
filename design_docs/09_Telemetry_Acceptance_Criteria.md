@@ -4,7 +4,7 @@
 **Jira Story:** EPON Manager — Telemetry Implementation
 **Format:** MoSCoW (Must / Should / Could / Won't)
 **Source-of-truth spec:** [EPON_Manager_Reference_v2.md](EPON_Manager_Reference_v2.md) §2
-**Companion:** [07_Telemetry_Implementation_Plan.md](07_Telemetry_Implementation_Plan.md), [08_Telemetry_Design.md](08_Telemetry_Design.md)
+**Companion:** [07_Telemetry_Implementation_Plan.md](07_Telemetry_Implementation_Plan.md)
 
 ---
 

@@ -39,9 +39,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef HAVE_LIBT2
 extern int t2_event_s(char *marker, char *value);
+extern int t2_event_d(char *marker, double value);
 #endif
 
 /* ====================================================================== *
@@ -120,6 +122,24 @@ static const event_desc_t *lookup(eponMgr_telemetry_event_id_t id)
     if ((unsigned)id >= EPON_TELEM_EVENT_ID_MAX) return NULL;
     if (k_table[id].marker == NULL) return NULL;
     return &k_table[id];
+}
+
+/* Rate-limit: error events (§2.6) fire at most once per second per marker.
+ * Occurrences within the window are accumulated and sent as a count via
+ * t2_event_d() (accumulative T2 API) when the window expires. */
+#define ERROR_RATE_LIMIT_NS  1000000000LL   /* 1 second in nanoseconds */
+
+static bool is_error_event(eponMgr_telemetry_event_id_t id)
+{
+    return (id >= EPON_TELEM_ERROR_HAL_CALL_FAILED &&
+            id <= EPON_TELEM_ERROR_PSM_ACCESS_FAILED);
+}
+
+static int64_t timespec_diff_ns(const struct timespec *a,
+                                const struct timespec *b)
+{
+    return (int64_t)(a->tv_sec - b->tv_sec) * (int64_t)1000000000 +
+           (int64_t)(a->tv_nsec - b->tv_nsec);
 }
 
 /* ====================================================================== *
@@ -246,9 +266,31 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
     return 0;
 }
 
+/* Accumulative counter send — used for rate-limited error events. */
+static int t2_send_count(const char *marker, uint64_t count, priority_t prio)
+{
+    if (marker == NULL) return 0;
+
+    EPONMGR_LOG_INFO("[T2-D] %-9s %s count=%llu\n",
+                     prio_str(prio), marker, (unsigned long long)count);
+
+#ifdef HAVE_LIBT2
+    char m[160];
+    strncpy(m, marker, sizeof(m) - 1); m[sizeof(m) - 1] = '\0';
+    (void)t2_event_d(m, (double)count);
+#endif
+    return 0;
+}
+
 /* ====================================================================== *
  * 5. Dispatcher + Public API                                               *
  * ====================================================================== */
+
+/* Per-error-event rate-limit accumulator. */
+typedef struct {
+    struct timespec last_sent;   /* CLOCK_MONOTONIC time of last t2 send */
+    uint64_t        pending;     /* accumulated count since last_sent     */
+} err_rate_t;
 
 static struct {
     pthread_mutex_t mtx;
@@ -257,14 +299,60 @@ static struct {
     char            component[128];
     uint64_t        events_sent;
     uint64_t        events_dropped;
+    err_rate_t      rate[EPON_TELEM_EVENT_ID_MAX]; /* zero-init: fires on first call */
 } g_state = {
     .mtx         = PTHREAD_MUTEX_INITIALIZER,
     .initialized = false,
     .enabled     = false,
 };
 
+/* Error-event path: accumulate count; flush via t2_event_d when window expires. */
+static int dispatch_error(eponMgr_telemetry_event_id_t id)
+{
+    const event_desc_t *desc = lookup(id);
+    if (desc == NULL) {
+        EPONMGR_LOG_WARN("telemetry: unknown error event id %d\n", (int)id);
+        pthread_mutex_lock(&g_state.mtx);
+        g_state.events_dropped++;
+        pthread_mutex_unlock(&g_state.mtx);
+        return -1;
+    }
+
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    pthread_mutex_lock(&g_state.mtx);
+
+    if (!g_state.initialized || !g_state.enabled) {
+        g_state.events_dropped++;
+        pthread_mutex_unlock(&g_state.mtx);
+        return 0;
+    }
+
+    err_rate_t *rs = &g_state.rate[id];
+    rs->pending++;
+
+    if (timespec_diff_ns(&now, &rs->last_sent) < ERROR_RATE_LIMIT_NS) {
+        /* Within rate-limit window — accumulate without firing. */
+        pthread_mutex_unlock(&g_state.mtx);
+        return 0;
+    }
+
+    /* Rate-limit window expired — flush accumulated count. */
+    uint64_t count = rs->pending;
+    rs->pending    = 0;
+    rs->last_sent  = now;
+    g_state.events_sent++;
+    pthread_mutex_unlock(&g_state.mtx);
+
+    return t2_send_count(desc->marker, count, desc->priority);
+}
+
 static int dispatch(eponMgr_telemetry_event_id_t id, const ctx_t *ctx)
 {
+    if (is_error_event(id))
+        return dispatch_error(id);
+
     const event_desc_t *desc = lookup(id);
     if (desc == NULL) {
         EPONMGR_LOG_WARN("telemetry: unknown event id %d\n", (int)id);
