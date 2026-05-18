@@ -3,7 +3,7 @@
 **Version:** 1.1  |  **Date:** May 15, 2026
 **Jira Story:** EPON Manager — Telemetry Implementation
 **Format:** MoSCoW (Must / Should / Could / Won't)
-**Source-of-truth spec:** [EPON_Manager_Reference_v2.md](EPON_Manager_Reference_v2.md) §2
+**Source-of-truth spec:** [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) §2
 **Companion:** [07_Telemetry_Design.md](07_Telemetry_Design.md)
 
 ---

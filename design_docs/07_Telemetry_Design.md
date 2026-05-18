@@ -1,7 +1,7 @@
 # EPON Manager — Telemetry Design
 
-**Spec:** [EPON_Manager_Reference_v2.md](EPON_Manager_Reference_v2.md) §2 (Telemetry Events)
-**Acceptance Criteria:** [09_Telemetry_Acceptance_Criteria.md](09_Telemetry_Acceptance_Criteria.md)
+**Spec:** [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) §2 (Telemetry Events)
+**Acceptance Criteria:** [Telemetry_Acceptance_Criteria.md](Telemetry_Acceptance_Criteria.md)
 
 ---
 
@@ -312,7 +312,7 @@ it forwards each transition as one T2 event.
 
 ## References
 
-* [EPON_Manager_Reference_v2.md](EPON_Manager_Reference_v2.md) — TR-181, telemetry spec.
-* [09_Telemetry_Acceptance_Criteria.md](09_Telemetry_Acceptance_Criteria.md)
+* [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) — TR-181 parameters and telemetry event spec.
+* [Telemetry_Acceptance_Criteria.md](Telemetry_Acceptance_Criteria.md)
 * IEEE 802.3ah Clause 57 (OAM) — alarm taxonomy.
 * RDK T2 Telemetry Framework — `t2_event_s` API, `_accum` suffix convention.

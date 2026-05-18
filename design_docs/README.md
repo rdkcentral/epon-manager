@@ -37,12 +37,11 @@ systems, handling:
 | 04 | [Sequence Diagrams](04_Sequence_Diagrams.md) | Event flows and interactions |
 | 05 | [Thread Architecture](05_Thread_Architecture.md) | Multi-threading design |
 | 06 | [Configuration](06_Configuration.md) | Configuration and deployment |
-| 07 | [Telemetry Design](07_Telemetry_Design.md) | Telemetry module design, rate-limiting, T2 integration |
+| 07 | [Telemetry Design](07_Telemetry_Design.md) | Telemetry module architecture, API, and T2 integration |
 | ~~08~~ | *(merged into 07)* | Module design merged into doc 07 (v1.2) |
-| 09 | [Telemetry Acceptance Criteria](09_Telemetry_Acceptance_Criteria.md) | MoSCoW acceptance criteria for the telemetry story |
+| 09 | [TR-181 & Telemetry Reference](09_TR181_Telemetry_Reference.md) | TR-181 parameters and telemetry event spec — [HTML](09_TR181_Telemetry_Reference.html) |
 | 10 | [Harvester Future Direction](10_Harvester_Future_Direction.md) | Deferred: design guide for future Avro periodic report |
-| — | [Reference (Markdown)](EPON_Manager_Reference_v2.md) | TR-181 parameters and telemetry event spec |
-| — | [Reference (HTML)](EPON_Manager_Reference_v2.html) | Printable / browsable HTML reference |
+| — | [Telemetry Acceptance Criteria](Telemetry_Acceptance_Criteria.md) | MoSCoW acceptance criteria for the telemetry story |
 | — | [EPON HAL Proposal](EPON_HAL_Proposal.md) | HAL interface proposal |
 
 ## Quick Start
