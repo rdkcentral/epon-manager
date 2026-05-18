@@ -36,14 +36,11 @@
 
 #include <pthread.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 #ifdef HAVE_LIBT2
 extern int t2_event_s(char *marker, char *value);
-extern int t2_event_d(char *marker, double value);
 #endif
 
 /* ====================================================================== *
@@ -109,12 +106,14 @@ static const event_desc_t k_table[EPON_TELEM_EVENT_ID_MAX] = {
     [EPON_TELEM_SYSTEM_FACTORY_RESET]             = { "EPON_SYSTEM_FACTORY_RESET",             PRIO_WARNING,  FMT_NONE  },
     [EPON_TELEM_SYSTEM_ONU_RESET]                 = { "EPON_SYSTEM_ONU_RESET",                 PRIO_WARNING,  FMT_NONE  },
 
-    /* §2.6 Error events ----------------------------------------------- */
-    [EPON_TELEM_ERROR_HAL_CALL_FAILED]            = { "EPON_ERROR_HAL_CALL_FAILED",            PRIO_ERROR,    FMT_NONE  },
-    [EPON_TELEM_ERROR_EVENT_QUEUE_FULL]           = { "EPON_ERROR_EVENT_QUEUE_FULL",           PRIO_ERROR,    FMT_NONE  },
-    [EPON_TELEM_ERROR_STATS_COLLECTION_FAILED]    = { "EPON_ERROR_STATS_COLLECTION_FAILED",    PRIO_WARNING,  FMT_NONE  },
-    [EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED]        = { "EPON_ERROR_RBUS_PUBLISH_FAILED",        PRIO_ERROR,    FMT_NONE  },
-    [EPON_TELEM_ERROR_PSM_ACCESS_FAILED]          = { "EPON_ERROR_PSM_ACCESS_FAILED",          PRIO_ERROR,    FMT_NONE  },
+    /* §2.6 Error events — use _accum suffix so T2 daemon handles
+     * accumulation (MTYPE_ACCUMULATE) via its profile parser.  No
+     * application-side rate-limiting needed. */
+    [EPON_TELEM_ERROR_HAL_CALL_FAILED]            = { "EPON_ERROR_HAL_CALL_FAILED_accum",            PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_EVENT_QUEUE_FULL]           = { "EPON_ERROR_EVENT_QUEUE_FULL_accum",           PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_STATS_COLLECTION_FAILED]    = { "EPON_ERROR_STATS_COLLECTION_FAILED_accum",    PRIO_WARNING,  FMT_NONE  },
+    [EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED]        = { "EPON_ERROR_RBUS_PUBLISH_FAILED_accum",        PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_PSM_ACCESS_FAILED]          = { "EPON_ERROR_PSM_ACCESS_FAILED_accum",          PRIO_ERROR,    FMT_NONE  },
 };
 
 static const event_desc_t *lookup(eponMgr_telemetry_event_id_t id)
@@ -124,23 +123,7 @@ static const event_desc_t *lookup(eponMgr_telemetry_event_id_t id)
     return &k_table[id];
 }
 
-/* Rate-limit: error events (§2.6) fire at most once per second per marker.
- * Occurrences within the window are accumulated and sent as a count via
- * t2_event_d() (accumulative T2 API) when the window expires. */
-#define ERROR_RATE_LIMIT_NS  1000000000LL   /* 1 second in nanoseconds */
 
-static bool is_error_event(eponMgr_telemetry_event_id_t id)
-{
-    return (id >= EPON_TELEM_ERROR_HAL_CALL_FAILED &&
-            id <= EPON_TELEM_ERROR_PSM_ACCESS_FAILED);
-}
-
-static int64_t timespec_diff_ns(const struct timespec *a,
-                                const struct timespec *b)
-{
-    return (int64_t)(a->tv_sec - b->tv_sec) * (int64_t)1000000000 +
-           (int64_t)(a->tv_nsec - b->tv_nsec);
-}
 
 /* ====================================================================== *
  * 2. Value formatter                                                       *
@@ -266,84 +249,23 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
     return 0;
 }
 
-/* Accumulative counter send — used for rate-limited error events. */
-static int t2_send_count(const char *marker, uint64_t count, priority_t prio)
-{
-    if (marker == NULL) return 0;
 
-    EPONMGR_LOG_INFO("[T2-D] %-9s %s count=%llu\n",
-                     prio_str(prio), marker, (unsigned long long)count);
-
-#ifdef HAVE_LIBT2
-    char m[160];
-    strncpy(m, marker, sizeof(m) - 1); m[sizeof(m) - 1] = '\0';
-    (void)t2_event_d(m, (double)count);
-#endif
-    return 0;
-}
 
 /* ====================================================================== *
  * 5. Dispatcher + Public API                                               *
  * ====================================================================== */
 
-/* Per-error-event rate-limit accumulator. */
-typedef struct {
-    struct timespec last_sent;   /* CLOCK_MONOTONIC time of last t2 send */
-    uint64_t        pending;     /* accumulated count since last_sent     */
-} err_rate_t;
-
 static struct {
     pthread_mutex_t mtx;
     bool            initialized;
     char            component[128];
-    err_rate_t      rate[EPON_TELEM_EVENT_ID_MAX]; /* zero-init: fires on first call */
 } g_state = {
     .mtx         = PTHREAD_MUTEX_INITIALIZER,
     .initialized = false,
 };
 
-/* Error-event path: accumulate count; flush via t2_event_d when window expires. */
-static int error_event(eponMgr_telemetry_event_id_t id)
-{
-    const event_desc_t *desc = lookup(id);
-    if (desc == NULL) {
-        EPONMGR_LOG_WARN("telemetry: unknown error event id %d\n", (int)id);
-        return -1;
-    }
-
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-
-    pthread_mutex_lock(&g_state.mtx);
-
-    if (!g_state.initialized) {
-        pthread_mutex_unlock(&g_state.mtx);
-        return 0;
-    }
-
-    err_rate_t *rs = &g_state.rate[id];
-    rs->pending++;
-
-    if (timespec_diff_ns(&now, &rs->last_sent) < ERROR_RATE_LIMIT_NS) {
-        /* Within rate-limit window — accumulate without firing. */
-        pthread_mutex_unlock(&g_state.mtx);
-        return 0;
-    }
-
-    /* Rate-limit window expired — flush accumulated count. */
-    uint64_t count = rs->pending;
-    rs->pending    = 0;
-    rs->last_sent  = now;
-    pthread_mutex_unlock(&g_state.mtx);
-
-    return t2_send_count(desc->marker, count, desc->priority);
-}
-
 static int dispatch(eponMgr_telemetry_event_id_t id, const ctx_t *ctx)
 {
-    if (is_error_event(id))
-        return error_event(id);
-
     const event_desc_t *desc = lookup(id);
     if (desc == NULL) {
         EPONMGR_LOG_WARN("telemetry: unknown event id %d\n", (int)id);

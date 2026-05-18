@@ -6,8 +6,8 @@
 **Acceptance Criteria:** [09_Telemetry_Acceptance_Criteria.md](09_Telemetry_Acceptance_Criteria.md)
 
 > *Version 1.2: Merged implementation plan (formerly doc 07) and module design
-> (formerly doc 08) into a single reference. Added rate-limiting and
-> accumulative T2 API for error events.*
+> (formerly doc 08) into a single reference. Added `_accum` suffix
+> convention for error events (T2-managed accumulation).*
 
 ---
 
@@ -21,8 +21,9 @@ production-grade telemetry layer that:
 2. **Exposes only three event-firing APIs.** Callers pass an *event id*; they
    never construct marker names or value strings.
 3. **Implements all 34 telemetry markers** defined in the Reference §2.
-4. **Rate-limits error events** (§2.6) to max 1 report per second per marker
-   using the accumulative T2 API (`t2_event_d`).
+4. **Delegates error-event accumulation to T2** (§2.6) using the `_accum`
+   marker-name suffix convention; each occurrence fires `t2_event_s()` and
+   the T2 daemon accumulates values (up to 20 per reporting cycle).
 
 > **Out of scope:** Periodic statistics Avro report (Harvester) is deferred.
 > See [10_Harvester_Future_Direction.md](10_Harvester_Future_Direction.md).
@@ -48,7 +49,7 @@ production-grade telemetry layer that:
 | 1 | Producer API | **Three** entry points only — `_raise_simple()`, `_raise_intf()`, `_raise_alarm()` — backed by a single `_raise(id, ctx)` dispatcher. |
 | 2 | Alarm raised/cleared | **One** event id per alarm; `RAISED`/`CLEARED` state encoded in the marker value. |
 | 3 | Existing `eponMgr_telemetry.{c,h}` | Treated as a template — free to rewrite. Old per-stat marker APIs removed. |
-| 4 | Error event rate-limiting | Max 1 `t2_event_d` call per second per error marker; occurrences within the window are **accumulated** and sent as a count. |
+| 4 | Error event accumulation | Marker names use the `_accum` suffix (e.g. `EPON_ERROR_HAL_CALL_FAILED_accum`); every occurrence calls `t2_event_s()` and the T2 daemon handles accumulation (MTYPE_ACCUMULATE, max 20 values per reporting cycle). No application-side rate-limiting. |
 | 5 | Harvester (Avro report) | **Deferred.** See [10_Harvester_Future_Direction.md](10_Harvester_Future_Direction.md). |
 
 ---
@@ -99,7 +100,7 @@ typedef enum {
     EPON_TELEM_SYSTEM_FACTORY_RESET,
     EPON_TELEM_SYSTEM_ONU_RESET,
 
-    /* §2.6 Error Events (rate-limited, accumulative) */
+    /* §2.6 Error Events (accumulative via _accum suffix) */
     EPON_TELEM_ERROR_HAL_CALL_FAILED,
     EPON_TELEM_ERROR_EVENT_QUEUE_FULL,
     EPON_TELEM_ERROR_STATS_COLLECTION_FAILED,
@@ -139,7 +140,7 @@ flowchart LR
 
     subgraph telem [src/telemetry/  — sole owner of telemetry logic]
         API[[eponMgr_telemetry.h\n3 producer APIs]]
-        TELEM(eponMgr_telemetry.c\ntable + format + alarm-map\n+ T2 backend + dispatcher\n+ rate-limiter)
+        TELEM(eponMgr_telemetry.c\ntable + format + alarm-map\n+ T2 backend + dispatcher)
     end
 
     subgraph ext [External]
@@ -153,7 +154,7 @@ flowchart LR
 
     API --> TELEM
     TELEM -->|t2_event_s| T2
-    TELEM -->|t2_event_d\nerror accumulator| T2
+    TELEM -->|t2_event_s\n_accum markers| T2
 ```
 
 > Only `eponMgr_telemetry.h` crosses the module boundary.
@@ -222,34 +223,26 @@ static int t2_send(const char *marker, const char *value, priority_t prio);
 Production: calls `t2_event_s(marker, value)`. Stub: log-only when `HAVE_LIBT2`
 is undefined.
 
-**Error events — accumulative** (`t2_event_d`):
-```c
-static int t2_send_count(const char *marker, uint64_t count, priority_t prio);
-```
-Calls `t2_event_d(marker, (double)count)` with the accumulated event count
-for the rate-limit window. Reports how many times the error occurred rather
-than spamming individual events.
+**Error events** also use `t2_event_s()` — the `_accum` suffix in the marker
+name causes the T2 daemon’s profile parser (`t2parserxconf.c`) to classify
+the marker as `MTYPE_ACCUMULATE`.  Each call appends its value to a vector
+(max 20 entries per reporting cycle); the T2 report generator outputs them
+as a JSON array and clears the vector.  No `t2_event_d` or application-side
+rate-limiting is needed.
 
-### 7.5 Rate-limiter for error events
+### 7.5 Accumulation strategy for error events
 
-```c
-#define ERROR_RATE_LIMIT_NS  1000000000LL   /* 1 second */
+Error markers use the `_accum` suffix convention (e.g.
+`EPON_ERROR_HAL_CALL_FAILED_accum`).  This causes the T2 daemon to:
 
-typedef struct {
-    struct timespec last_sent;   /* CLOCK_MONOTONIC */
-    uint64_t        pending;     /* accumulated count since last_sent */
-} err_rate_t;
-```
+1. Detect the suffix during profile parsing (`t2parserxconf.c`).
+2. Set `MTYPE_ACCUMULATE` → allocate an `accumulatedValues` vector.
+3. On each `t2_event_s()` call, push the value string into the vector
+   (max `MAX_ACCUMULATE = 20` entries per reporting cycle).
+4. At report time, serialize all entries as a JSON array and clear.
 
-`dispatch_error(id)` logic:
-1. Increment `rate[id].pending`.
-2. Compute `elapsed = now − rate[id].last_sent`.
-3. If `elapsed < 1 s`: return (accumulate without firing).
-4. If `elapsed ≥ 1 s`: call `t2_send_count(marker, pending, prio)`, reset
-   `pending = 0`, update `last_sent = now`.
-
-Zero-initialised `last_sent` (Unix epoch) ensures the **first occurrence always
-fires immediately**.
+The EPON Manager simply fires `t2_event_s()` for every error occurrence;
+no application-side rate-limiting or counting is performed.
 
 ### 7.6 Dispatcher
 
@@ -295,7 +288,7 @@ sequenceDiagram
     Telem->>T2: t2_event_s("EPON_ALARM_STD_LOFI", "RAISED,LLID=1")
 ```
 
-### 8.3 Error event — rate-limited accumulative
+### 8.3 Error event — T2-managed accumulation
 
 ```mermaid
 sequenceDiagram
@@ -305,19 +298,18 @@ sequenceDiagram
     participant T2 as T2 daemon
 
     Caller->>Telem: raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED)
-    Note over Telem: pending++ → 1<br/>elapsed ≥ 1 s → flush
-    Telem->>T2: t2_event_d("EPON_ERROR_HAL_CALL_FAILED", 1.0)
+    Telem->>T2: t2_event_s("EPON_ERROR_HAL_CALL_FAILED_accum", "")
+    Note over T2: _accum suffix → MTYPE_ACCUMULATE<br/>push "" into accumulatedValues[0]
 
     Caller->>Telem: raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED)
-    Note over Telem: pending++ → 1<br/>elapsed < 1 s → accumulate only
-    Caller->>Telem: raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED)
-    Note over Telem: pending++ → 2<br/>elapsed < 1 s → accumulate only
-
-    Note over Telem: … 1-second window expires on next call …
+    Telem->>T2: t2_event_s("EPON_ERROR_HAL_CALL_FAILED_accum", "")
+    Note over T2: push into accumulatedValues[1]
 
     Caller->>Telem: raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED)
-    Note over Telem: pending++ → 3<br/>elapsed ≥ 1 s → flush count=3, reset
-    Telem->>T2: t2_event_d("EPON_ERROR_HAL_CALL_FAILED", 3.0)
+    Telem->>T2: t2_event_s("EPON_ERROR_HAL_CALL_FAILED_accum", "")
+    Note over T2: push into accumulatedValues[2]
+
+    Note over T2: … report cycle triggers …<br/>output JSON array ["","",""] and clear vector
 ```
 
 ---
@@ -337,11 +329,11 @@ flowchart TB
     MT  -- raise_simple --> TELE
 
     TELE -- t2_event_s --> T2(T2 daemon)
-    TELE -- t2_event_d\ncount --> T2
+    TELE -- t2_event_s\n_accum markers --> T2
 ```
 
 - Producer side is fully thread-safe — internal `pthread_mutex_t` in `g_state`.
-- `t2_event_s` / `t2_event_d` are called **outside** the critical section.
+- `t2_event_s` is called **outside** the critical section.
 - Rate-limit state (`rate[]`) and its timestamp are protected by the same mutex.
 
 ---
@@ -364,11 +356,10 @@ respect to alarms — it forwards each transition as one T2 event.
 
 | Failure | Behaviour |
 |---------|-----------|
-| `_raise*` called before `_init` | Return `0`; increment `events_dropped`. |
+| `_raise*` called before `_init` | Return `0`; event silently dropped. |
 | `_raise*` with unknown id | Return `-1`; log `WARN` once. |
-| Error event within rate-limit window | Increment `pending`; return `0` silently. |
+| Error event exceeds T2 accumulation limit | T2 daemon drops after 20 values per reporting cycle (handled by T2, not by EPON Manager). |
 | T2 backend send error | Logged at `WARN`; producer return value unchanged so callers don't cascade-fail. |
-| `clock_gettime` failure | Treated as `elapsed = 0`; event is accumulated, not dropped. |
 
 ---
 
@@ -428,12 +419,12 @@ flowchart LR
     CTRL2 --> TELE2[telemetry::raise_*]
     TELE2 --> T2STUB[T2 stub log]
 
-    T2STUB -.assert.-> ASSERT[34 ids fired\nt2_event_d for error ids]
+    T2STUB -.assert.-> ASSERT[34 ids fired\nt2_event_s with _accum suffix for error ids]
 ```
 
 - Non-error ids: verify `t2_event_s` log lines.
-- Error ids: fire same id >1 time within 1 s; verify only one `t2_event_d` with
-  correct accumulated count.
+- Error ids: verify `t2_event_s` log lines use `_accum` suffix markers;
+  each occurrence produces one `t2_event_s` call (T2 daemon accumulates).
 
 ---
 
@@ -442,9 +433,8 @@ flowchart LR
 * Every event id in `eponMgr_telemetry_event_id_t` is reachable from at least
   one production code path.
 * No marker name string literal exists outside `src/telemetry/`.
-* Error events use `t2_event_d` (accumulative); all others use `t2_event_s`.
-* Rate-limit: firing the same error id N times within 1 second produces one
-  `t2_event_d` call with count ≥ N (no more, modulo timing).
+* Error events use `t2_event_s` with `_accum` suffix markers; all others use
+  `t2_event_s` with plain marker names. T2 daemon handles accumulation.
 * `tests/hal_mock` exercise produces all 34 event ids (verified via T2 stub log).
 * `make check` passes; no new compiler warnings.
 
@@ -464,5 +454,5 @@ flowchart LR
 * [EPON_Manager_Reference_v2.md](EPON_Manager_Reference_v2.md) — TR-181, telemetry spec.
 * [09_Telemetry_Acceptance_Criteria.md](09_Telemetry_Acceptance_Criteria.md)
 * IEEE 802.3ah Clause 57 (OAM) — alarm taxonomy.
-* RDK T2 Telemetry Framework — marker semantics, `t2_event_s` / `t2_event_d` APIs.
+* RDK T2 Telemetry Framework — marker semantics, `t2_event_s` API, `_accum` suffix convention.
 
