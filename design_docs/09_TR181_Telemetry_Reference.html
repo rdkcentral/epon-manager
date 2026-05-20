@@ -456,15 +456,15 @@ function doPrint() {
 
 <!-- ============================================================ -->
 <h3 id="sec-t-error">2.6 Error Events</h3>
-<p>Runtime errors and anomalies. Error markers use the <code>_accum</code> suffix so the T2 daemon accumulates all occurrences (up to 20 per reporting cycle) as a JSON array. No application-side rate-limiting is performed.</p>
+<p>Runtime errors and anomalies. Each error event is dispatched as a simple T2 marker via <code>t2_event_s()</code>.</p>
 <table>
   <thead><tr><th>Event Name</th><th>Meaning</th><th>Priority</th><th>Estimated Frequency</th></tr></thead>
   <tbody>
-    <tr><td><code>EPON_ERROR_HAL_CALL_FAILED_accum</code></td><td>A HAL API call returned an error. Includes the API name and return code.</td><td><span class="badge badge-error">Error</span></td><td>On HAL communication or hardware errors. Should be 0 normally.</td></tr>
-    <tr><td><code>EPON_ERROR_EVENT_QUEUE_FULL_accum</code></td><td>Internal event queue is full and an event was dropped.</td><td><span class="badge badge-error">Error</span></td><td>Under extreme event load (flapping link). Very rare.</td></tr>
-    <tr><td><code>EPON_ERROR_STATS_COLLECTION_FAILED_accum</code></td><td>Periodic statistics collection failed. HAL returned an error during stats retrieval.</td><td><span class="badge badge-warning">Warning</span></td><td>On intermittent HAL failures. 0&ndash;2 times/day.</td></tr>
-    <tr><td><code>EPON_ERROR_RBUS_PUBLISH_FAILED_accum</code></td><td>Failed to publish an event or update a parameter via RBus.</td><td><span class="badge badge-error">Error</span></td><td>On RBus communication failure. Rare.</td></tr>
-    <tr><td><code>EPON_ERROR_PSM_ACCESS_FAILED_accum</code></td><td>Failed to read or write a value from/to the Persistent Storage Manager (PSM).</td><td><span class="badge badge-error">Error</span></td><td>On PSM service issues. Rare.</td></tr>
+    <tr><td><code>EPON_ERROR_HAL_CALL_FAILED</code></td><td>A HAL API call returned an error. Includes the API name and return code.</td><td><span class="badge badge-error">Error</span></td><td>On HAL communication or hardware errors. Should be 0 normally.</td></tr>
+    <tr><td><code>EPON_ERROR_EVENT_QUEUE_FULL</code></td><td>Internal event queue is full and an event was dropped.</td><td><span class="badge badge-error">Error</span></td><td>Under extreme event load (flapping link). Very rare.</td></tr>
+    <tr><td><code>EPON_ERROR_STATS_COLLECTION_FAILED</code></td><td>Periodic statistics collection failed. HAL returned an error during stats retrieval.</td><td><span class="badge badge-warning">Warning</span></td><td>On intermittent HAL failures. 0&ndash;2 times/day.</td></tr>
+    <tr><td><code>EPON_ERROR_RBUS_PUBLISH_FAILED</code></td><td>Failed to publish an event or update a parameter via RBus.</td><td><span class="badge badge-error">Error</span></td><td>On RBus communication failure. Rare.</td></tr>
+    <tr><td><code>EPON_ERROR_PSM_ACCESS_FAILED</code></td><td>Failed to read or write a value from/to the Persistent Storage Manager (PSM).</td><td><span class="badge badge-error">Error</span></td><td>On PSM service issues. Rare.</td></tr>
   </tbody>
 </table>
 

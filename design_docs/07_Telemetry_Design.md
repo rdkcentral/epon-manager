@@ -12,7 +12,6 @@
 | 1 | Single producer surface | Callers only know event ids. Marker names, severity, value formatting and T2 dispatch are hidden inside `src/telemetry/`. |
 | 2 | Replaceable backend | T2 stub vs. real `libtelemetry_msgsender` is selected at link/compile time only. Caller code never changes. |
 | 3 | Independent error reporting | T2 backend failure does not cascade to the producer caller; telemetry hiccups are logged and suppressed. |
-| 4 | T2-managed accumulation | Error events delegate accumulation to the T2 daemon via the `_accum` marker-name suffix (`MTYPE_ACCUMULATE`). No application-side rate-limiting. |
 
 ---
 
@@ -22,7 +21,7 @@
 |---|-------|----------|
 | 1 | Producer API | Three entry points — `_raise_simple()`, `_raise_intf()`, `_raise_alarm()` — backed by a single `dispatch(id, ctx)`. |
 | 2 | Alarm raised/cleared | One event id per alarm; `RAISED`/`CLEARED` state encoded in the marker value. |
-| 3 | Error event accumulation | Marker names use the `_accum` suffix (e.g. `EPON_ERROR_HAL_CALL_FAILED_accum`); T2 daemon handles accumulation (max 20 values per reporting cycle). |
+| 3 | Error events | Simple markers dispatched via `t2_event_s()` like all other events. |
 | 4 | Harvester (Avro report) | Out of scope. See [10_Harvester_Future_Direction.md](10_Harvester_Future_Direction.md). |
 
 ---
@@ -72,7 +71,7 @@ typedef enum {
     EPON_TELEM_SYSTEM_FACTORY_RESET,
     EPON_TELEM_SYSTEM_ONU_RESET,
 
-    /* §2.6 Error Events (accumulative via _accum suffix) */
+    /* §2.6 Error Events */
     EPON_TELEM_ERROR_HAL_CALL_FAILED,
     EPON_TELEM_ERROR_EVENT_QUEUE_FULL,
     EPON_TELEM_ERROR_STATS_COLLECTION_FAILED,
@@ -121,7 +120,6 @@ flowchart LR
 
     API --> TELEM
     TELEM -->|t2_event_s| T2
-    TELEM -->|t2_event_s\n_accum markers| T2
 ```
 
 Only `eponMgr_telemetry.h` crosses the module boundary.
@@ -180,25 +178,9 @@ static int t2_send(const char *marker, const char *value, priority_t prio);
 ### 5.5 Dispatcher
 
 `dispatch(id, ctx)`:
-- Error event ids (`EPON_TELEM_ERROR_*`) → table-lookup → `t2_send` with `_accum` marker.
-- All others → table-lookup → `format_value` → `t2_send`.
+- Table-lookup → `format_value` → `t2_send`.
 
 The 3 public `_raise_*` entry points each build a `ctx_t` and call `dispatch`.
-
----
-
-## 6. Accumulation Strategy (Error Events)
-
-Error markers use the `_accum` suffix convention (e.g.
-`EPON_ERROR_HAL_CALL_FAILED_accum`). The T2 daemon:
-
-1. Detects the suffix during profile parsing (`t2parserxconf.c`).
-2. Sets `MTYPE_ACCUMULATE` → allocates an `accumulatedValues` vector.
-3. On each `t2_event_s()` call, pushes the value string into the vector
-   (max `MAX_ACCUMULATE = 20` entries per reporting cycle).
-4. At report time, serializes all entries as a JSON array and clears the vector.
-
-The EPON Manager simply fires `t2_event_s()` for every error occurrence.
 
 ---
 
@@ -236,7 +218,7 @@ sequenceDiagram
     Telem->>T2: t2_event_s("EPON_ALARM_STD_LOFI", "RAISED,LLID=1")
 ```
 
-### 7.3 Error Event — T2 Accumulation
+### 7.3 Error Event
 
 ```mermaid
 sequenceDiagram
@@ -246,18 +228,9 @@ sequenceDiagram
     participant T2 as T2 daemon
 
     Caller->>Telem: raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED)
-    Telem->>T2: t2_event_s("EPON_ERROR_HAL_CALL_FAILED_accum", "")
-    Note over T2: _accum suffix → MTYPE_ACCUMULATE<br/>push "" into accumulatedValues[0]
-
-    Caller->>Telem: raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED)
-    Telem->>T2: t2_event_s("EPON_ERROR_HAL_CALL_FAILED_accum", "")
-    Note over T2: push into accumulatedValues[1]
-
-    Caller->>Telem: raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED)
-    Telem->>T2: t2_event_s("EPON_ERROR_HAL_CALL_FAILED_accum", "")
-    Note over T2: push into accumulatedValues[2]
-
-    Note over T2: … report cycle triggers …<br/>output JSON array ["","",""] and clear vector
+    Note over Telem: lookup(id) → { "EPON_ERROR_HAL_CALL_FAILED", ERROR, FMT_NONE }
+    Telem->>T2: t2_event_s("EPON_ERROR_HAL_CALL_FAILED", "")
+    Telem-->>Caller: 0
 ```
 
 ---
@@ -277,7 +250,6 @@ flowchart TB
     MT  -- raise_simple --> TELE
 
     TELE -- t2_event_s --> T2(T2 daemon)
-    TELE -- t2_event_s\n_accum markers --> T2
 ```
 
 - Thread-safe via internal `pthread_mutex_t` in `g_state`.
@@ -305,7 +277,6 @@ it forwards each transition as one T2 event.
 |---------|-----------|
 | `_raise*` called before `_init` | Return `0`; event silently dropped. |
 | `_raise*` with unknown id | Return `-1`; log `WARN` once. |
-| Error event exceeds T2 accumulation limit | T2 daemon drops after 20 values per reporting cycle (handled by T2). |
 | T2 backend send error | Logged at `WARN`; producer return value unchanged — callers never cascade-fail. |
 
 ---
@@ -315,4 +286,4 @@ it forwards each transition as one T2 event.
 * [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) — TR-181 parameters and telemetry event spec.
 * [Telemetry_Acceptance_Criteria.md](Telemetry_Acceptance_Criteria.md)
 * IEEE 802.3ah Clause 57 (OAM) — alarm taxonomy.
-* RDK T2 Telemetry Framework — `t2_event_s` API, `_accum` suffix convention.
+* RDK T2 Telemetry Framework — `t2_event_s` API.

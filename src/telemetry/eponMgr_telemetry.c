@@ -106,14 +106,12 @@ static const event_desc_t k_table[EPON_TELEM_EVENT_ID_MAX] = {
     [EPON_TELEM_SYSTEM_FACTORY_RESET]             = { "EPON_SYSTEM_FACTORY_RESET",             PRIO_WARNING,  FMT_NONE  },
     [EPON_TELEM_SYSTEM_ONU_RESET]                 = { "EPON_SYSTEM_ONU_RESET",                 PRIO_WARNING,  FMT_NONE  },
 
-    /* §2.6 Error events — use _accum suffix so T2 daemon handles
-     * accumulation (MTYPE_ACCUMULATE) via its profile parser.  No
-     * application-side rate-limiting needed. */
-    [EPON_TELEM_ERROR_HAL_CALL_FAILED]            = { "EPON_ERROR_HAL_CALL_FAILED_accum",            PRIO_ERROR,    FMT_NONE  },
-    [EPON_TELEM_ERROR_EVENT_QUEUE_FULL]           = { "EPON_ERROR_EVENT_QUEUE_FULL_accum",           PRIO_ERROR,    FMT_NONE  },
-    [EPON_TELEM_ERROR_STATS_COLLECTION_FAILED]    = { "EPON_ERROR_STATS_COLLECTION_FAILED_accum",    PRIO_WARNING,  FMT_NONE  },
-    [EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED]        = { "EPON_ERROR_RBUS_PUBLISH_FAILED_accum",        PRIO_ERROR,    FMT_NONE  },
-    [EPON_TELEM_ERROR_PSM_ACCESS_FAILED]          = { "EPON_ERROR_PSM_ACCESS_FAILED_accum",          PRIO_ERROR,    FMT_NONE  },
+    /* §2.6 Error events ---------------------------------------------- */
+    [EPON_TELEM_ERROR_HAL_CALL_FAILED]            = { "EPON_ERROR_HAL_CALL_FAILED",            PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_EVENT_QUEUE_FULL]           = { "EPON_ERROR_EVENT_QUEUE_FULL",           PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_STATS_COLLECTION_FAILED]    = { "EPON_ERROR_STATS_COLLECTION_FAILED",    PRIO_WARNING,  FMT_NONE  },
+    [EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED]        = { "EPON_ERROR_RBUS_PUBLISH_FAILED",        PRIO_ERROR,    FMT_NONE  },
+    [EPON_TELEM_ERROR_PSM_ACCESS_FAILED]          = { "EPON_ERROR_PSM_ACCESS_FAILED",          PRIO_ERROR,    FMT_NONE  },
 };
 
 static const event_desc_t *lookup(eponMgr_telemetry_event_id_t id)

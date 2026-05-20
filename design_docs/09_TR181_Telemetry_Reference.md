@@ -312,15 +312,15 @@ Track the EPON Manager application lifecycle.
 
 ### 2.6 Error Events
 
-Runtime errors and anomalies. Error markers use the `_accum` suffix so the T2 daemon accumulates all occurrences (up to 20 per reporting cycle) as a JSON array. No application-side rate-limiting is performed.
+Runtime errors and anomalies. Each error event is dispatched as a simple T2 marker via `t2_event_s()`.
 
 | Event Name | Meaning | Priority | Estimated Frequency |
 |-----------|---------|----------|---------------------|
-| `EPON_ERROR_HAL_CALL_FAILED_accum` | A HAL API call returned an error. Includes the API name and return code. | **Error** | On HAL communication or hardware errors. Should be 0 normally. |
-| `EPON_ERROR_EVENT_QUEUE_FULL_accum` | Internal event queue is full and an event was dropped. | **Error** | Under extreme event load (flapping link). Very rare. |
-| `EPON_ERROR_STATS_COLLECTION_FAILED_accum` | Periodic statistics collection failed. HAL returned an error during stats retrieval. | **Warning** | On intermittent HAL failures. 0–2 times/day. |
-| `EPON_ERROR_RBUS_PUBLISH_FAILED_accum` | Failed to publish an event or update a parameter via RBus. | **Error** | On RBus communication failure. Rare. |
-| `EPON_ERROR_PSM_ACCESS_FAILED_accum` | Failed to read or write a value from/to the Persistent Storage Manager (PSM). | **Error** | On PSM service issues. Rare. |
+| `EPON_ERROR_HAL_CALL_FAILED` | A HAL API call returned an error. Includes the API name and return code. | **Error** | On HAL communication or hardware errors. Should be 0 normally. |
+| `EPON_ERROR_EVENT_QUEUE_FULL` | Internal event queue is full and an event was dropped. | **Error** | Under extreme event load (flapping link). Very rare. |
+| `EPON_ERROR_STATS_COLLECTION_FAILED` | Periodic statistics collection failed. HAL returned an error during stats retrieval. | **Warning** | On intermittent HAL failures. 0–2 times/day. |
+| `EPON_ERROR_RBUS_PUBLISH_FAILED` | Failed to publish an event or update a parameter via RBus. | **Error** | On RBus communication failure. Rare. |
+| `EPON_ERROR_PSM_ACCESS_FAILED` | Failed to read or write a value from/to the Persistent Storage Manager (PSM). | **Error** | On PSM service issues. Rare. |
 
 ---
 

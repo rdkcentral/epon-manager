@@ -176,37 +176,32 @@
      - **5.6.3.** Example: `t2_event_s("EPON_SYSTEM_ONU_RESET", "")`
      - **5.6.4.** Priority: Info
 
-6. EPON Manager MUST send T2 events for runtime errors using the `_accum` marker-name suffix so that the T2 daemon handles accumulation (up to 20 values per reporting cycle).
+6. EPON Manager MUST send T2 events for runtime errors.
    - **6.1.** EPON Manager MUST send a T2 event when any HAL API returns a non-success status.
-     - **6.1.1.** Event Name: `EPON_ERROR_HAL_CALL_FAILED_accum`
+     - **6.1.1.** Event Name: `EPON_ERROR_HAL_CALL_FAILED`
      - **6.1.2.** Event Arguments: None
-     - **6.1.3.** Example: `t2_event_s("EPON_ERROR_HAL_CALL_FAILED_accum", "")`
+     - **6.1.3.** Example: `t2_event_s("EPON_ERROR_HAL_CALL_FAILED", "")`
      - **6.1.4.** Priority: Error
-     - **6.1.5.** Accumulation: T2-managed via `_accum` suffix (MTYPE_ACCUMULATE). No application-side rate-limiting.
    - **6.2.** EPON Manager MUST send a T2 event when the internal event queue drops an event.
-     - **6.2.1.** Event Name: `EPON_ERROR_EVENT_QUEUE_FULL_accum`
+     - **6.2.1.** Event Name: `EPON_ERROR_EVENT_QUEUE_FULL`
      - **6.2.2.** Event Arguments: None
-     - **6.2.3.** Example: `t2_event_s("EPON_ERROR_EVENT_QUEUE_FULL_accum", "")`
+     - **6.2.3.** Example: `t2_event_s("EPON_ERROR_EVENT_QUEUE_FULL", "")`
      - **6.2.4.** Priority: Error
-     - **6.2.5.** Accumulation: T2-managed via `_accum` suffix.
    - **6.3.** EPON Manager MUST send a T2 event when periodic stats retrieval from the HAL fails.
-     - **6.3.1.** Event Name: `EPON_ERROR_STATS_COLLECTION_FAILED_accum`
+     - **6.3.1.** Event Name: `EPON_ERROR_STATS_COLLECTION_FAILED`
      - **6.3.2.** Event Arguments: None
-     - **6.3.3.** Example: `t2_event_s("EPON_ERROR_STATS_COLLECTION_FAILED_accum", "")`
+     - **6.3.3.** Example: `t2_event_s("EPON_ERROR_STATS_COLLECTION_FAILED", "")`
      - **6.3.4.** Priority: Warning
-     - **6.3.5.** Accumulation: T2-managed via `_accum` suffix. Naturally bounded by polling cadence.
    - **6.4.** EPON Manager MUST send a T2 event when an RBus publish or set fails.
-     - **6.4.1.** Event Name: `EPON_ERROR_RBUS_PUBLISH_FAILED_accum`
+     - **6.4.1.** Event Name: `EPON_ERROR_RBUS_PUBLISH_FAILED`
      - **6.4.2.** Event Arguments: None
-     - **6.4.3.** Example: `t2_event_s("EPON_ERROR_RBUS_PUBLISH_FAILED_accum", "")`
+     - **6.4.3.** Example: `t2_event_s("EPON_ERROR_RBUS_PUBLISH_FAILED", "")`
      - **6.4.4.** Priority: Error
-     - **6.4.5.** Accumulation: T2-managed via `_accum` suffix.
    - **6.5.** EPON Manager MUST send a T2 event on PSM read/write failure.
-     - **6.5.1.** Event Name: `EPON_ERROR_PSM_ACCESS_FAILED_accum`
+     - **6.5.1.** Event Name: `EPON_ERROR_PSM_ACCESS_FAILED`
      - **6.5.2.** Event Arguments: None
-     - **6.5.3.** Example: `t2_event_s("EPON_ERROR_PSM_ACCESS_FAILED_accum", "")`
+     - **6.5.3.** Example: `t2_event_s("EPON_ERROR_PSM_ACCESS_FAILED", "")`
      - **6.5.4.** Priority: Error
-     - **6.5.5.** Accumulation: T2-managed via `_accum` suffix.
 
 7. EPON Manager MUST enforce a single-producer surface for all telemetry output.
    - **7.1.** All telemetry calls MUST go through one of the three public APIs declared in [`include/eponMgr_telemetry.h`](../include/eponMgr_telemetry.h).
@@ -224,40 +219,35 @@
 
 ## SHOULD (P1 — strongly desired, defer only with justification)
 
-9. EPON Manager SHOULD leverage the T2 `_accum` suffix convention for error events.
-    - **9.1.** All error-class markers (section 6) SHOULD use the `_accum` suffix so the T2 daemon automatically treats them as `MTYPE_ACCUMULATE`, collecting up to 20 values per reporting cycle as a JSON array.
-      - **9.1.1.** Scope: Applies to all events in section 6 (Runtime errors).
-      - **9.1.2.** Rationale: Delegates accumulation to T2 (matching the WiFi CAC `XWIFI_5G_tcm_accum` pattern), eliminating application-side rate-limiting complexity while ensuring operators see all occurrences in the telemetry report.
-
-10. EPON Manager SHOULD include LLID context in standard alarm values whenever available.
-    - **10.1.** The `,LLID=<n>` suffix SHOULD be appended to the alarm value for any standard IEEE 802.3ah alarm (section 3) when the HAL provides a non-`0xFFFF` LLID.
-      - **10.1.1.** Scope: Applies to section 3 alarms only; vendor alarms (section 4) always have `LLID=0xFFFF` (not applicable) and MUST NOT include the suffix.
-      - **10.1.2.** Rationale: Enables dashboards to correlate degradation to a specific logical link.
+9. EPON Manager SHOULD include LLID context in standard alarm values whenever available.
+    - **9.1.** The `,LLID=<n>` suffix SHOULD be appended to the alarm value for any standard IEEE 802.3ah alarm (section 3) when the HAL provides a non-`0xFFFF` LLID.
+      - **9.1.1.** Scope: Applies to section 3 alarms only; vendor alarms (section 4) always have `LLID=0xFFFF` (not applicable) and MUST NOT include the suffix.
+      - **9.1.2.** Rationale: Enables dashboards to correlate degradation to a specific logical link.
 
 ---
 
 ## COULD (P2 — nice-to-have)
 
-11. EPON Manager COULD record per-marker fired-counts for offline auditing.
-    - **11.1.** Output path: `/tmp/eponmanager_telem_stats`.
-    - **11.2.** Rationale: Aids post-mortem analysis of event storm incidents without requiring T2 backend access.
+10. EPON Manager COULD record per-marker fired-counts for offline auditing.
+    - **10.1.** Output path: `/tmp/eponmanager_telem_stats`.
+    - **10.2.** Rationale: Aids post-mortem analysis of event storm incidents without requiring T2 backend access.
 
-12. EPON Manager COULD emit a `Debug` priority event when an unknown HAL alarm enum is received.
-    - **12.1.** Priority: Debug
-    - **12.2.** Rationale: Aids detection of HAL-version mismatches where new alarm codes are not yet handled by the manager.
+11. EPON Manager COULD emit a `Debug` priority event when an unknown HAL alarm enum is received.
+    - **11.1.** Priority: Debug
+    - **11.2.** Rationale: Aids detection of HAL-version mismatches where new alarm codes are not yet handled by the manager.
 
 ---
 
-## WON'T (out of scope for this story)
+## WON’T (out of scope for this story)
 
-13. EPON Manager WON'T implement the Harvester periodic Avro report in this story.
-    - **13.1.** The `EPONTelemetryDiagnostics` Avro report, Avro encoding, and WebPA/libparodus transport are deferred. See [10_Harvester_Future_Direction.md](10_Harvester_Future_Direction.md).
+12. EPON Manager WON’T implement the Harvester periodic Avro report in this story.
+    - **12.1.** The `EPONTelemetryDiagnostics` Avro report, Avro encoding, and WebPA/libparodus transport are deferred. See [10_Harvester_Future_Direction.md](10_Harvester_Future_Direction.md).
 
-14. EPON Manager WON'T re-implement per-stat T2 markers.
-    - **14.1.** The former 28 per-stat markers are deferred to the future harvester report.
+13. EPON Manager WON’T re-implement per-stat T2 markers.
+    - **13.1.** The former 28 per-stat markers are deferred to the future harvester report.
 
-15. This story WON'T alter the TR-181 parameter set.
-    - **15.1.** Only telemetry producer code is in scope; data model changes are deferred.
+14. This story WON’T alter the TR-181 parameter set.
+    - **14.1.** Only telemetry producer code is in scope; data model changes are deferred.
 
 ---
 
