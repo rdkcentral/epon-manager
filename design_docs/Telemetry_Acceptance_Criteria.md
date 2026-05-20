@@ -3,7 +3,7 @@
 **Version:** 1.1  |  **Date:** May 15, 2026
 **Jira Story:** EPON Manager — Telemetry Implementation
 **Format:** MoSCoW (Must / Should / Could / Won't)
-**Source-of-truth spec:** [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) §2
+**Source-of-truth spec:** [08_TR181_Telemetry_Reference.md](08_TR181_Telemetry_Reference.md) §2
 **Companion:** [07_Telemetry_Design.md](07_Telemetry_Design.md)
 
 ---
@@ -241,7 +241,7 @@
 ## WON’T (out of scope for this story)
 
 12. EPON Manager WON’T implement the Harvester periodic Avro report in this story.
-    - **12.1.** The `EPONTelemetryDiagnostics` Avro report, Avro encoding, and WebPA/libparodus transport are deferred. See [10_Harvester_Future_Direction.md](10_Harvester_Future_Direction.md).
+    - **12.1.** The `EPONTelemetryDiagnostics` Avro report, Avro encoding, and WebPA/libparodus transport are deferred. See [09_Harvester_Future_Direction.md](09_Harvester_Future_Direction.md).
 
 13. EPON Manager WON’T re-implement per-stat T2 markers.
     - **13.1.** The former 28 per-stat markers are deferred to the future harvester report.

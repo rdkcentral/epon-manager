@@ -110,7 +110,7 @@ Float optical/transceiver values from the HAL must be converted to
 ×1000 fixed-point integer encoding (Dbm1000 / m°C / mV / µA).
 
 The complete schema definition and field mappings were previously captured
-in [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) Section 3
+in [08_TR181_Telemetry_Reference.md](08_TR181_Telemetry_Reference.md) Section 3
 (now removed from that document). The full `EponReport.avsc` JSON and
 field-to-HAL-struct mapping should be restored from the git history of
 this repository (branch `feature/telemetry-docs`, commits before

@@ -49,7 +49,7 @@ extern "C" {
 #endif
 
 /* ------------------------------------------------------------------ *
- * Event-id catalog (1-to-1 with EPON_Manager_Reference_v2 §2)        *
+ * Event-id catalog (1-to-1 with 08_TR181_Telemetry_Reference §2)        *
  * ------------------------------------------------------------------ */
 
 /**

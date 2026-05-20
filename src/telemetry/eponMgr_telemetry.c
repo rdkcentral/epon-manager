@@ -28,7 +28,7 @@
  *   4. T2 backend              -- t2_event_s() shim, log-only stub
  *   5. Dispatcher              -- public producer API entry points
  *
- * Marker names and severities track design_docs/EPON_Manager_Reference_v2.md §2.
+ * Marker names and severities track design_docs/08_TR181_Telemetry_Reference.md §2.
  */
 
 #include "eponMgr_telemetry.h"

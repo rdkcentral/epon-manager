@@ -38,10 +38,8 @@ systems, handling:
 | 05 | [Thread Architecture](05_Thread_Architecture.md) | Multi-threading design |
 | 06 | [Configuration](06_Configuration.md) | Configuration and deployment |
 | 07 | [Telemetry Design](07_Telemetry_Design.md) | Telemetry module architecture, API, and T2 integration |
-| ~~08~~ | *(merged into 07)* | Module design merged into doc 07 (v1.2) |
-| 09 | [TR-181 & Telemetry Reference](09_TR181_Telemetry_Reference.md) | TR-181 parameters and telemetry event spec — [HTML](09_TR181_Telemetry_Reference.html) |
-| 10 | [Harvester Future Direction](10_Harvester_Future_Direction.md) | Deferred: design guide for future Avro periodic report |
-| — | [Telemetry Acceptance Criteria](Telemetry_Acceptance_Criteria.md) | MoSCoW acceptance criteria for the telemetry story |
+| 08 | [TR-181 & Telemetry Reference](08_TR181_Telemetry_Reference.md) | TR-181 parameters and telemetry event spec  |
+| 09 | [Harvester Future Direction](09_Harvester_Future_Direction.md) | Deferred: design guide for future Avro periodic report |
 | — | [EPON HAL Proposal](EPON_HAL_Proposal.md) | HAL interface proposal |
 
 ## Quick Start

@@ -1,6 +1,6 @@
 # EPON Manager — Telemetry Design
 
-**Spec:** [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) §2 (Telemetry Events)
+**Spec:** [08_TR181_Telemetry_Reference.md](08_TR181_Telemetry_Reference.md) §2 (Telemetry Events)
 **Acceptance Criteria:** [Telemetry_Acceptance_Criteria.md](Telemetry_Acceptance_Criteria.md)
 
 ---
@@ -22,7 +22,7 @@
 | 1 | Producer API | Three entry points — `_raise_simple()`, `_raise_intf()`, `_raise_alarm()` — backed by a single `dispatch(id, ctx)`. |
 | 2 | Alarm raised/cleared | One event id per alarm; `RAISED`/`CLEARED` state encoded in the marker value. |
 | 3 | Error events | Simple markers dispatched via `t2_event_s()` like all other events. |
-| 4 | Harvester (Avro report) | Out of scope. See [10_Harvester_Future_Direction.md](10_Harvester_Future_Direction.md). |
+| 4 | Harvester (Avro report) | Out of scope. See [09_Harvester_Future_Direction.md](09_Harvester_Future_Direction.md). |
 
 ---
 
@@ -283,7 +283,7 @@ it forwards each transition as one T2 event.
 
 ## References
 
-* [09_TR181_Telemetry_Reference.md](09_TR181_Telemetry_Reference.md) — TR-181 parameters and telemetry event spec.
+* [08_TR181_Telemetry_Reference.md](08_TR181_Telemetry_Reference.md) — TR-181 parameters and telemetry event spec.
 * [Telemetry_Acceptance_Criteria.md](Telemetry_Acceptance_Criteria.md)
 * IEEE 802.3ah Clause 57 (OAM) — alarm taxonomy.
 * RDK T2 Telemetry Framework — `t2_event_s` API.

@@ -113,10 +113,9 @@ epon-manager/
 │   ├── 05_Thread_Architecture.md
 │   ├── 06_Configuration.md
 │   ├── 07_Telemetry_Design.md
-│   ├── 09_Telemetry_Acceptance_Criteria.md
-│   ├── 10_Harvester_Future_Direction.md
-│   ├── EPON_Manager_Reference_v2.md
-│   ├── EPON_Manager_Reference_v2.html
+│   ├── 08_TR181_Telemetry_Reference.md
+│   ├── 08_TR181_Telemetry_Reference.html
+│   ├── 09_Harvester_Future_Direction.md
 │   ├── EPON_HAL_Proposal.md
 │   └── README.md             # Design docs index
 ├── configure.ac              # Autoconf configuration
@@ -148,7 +147,6 @@ epon-manager/
 | 05 | [Thread Architecture](design_docs/05_Thread_Architecture.md) | Multi-threading design |
 | 06 | [Configuration](design_docs/06_Configuration.md) | Configuration and deployment |
 | 07 | [Telemetry Design](design_docs/07_Telemetry_Design.md) | Telemetry module design, rate-limiting, and T2 integration |
-| 09 | [Telemetry Acceptance Criteria](design_docs/09_Telemetry_Acceptance_Criteria.md) | MoSCoW acceptance criteria for the telemetry story |
-| 10 | [Harvester Future Direction](design_docs/10_Harvester_Future_Direction.md) | Deferred: design guide for future Avro periodic report |
-| — | [Reference (Markdown)](design_docs/EPON_Manager_Reference_v2.md) | TR-181 parameters and telemetry event spec |
-| — | [Reference (HTML)](design_docs/EPON_Manager_Reference_v2.html) | Printable / browsable version of the reference |
+| 08 | [TR-181 & Telemetry Reference](design_docs/08_TR181_Telemetry_Reference.md) | TR-181 parameters and telemetry event spec |
+| 09 | [Harvester Future Direction](design_docs/09_Harvester_Future_Direction.md) | Deferred: design guide for future Avro periodic report |
+| — | [EPON HAL Proposal](design_docs/EPON_HAL_Proposal.md) | HAL interface proposal |
