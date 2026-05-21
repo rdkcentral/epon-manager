@@ -835,17 +835,7 @@ static rbusError_t stats_set_handler(rbusHandle_t handle, rbusProperty_t propert
     if (strstr(param_name, ".Reset")) {
         bool reset = rbusValue_GetBoolean(value);
         if (reset) {
-            /* Validate context is initialised, then release lock before HAL call.
-             * Holding the mutex across epon_hal_clear_stats() is unnecessary and
-             * would block other threads (e.g. stats poller) for the duration. */
-            eponMgr_data_t *eponData = eponMgr_data_lock();
-            if (!eponData) {
-                EPONMGR_LOG_ERROR("Stats reset: data context not initialised\n");
-                return RBUS_ERROR_BUS_ERROR;
-            }
-            eponMgr_data_unlock();
-
-            epon_hal_return_t rc = eponMgr_data_clear_stats(eponData);
+            epon_hal_return_t rc = eponMgr_data_clear_stats();
             if (rc != EPON_HAL_SUCCESS) {
                 return RBUS_ERROR_BUS_ERROR;
             }
@@ -874,19 +864,7 @@ static rbusError_t epon_reset_method_handler(rbusHandle_t handle, char const* me
 
     EPONMGR_LOG_INFO("RBUS method invoked: %s\n", methodName);
 
-    /* Validate context, then release lock before the HAL call.
-     * epon_hal_reset_onu() triggers async HAL callbacks on a separate thread;
-     * those callbacks acquire the same mutex via the controller, so holding it
-     * here would deadlock. */
-    eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData) {
-        EPONMGR_LOG_ERROR("Reset: data context not initialised\n");
-        return RBUS_ERROR_BUS_ERROR;
-    }
-    eponMgr_data_unlock();
-
-    epon_hal_return_t rc = eponMgr_data_reset_onu(eponData);
-
+    epon_hal_return_t rc = eponMgr_data_reset_onu();
     if (rc != EPON_HAL_SUCCESS) {
         return RBUS_ERROR_BUS_ERROR;
     }
@@ -911,18 +889,7 @@ static rbusError_t epon_factory_reset_method_handler(rbusHandle_t handle, char c
 
     EPONMGR_LOG_INFO("RBUS method invoked: %s\n", methodName);
 
-    /* Validate context, then release lock before the HAL call.
-     * epon_hal_factory_reset() may trigger HAL callbacks on a separate thread;
-     * holding the mutex here would deadlock against the callback path. */
-    eponMgr_data_t *eponData = eponMgr_data_lock();
-    if (!eponData) {
-        EPONMGR_LOG_ERROR("FactoryReset: data context not initialised\n");
-        return RBUS_ERROR_BUS_ERROR;
-    }
-    eponMgr_data_unlock();
-
-    epon_hal_return_t rc = eponMgr_data_factory_reset(eponData);
-
+    epon_hal_return_t rc = eponMgr_data_factory_reset();
     if (rc != EPON_HAL_SUCCESS) {
         return RBUS_ERROR_BUS_ERROR;
     }

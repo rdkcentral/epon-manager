@@ -847,18 +847,16 @@ int eponMgr_data_get_interface_by_name(eponMgr_data_t *eponData, const char *nam
  * @note Thread-safe: Acquires and releases internal mutex
  * @note Invalidates link and transceiver stats cache on success
  */
-epon_hal_return_t eponMgr_data_clear_stats(eponMgr_data_t *eponData)
+epon_hal_return_t eponMgr_data_clear_stats(void)
 {
-    if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!g_eponData) return EPON_HAL_ERROR_INVALID_PARAM;
 
-    /* Call HAL outside the mutex: clear_stats has no callbacks, but holding
-     * the lock across any HAL call is unnecessary and blocks other readers. */
     epon_hal_return_t ret = epon_hal_clear_stats();
 
     if (ret == EPON_HAL_SUCCESS) {
-        pthread_mutex_lock(&eponData->mutex);
-        eponMgr_statsData_invalidate_all(eponData->stats_data);
-        pthread_mutex_unlock(&eponData->mutex);
+        pthread_mutex_lock(&g_eponData->mutex);
+        eponMgr_statsData_invalidate_all(g_eponData->stats_data);
+        pthread_mutex_unlock(&g_eponData->mutex);
         EPONMGR_LOG_INFO("Statistics counters cleared via HAL\n");
     } else {
         EPONMGR_LOG_ERROR("epon_hal_clear_stats() failed (%d)\n", ret);
@@ -879,9 +877,9 @@ epon_hal_return_t eponMgr_data_clear_stats(eponMgr_data_t *eponData)
  * @note Raises EPON_TELEM_SYSTEM_ONU_RESET telemetry event on success
  * @note Causes temporary service disruption during re-registration
  */
-epon_hal_return_t eponMgr_data_reset_onu(eponMgr_data_t *eponData)
+epon_hal_return_t eponMgr_data_reset_onu(void)
 {
-    if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!g_eponData) return EPON_HAL_ERROR_INVALID_PARAM;
 
     EPONMGR_LOG_INFO("Initiating ONU reset\n");
 
@@ -910,17 +908,17 @@ epon_hal_return_t eponMgr_data_reset_onu(eponMgr_data_t *eponData)
  * @note Raises EPON_TELEM_SYSTEM_FACTORY_RESET telemetry event on success
  * @note Invalidates stats cache on success; re-initialization required after reset
  */
-epon_hal_return_t eponMgr_data_factory_reset(eponMgr_data_t *eponData)
+epon_hal_return_t eponMgr_data_factory_reset(void)
 {
-    if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
+    if (!g_eponData) return EPON_HAL_ERROR_INVALID_PARAM;
 
     EPONMGR_LOG_INFO("Initiating factory reset\n");
 
     epon_hal_return_t ret = epon_hal_factory_reset();
     if (ret == EPON_HAL_SUCCESS) {
-        pthread_mutex_lock(&eponData->mutex);
-        eponMgr_statsData_invalidate_all(eponData->stats_data);
-        pthread_mutex_unlock(&eponData->mutex);
+        pthread_mutex_lock(&g_eponData->mutex);
+        eponMgr_statsData_invalidate_all(g_eponData->stats_data);
+        pthread_mutex_unlock(&g_eponData->mutex);
         (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_FACTORY_RESET);
         EPONMGR_LOG_INFO("Factory reset completed successfully\n");
     } else {
