@@ -76,13 +76,10 @@ AM_CONDITIONAL([ENABLE_TELEMETRY], [test "x$enable_telemetry" = "xyes"])
 
 # T2 telemetry library detection.
 if test "x$enable_telemetry" = "xyes"; then
-    # libtelemetry_msgsender (T2) - optional.
     AC_CHECK_LIB([telemetry_msgsender], [t2_event_s], [
         T2_LIBS="-ltelemetry_msgsender"
-        AC_DEFINE([HAVE_LIBT2], [1], [Define to 1 if libtelemetry_msgsender is available])
     ], [
-        T2_LIBS=""
-        AC_MSG_NOTICE([libtelemetry_msgsender not found; T2 markers will be logged only])
+        AC_MSG_ERROR([libtelemetry_msgsender is required for telemetry support])
     ])
     AC_SUBST([T2_LIBS])
 fi

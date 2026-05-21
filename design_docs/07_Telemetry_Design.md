@@ -172,8 +172,7 @@ Maps `info->alarm_type` + standard/vendor enum → event id.
 static int t2_send(const char *marker, const char *value, priority_t prio);
 ```
 
-- Production: calls `t2_event_s(marker, value)`.
-- Stub (no `HAVE_LIBT2`): log-only.
+-  calls `t2_event_s(marker, value)`.
 
 ### 5.5 Dispatcher
 

@@ -39,9 +39,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef HAVE_LIBT2
-extern int t2_event_s(char *marker, char *value);
-#endif
+#include <telemetry_busmessage_sender.h>
 
 /* ====================================================================== *
  * 1. Event descriptor table                                                *
@@ -238,12 +236,7 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
                      value[0] ? " " : "",
                      value);
 
-#ifdef HAVE_LIBT2
-    char m[160], v[256];
-    strncpy(m, marker, sizeof(m) - 1); m[sizeof(m) - 1] = '\0';
-    strncpy(v, value,  sizeof(v) - 1); v[sizeof(v) - 1] = '\0';
-    (void)t2_event_s(m, v);
-#endif
+    (void)t2_event_s(marker, value);
     return 0;
 }
 
@@ -299,14 +292,9 @@ int eponMgr_telemetry_init(const char *component_name)
     g_state.initialized = true;
     pthread_mutex_unlock(&g_state.mtx);
 
-    EPONMGR_LOG_INFO("telemetry: initialized component=%s (%s)\n",
-                     component_name,
-#ifdef HAVE_LIBT2
-                     "T2 production"
-#else
-                     "T2 stub"
-#endif
-                     );
+    t2_init(g_state.component);
+
+    EPONMGR_LOG_INFO("telemetry: initialized component=%s\n", component_name);
     return 0;
 }
 
@@ -321,6 +309,8 @@ int eponMgr_telemetry_cleanup(void)
     g_state.initialized  = false;
     g_state.component[0] = '\0';
     pthread_mutex_unlock(&g_state.mtx);
+
+    t2_uninit();
     return 0;
 }
 
