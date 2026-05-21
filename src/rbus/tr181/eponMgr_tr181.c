@@ -559,7 +559,7 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     if (strstr(param_name, ".Enable")) {
-        // Always return enabled for now - TODO: implement PSM-based config storage
+        // Always return enabled for now 
         rbusValue_SetBoolean(value, true);
     }
     else if (strstr(param_name, ".Status")) {

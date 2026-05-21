@@ -382,10 +382,6 @@ static void process_alarm_event(eponMgr_controller_t *ctrl, epon_alarm_info_t *a
             EPONMGR_LOG_INFO("%s Alarm CLEARED: %s (LLID=%u)\n", type_str, alarm_str, llid);
         }
     }
-    
-    // TODO: Phase 7 - Report telemetry event for alarm
-    //   - Use T2 telemetry API to report critical/error alarms
-    //   - Format: "EPONMGR_ALARM_<TYPE>_<ACTIVE|CLEARED>"
 
     // Telemetry: one alarm marker per HAL alarm (RAISED/CLEARED in value).
     (void)eponMgr_telemetry_raise_alarm(alarm_info);

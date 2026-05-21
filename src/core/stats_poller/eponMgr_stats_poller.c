@@ -62,9 +62,6 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected link stats (TX: %llu bytes, RX: %llu bytes)\n",
                          (unsigned long long)link_stats->bytes_sent,
                          (unsigned long long)link_stats->bytes_received);
-        
-        // TODO: Push to telemetry system when implemented
-        // eponMgr_telemetry_report_link_stats(link_stats);
     } else {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect link stats\n");
         errors++;
@@ -77,8 +74,6 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
                          transceiver_stats->optical_signal_level,
                          transceiver_stats->transmit_optical_level);
         
-        // TODO: Push to telemetry system when implemented
-        // eponMgr_telemetry_report_transceiver_stats(transceiver_stats);
     } else {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect transceiver stats\n");
         errors++;

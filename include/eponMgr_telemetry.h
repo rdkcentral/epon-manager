@@ -111,7 +111,7 @@ typedef enum {
 
 
 /* ------------------------------------------------------------------ *
- * Lifecycle                                                           *
+ * Lifecycle and event producer API                                    *
  * ------------------------------------------------------------------ */
 
 /**
@@ -131,11 +131,6 @@ int eponMgr_telemetry_init(const char *component_name);
  * @return 0 on success, -1 on failure.
  */
 int eponMgr_telemetry_cleanup(void);
-
-
-/* ------------------------------------------------------------------ *
- * Event producer API (3 entry points)                                 *
- * ------------------------------------------------------------------ */
 
 /**
  * @brief Raise a telemetry event that needs no caller-supplied context.

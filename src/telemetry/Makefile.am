@@ -1,7 +1,5 @@
 # Makefile.am for telemetry library
 
-if ENABLE_TELEMETRY
-
 noinst_LIBRARIES = libepon_telemetry.a
 
 libepon_telemetry_a_SOURCES = \
@@ -13,5 +11,3 @@ libepon_telemetry_a_CFLAGS = \
     -I$(top_srcdir)/src/core/data_structures \
     -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/epon \
     $(AM_CFLAGS)
-
-endif

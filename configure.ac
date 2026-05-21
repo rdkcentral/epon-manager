@@ -67,22 +67,13 @@ fi
 
 AM_CONDITIONAL([ENABLE_RBUS], [test "x$enable_rbus" = "xyes"])
 
-# Option to enable/disable telemetry
-AC_ARG_ENABLE([telemetry],
-    AS_HELP_STRING([--enable-telemetry], [Enable telemetry support (default=yes)]),
-    [enable_telemetry=$enableval],
-    [enable_telemetry=yes])
-AM_CONDITIONAL([ENABLE_TELEMETRY], [test "x$enable_telemetry" = "xyes"])
-
-# T2 telemetry library detection.
-if test "x$enable_telemetry" = "xyes"; then
-    AC_CHECK_LIB([telemetry_msgsender], [t2_event_s], [
-        T2_LIBS="-ltelemetry_msgsender"
-    ], [
-        AC_MSG_ERROR([libtelemetry_msgsender is required for telemetry support])
-    ])
-    AC_SUBST([T2_LIBS])
-fi
+# T2 telemetry library (always required)
+AC_CHECK_LIB([telemetry_msgsender], [t2_event_s], [
+    T2_LIBS="-ltelemetry_msgsender"
+], [
+    AC_MSG_ERROR([libtelemetry_msgsender is required])
+])
+AC_SUBST([T2_LIBS])
 
 # Option to enable/disable HAL mock library
 AC_ARG_ENABLE([tests],
@@ -117,7 +108,6 @@ AC_MSG_RESULT([
     
     Features:
     RBUS support:       $enable_rbus
-    Telemetry:          $enable_telemetry
     HAL mock library:   $enable_tests
     Debug build:        $enable_debug
 ])
