@@ -272,4 +272,35 @@ static inline uint32_t eponMgr_data_get_interface_count(eponMgr_data_t *eponData
     return eponData ? eponData->interface_list.interface_count : 0;
 }
 
+/**
+ * @brief Clear statistics counters via HAL and invalidate stats cache
+ * @param eponData Pointer to data context
+ * @return EPON HAL return code
+ *
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Invalidates link and transceiver stats cache on success
+ */
+epon_hal_return_t eponMgr_data_clear_stats(eponMgr_data_t *eponData);
+
+/**
+ * @brief Reset ONU and restart MPCP registration via HAL
+ * @param eponData Pointer to data context
+ * @return EPON HAL return code
+ *
+ * @note Raises EPON_TELEM_SYSTEM_ONU_RESET telemetry event on success
+ * @note Causes temporary service disruption during re-registration
+ */
+epon_hal_return_t eponMgr_data_reset_onu(eponMgr_data_t *eponData);
+
+/**
+ * @brief Factory reset EPON HAL configuration to defaults
+ * @param eponData Pointer to data context
+ * @return EPON HAL return code
+ *
+ * @note Thread-safe: Acquires and releases internal mutex for cache invalidation
+ * @note Raises EPON_TELEM_SYSTEM_FACTORY_RESET telemetry event on success
+ * @note Invalidates stats cache on success; re-initialization required after reset
+ */
+epon_hal_return_t eponMgr_data_factory_reset(eponMgr_data_t *eponData);
+
 #endif /* EPONMGR_DATA_H */

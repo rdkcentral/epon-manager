@@ -97,6 +97,8 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
 static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts);
+static rbusError_t epon_reset_method_handler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
+static rbusError_t epon_factory_reset_method_handler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 
 /**
  * @brief TR-181 Parameter Registration Table
@@ -202,6 +204,10 @@ static rbusDataElement_t g_tr181_params[] = {
     /* Stats Poller Configuration (2 parameters) */
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.Enable", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.PollingInterval", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
+
+    /* RBUS Methods (2 methods) */
+    {TR181_BASE_PATH ".X_RDK_EPON.Reset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)epon_reset_method_handler}},
+    {TR181_BASE_PATH ".X_RDK_EPON.FactoryReset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)epon_factory_reset_method_handler}},
 };
 
 /**
@@ -829,15 +835,99 @@ static rbusError_t stats_set_handler(rbusHandle_t handle, rbusProperty_t propert
     if (strstr(param_name, ".Reset")) {
         bool reset = rbusValue_GetBoolean(value);
         if (reset) {
-            /* TODO: Implement statistics reset via HAL
-             * Currently this feature is not implemented.
-             * Need to design proper stats clearing mechanism. */
-            EPONMGR_LOG_WARN("Stats reset via TR-181 Stats.Reset is not yet implemented\n");
-            return RBUS_ERROR_BUS_ERROR;
+            /* Validate context is initialised, then release lock before HAL call.
+             * Holding the mutex across epon_hal_clear_stats() is unnecessary and
+             * would block other threads (e.g. stats poller) for the duration. */
+            eponMgr_data_t *eponData = eponMgr_data_lock();
+            if (!eponData) {
+                EPONMGR_LOG_ERROR("Stats reset: data context not initialised\n");
+                return RBUS_ERROR_BUS_ERROR;
+            }
+            eponMgr_data_unlock();
+
+            epon_hal_return_t rc = eponMgr_data_clear_stats(eponData);
+            if (rc != EPON_HAL_SUCCESS) {
+                return RBUS_ERROR_BUS_ERROR;
+            }
+
+            EPONMGR_LOG_INFO("Statistics counters reset via TR-181 Stats.Reset\n");
+            return RBUS_ERROR_SUCCESS;
         }
     }
 
     return RBUS_ERROR_INVALID_INPUT;
+}
+
+/**
+ * @brief RBUS method handler for X_RDK_EPON.Reset()
+ *
+ * Triggers an ONU re-registration by calling epon_hal_reset_onu().
+ * The ONU deregisters and restarts MPCP discovery and OAM negotiation.
+ */
+static rbusError_t epon_reset_method_handler(rbusHandle_t handle, char const* methodName,
+                                             rbusObject_t inParams, rbusObject_t outParams,
+                                             rbusMethodAsyncHandle_t asyncHandle) {
+    (void)handle;
+    (void)inParams;
+    (void)outParams;
+    (void)asyncHandle;
+
+    EPONMGR_LOG_INFO("RBUS method invoked: %s\n", methodName);
+
+    /* Validate context, then release lock before the HAL call.
+     * epon_hal_reset_onu() triggers async HAL callbacks on a separate thread;
+     * those callbacks acquire the same mutex via the controller, so holding it
+     * here would deadlock. */
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) {
+        EPONMGR_LOG_ERROR("Reset: data context not initialised\n");
+        return RBUS_ERROR_BUS_ERROR;
+    }
+    eponMgr_data_unlock();
+
+    epon_hal_return_t rc = eponMgr_data_reset_onu(eponData);
+
+    if (rc != EPON_HAL_SUCCESS) {
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+/**
+ * @brief RBUS method handler for X_RDK_EPON.FactoryReset()
+ *
+ * Resets EPON HAL configuration to factory defaults by calling
+ * epon_hal_factory_reset(). Clears all custom settings and statistics.
+ * The ONU must be reconfigured and re-initialized after this operation.
+ */
+static rbusError_t epon_factory_reset_method_handler(rbusHandle_t handle, char const* methodName,
+                                                     rbusObject_t inParams, rbusObject_t outParams,
+                                                     rbusMethodAsyncHandle_t asyncHandle) {
+    (void)handle;
+    (void)inParams;
+    (void)outParams;
+    (void)asyncHandle;
+
+    EPONMGR_LOG_INFO("RBUS method invoked: %s\n", methodName);
+
+    /* Validate context, then release lock before the HAL call.
+     * epon_hal_factory_reset() may trigger HAL callbacks on a separate thread;
+     * holding the mutex here would deadlock against the callback path. */
+    eponMgr_data_t *eponData = eponMgr_data_lock();
+    if (!eponData) {
+        EPONMGR_LOG_ERROR("FactoryReset: data context not initialised\n");
+        return RBUS_ERROR_BUS_ERROR;
+    }
+    eponMgr_data_unlock();
+
+    epon_hal_return_t rc = eponMgr_data_factory_reset(eponData);
+
+    if (rc != EPON_HAL_SUCCESS) {
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    return RBUS_ERROR_SUCCESS;
 }
 
 /**

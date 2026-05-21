@@ -26,6 +26,7 @@
 #include "eponMgr_logger.h"
 
 #include "eponMgr_data.h"
+#include "eponMgr_telemetry.h"
 #include "eponMgr_tr181.h"
 #include <string.h>
 #include <stdlib.h>
@@ -831,4 +832,100 @@ int eponMgr_data_get_interface_by_name(eponMgr_data_t *eponData, const char *nam
     
     pthread_mutex_unlock(&eponData->mutex);
     return -1;
+}
+
+/**
+ * @brief Clear statistics counters via HAL and invalidate stats cache
+ *
+ * Calls epon_hal_clear_stats() to reset all hardware counters to zero, then
+ * invalidates the local statistics cache to ensure fresh values are retrieved
+ * from HAL on the next read.
+ *
+ * @param eponData Pointer to data context
+ * @return EPON HAL return code (EPON_HAL_SUCCESS or error code)
+ *
+ * @note Thread-safe: Acquires and releases internal mutex
+ * @note Invalidates link and transceiver stats cache on success
+ */
+epon_hal_return_t eponMgr_data_clear_stats(eponMgr_data_t *eponData)
+{
+    if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
+
+    /* Call HAL outside the mutex: clear_stats has no callbacks, but holding
+     * the lock across any HAL call is unnecessary and blocks other readers. */
+    epon_hal_return_t ret = epon_hal_clear_stats();
+
+    if (ret == EPON_HAL_SUCCESS) {
+        pthread_mutex_lock(&eponData->mutex);
+        eponMgr_statsData_invalidate_all(eponData->stats_data);
+        pthread_mutex_unlock(&eponData->mutex);
+        EPONMGR_LOG_INFO("Statistics counters cleared via HAL\n");
+    } else {
+        EPONMGR_LOG_ERROR("epon_hal_clear_stats() failed (%d)\n", ret);
+    }
+
+    return ret;
+}
+
+/**
+ * @brief Reset ONU and restart MPCP registration via HAL
+ *
+ * Calls epon_hal_reset_onu() to deregister the ONU and restart the MPCP
+ * discovery and OAM negotiation process. Raises a telemetry event on success.
+ *
+ * @param eponData Pointer to data context
+ * @return EPON HAL return code (EPON_HAL_SUCCESS or error code)
+ *
+ * @note Raises EPON_TELEM_SYSTEM_ONU_RESET telemetry event on success
+ * @note Causes temporary service disruption during re-registration
+ */
+epon_hal_return_t eponMgr_data_reset_onu(eponMgr_data_t *eponData)
+{
+    if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
+
+    EPONMGR_LOG_INFO("Initiating ONU reset\n");
+
+    epon_hal_return_t ret = epon_hal_reset_onu();
+    if (ret == EPON_HAL_SUCCESS) {
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_ONU_RESET);
+        EPONMGR_LOG_INFO("ONU reset initiated successfully\n");
+    } else {
+        EPONMGR_LOG_ERROR("epon_hal_reset_onu() failed (%d)\n", ret);
+    }
+
+    return ret;
+}
+
+/**
+ * @brief Factory reset EPON HAL configuration to defaults
+ *
+ * Calls epon_hal_factory_reset() to clear all custom settings and statistics
+ * and restore default operational parameters. Invalidates the local stats
+ * cache and raises a telemetry event on success.
+ *
+ * @param eponData Pointer to data context
+ * @return EPON HAL return code (EPON_HAL_SUCCESS or error code)
+ *
+ * @note Thread-safe: Acquires and releases internal mutex for cache invalidation
+ * @note Raises EPON_TELEM_SYSTEM_FACTORY_RESET telemetry event on success
+ * @note Invalidates stats cache on success; re-initialization required after reset
+ */
+epon_hal_return_t eponMgr_data_factory_reset(eponMgr_data_t *eponData)
+{
+    if (!eponData) return EPON_HAL_ERROR_INVALID_PARAM;
+
+    EPONMGR_LOG_INFO("Initiating factory reset\n");
+
+    epon_hal_return_t ret = epon_hal_factory_reset();
+    if (ret == EPON_HAL_SUCCESS) {
+        pthread_mutex_lock(&eponData->mutex);
+        eponMgr_statsData_invalidate_all(eponData->stats_data);
+        pthread_mutex_unlock(&eponData->mutex);
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_FACTORY_RESET);
+        EPONMGR_LOG_INFO("Factory reset completed successfully\n");
+    } else {
+        EPONMGR_LOG_ERROR("epon_hal_factory_reset() failed (%d)\n", ret);
+    }
+
+    return ret;
 }
