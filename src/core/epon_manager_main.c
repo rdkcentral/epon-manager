@@ -55,8 +55,6 @@ static void print_usage(const char *program_name) {
  * Similar to wanmanager pattern - fork, create new session, redirect I/O
  */
 static void daemonize(void) {
-    int fd;
-    
     switch (fork()) {
     case 0:
         break;
@@ -73,6 +71,7 @@ static void daemonize(void) {
     }
 
 #ifndef _DEBUG
+    int fd;
     fd = open("/dev/null", O_RDONLY);
     if (fd != 0) {
         dup2(fd, 0);
