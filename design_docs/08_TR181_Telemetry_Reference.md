@@ -1,6 +1,6 @@
 # EPON Manager — TR-181 & Telemetry Reference
 
-**Document:** 09 &nbsp;|&nbsp; **Version:** 2.0 &nbsp;|&nbsp; **Date:** May 18, 2026 &nbsp;|&nbsp; **Component:** RDK EPON Manager (`rdk-eponmanager`)
+**Document:** 08 &nbsp;|&nbsp; **Version:** 2.0 &nbsp;|&nbsp; **Date:** May 18, 2026 &nbsp;|&nbsp; **Component:** RDK EPON Manager (`rdk-eponmanager`)
 **Design:** [07_Telemetry_Design.md](07_Telemetry_Design.md)
 
 ---

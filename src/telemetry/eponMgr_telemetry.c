@@ -25,7 +25,7 @@
  *   1. Event descriptor table  -- marker / priority / value-format
  *   2. Value formatter         -- builds T2 value string from ctx
  *   3. HAL alarm mapper        -- HAL alarm struct -> event id
- *   4. T2 backend              -- t2_event_s() shim, log-only stub
+ *   4. T2 backend              -- t2_event_s() 
  *   5. Dispatcher              -- public producer API entry points
  *
  * Marker names and severities track design_docs/08_TR181_Telemetry_Reference.md §2.
@@ -40,6 +40,7 @@
 #include <string.h>
 
 #ifdef ENABLE_FEATURE_TELEMETRY2_0
+#error
 #include <telemetry_busmessage_sender.h>
 #endif
 

@@ -67,12 +67,22 @@ fi
 
 AM_CONDITIONAL([ENABLE_RBUS], [test "x$enable_rbus" = "xyes"])
 
-# T2 telemetry library (always required)
-AC_CHECK_LIB([telemetry_msgsender], [t2_event_s], [
-    T2_LIBS="-ltelemetry_msgsender"
-], [
-    AC_MSG_ERROR([libtelemetry_msgsender is required])
-])
+# Option to enable/disable RDK Telemetry 2.0 support
+AC_ARG_ENABLE([telemetry2-0],
+    AS_HELP_STRING([--enable-telemetry2-0], [Enable RDK Telemetry 2.0 support (default=no)]),
+    [enable_telemetry2_0=$enableval],
+    [enable_telemetry2_0=no])
+
+T2_LIBS=""
+if test "x$enable_telemetry2_0" = "xyes"; then
+    AC_CHECK_LIB([telemetry_msgsender], [t2_event_s], [
+        T2_LIBS="-ltelemetry_msgsender"
+    ], [
+        AC_MSG_ERROR([libtelemetry_msgsender is required for Telemetry 2.0])
+    ])
+    AC_DEFINE([ENABLE_FEATURE_TELEMETRY2_0], [1],
+              [Define to 1 to enable RDK Telemetry 2.0 support])
+fi
 AC_SUBST([T2_LIBS])
 
 # Option to enable/disable HAL mock library
@@ -109,6 +119,7 @@ AC_MSG_RESULT([
     Features:
     RBUS support:       $enable_rbus
     HAL mock library:   $enable_tests
+    Telemetry 2.0:      $enable_telemetry2_0
     Debug build:        $enable_debug
 ])
 

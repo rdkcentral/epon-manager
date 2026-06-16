@@ -29,7 +29,7 @@
  * Producer surface:
  *   - eponMgr_telemetry_raise_simple(id)
  *   - eponMgr_telemetry_raise_intf  (id, ifname)
- *   - eponMgr_telemetry_raise_alarm (id, raised, llid)
+ *   - eponMgr_telemetry_raise_alarm (const epon_alarm_info_t *info)
  *
  * See design_docs/07_Telemetry_Design.md and
  * design_docs/08_Telemetry_Design.md for details.
