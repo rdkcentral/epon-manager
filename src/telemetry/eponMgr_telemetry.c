@@ -39,7 +39,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef ENABLE_FEATURE_TELEMETRY2_0
 #include <telemetry_busmessage_sender.h>
+#endif
 
 /* ====================================================================== *
  * 1. Event descriptor table                                                *
@@ -236,10 +238,12 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
                      value[0] ? " " : "",
                      value);
 
+#ifdef ENABLE_FEATURE_TELEMETRY2_0
     if (t2_event_s(marker, value) != T2ERROR_SUCCESS) {
         EPONMGR_LOG_WARN("telemetry: t2_event_s failed for marker %s\n", marker);
         return -1;
     }
+#endif
     return 0;
 }
 
@@ -295,7 +299,9 @@ int eponMgr_telemetry_init(const char *component_name)
     g_state.initialized = true;
     pthread_mutex_unlock(&g_state.mtx);
 
+#ifdef ENABLE_FEATURE_TELEMETRY2_0
     t2_init(g_state.component);
+#endif
 
     EPONMGR_LOG_INFO("telemetry: initialized component=%s\n", component_name);
     return 0;
@@ -313,7 +319,9 @@ int eponMgr_telemetry_cleanup(void)
     g_state.component[0] = '\0';
     pthread_mutex_unlock(&g_state.mtx);
 
+#ifdef ENABLE_FEATURE_TELEMETRY2_0
     t2_uninit();
+#endif
     return 0;
 }
 
