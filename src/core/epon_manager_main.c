@@ -59,14 +59,14 @@ static void daemonize(void) {
     case 0:
         break;
     case -1:
-        fprintf(stderr, "Error daemonizing (fork)! %d - %s\n", errno, strerror(errno));
+        fprintf(stderr, "Error in fork: %d - %s\n", errno, strerror(errno));
         exit(1);
     default:
         _exit(0);
     }
 
     if (setsid() < 0) {
-        fprintf(stderr, "Error daemonizing (setsid)! %d - %s\n", errno, strerror(errno));
+        fprintf(stderr, "Error in setsid: %d - %s\n", errno, strerror(errno));
         exit(1);
     }
 
