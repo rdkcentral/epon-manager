@@ -213,14 +213,14 @@ Represents virtual Ethernet interface points. Max 16 instances.
 
 ### 1.13 ONU Control Actions
 
-Write-triggered boolean parameters. SET to _true_ invokes the corresponding HAL action. GET always returns _false_.
+These actions are exposed as **RBus methods**, not TR-181 parameters. Callers invoke them via `rbusMethod_Invoke()` / `rbusMethod_InvokeAsync()`. No TR-181 GET is defined for either.
 
-| # | TR-181 Parameter | Description | Data Type | Access |
-|---|-----------------|-------------|-----------|--------|
-| 75 | `Device.Optical.Interface.1.X_RDK_EPON.Reset` | Triggers an ONU re-registration. Calls `epon_hal_reset_onu()` which deregisters the ONU and restarts the MPCP discovery and OAM negotiation process. GET always returns _false_. | boolean | RW |
-| 76 | `Device.Optical.Interface.1.X_RDK_EPON.FactoryReset` | Resets the EPON HAL configuration to factory defaults. Calls `epon_hal_factory_reset()` which clears all custom settings and statistics, and restores default operational parameters. The ONU must be reconfigured and re-initialized after this operation. GET always returns _false_. | boolean | RW |
+| RBus Method | Description |
+|-------------|-------------|
+| `Device.Optical.Interface.1.X_RDK_EPON.Reset()` | Triggers an ONU re-registration. Calls `epon_hal_reset_onu()` which deregisters the ONU and restarts the MPCP discovery and OAM negotiation process. |
+| `Device.Optical.Interface.1.X_RDK_EPON.FactoryReset()` | Resets the EPON HAL configuration to factory defaults. Calls `epon_hal_factory_reset()` which clears all custom settings and statistics, and restores default operational parameters. The ONU must be reconfigured and re-initialized after this operation. |
 
-> **Summary:** 76 total parameters — 7 Read/Write, 63 Read-Only, 3 Table
+> **Summary:** 74 total parameters — 5 Read/Write, 66 Read-Only, 3 Table
 
 ---
 

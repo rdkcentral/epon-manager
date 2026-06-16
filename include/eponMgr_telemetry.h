@@ -32,7 +32,7 @@
  *   - eponMgr_telemetry_raise_alarm (const epon_alarm_info_t *info)
  *
  * See design_docs/07_Telemetry_Design.md and
- * design_docs/08_Telemetry_Design.md for details.
+ * design_docs/08_TR181_Telemetry_Reference.md for details.
  */
 
 #ifndef EPONMGR_TELEMETRY_H

@@ -40,7 +40,6 @@
 #include <string.h>
 
 #ifdef ENABLE_FEATURE_TELEMETRY2_0
-#error
 #include <telemetry_busmessage_sender.h>
 #endif
 

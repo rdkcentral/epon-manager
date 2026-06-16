@@ -841,7 +841,6 @@ int eponMgr_data_get_interface_by_name(eponMgr_data_t *eponData, const char *nam
  * invalidates the local statistics cache to ensure fresh values are retrieved
  * from HAL on the next read.
  *
- * @param eponData Pointer to data context
  * @return EPON HAL return code (EPON_HAL_SUCCESS or error code)
  *
  * @note Thread-safe: Acquires and releases internal mutex
@@ -871,7 +870,6 @@ epon_hal_return_t eponMgr_data_clear_stats(void)
  * Calls epon_hal_reset_onu() to deregister the ONU and restart the MPCP
  * discovery and OAM negotiation process. Raises a telemetry event on success.
  *
- * @param eponData Pointer to data context
  * @return EPON HAL return code (EPON_HAL_SUCCESS or error code)
  *
  * @note Raises EPON_TELEM_SYSTEM_ONU_RESET telemetry event on success
@@ -901,7 +899,6 @@ epon_hal_return_t eponMgr_data_reset_onu(void)
  * and restore default operational parameters. Invalidates the local stats
  * cache and raises a telemetry event on success.
  *
- * @param eponData Pointer to data context
  * @return EPON HAL return code (EPON_HAL_SUCCESS or error code)
  *
  * @note Thread-safe: Acquires and releases internal mutex for cache invalidation

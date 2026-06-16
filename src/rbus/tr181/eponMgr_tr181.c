@@ -206,8 +206,8 @@ static rbusDataElement_t g_tr181_params[] = {
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.PollingInterval", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
 
     /* RBUS Methods (2 methods) */
-    {TR181_BASE_PATH ".X_RDK_EPON.Reset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)epon_reset_method_handler}},
-    {TR181_BASE_PATH ".X_RDK_EPON.FactoryReset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)epon_factory_reset_method_handler}},
+    {TR181_BASE_PATH ".X_RDK_EPON.Reset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, epon_reset_method_handler}},
+    {TR181_BASE_PATH ".X_RDK_EPON.FactoryReset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, epon_factory_reset_method_handler}},
 };
 
 /**

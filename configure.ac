@@ -120,6 +120,7 @@ AC_MSG_RESULT([
     RBUS support:       $enable_rbus
     HAL mock library:   $enable_tests
     Telemetry 2.0:      $enable_telemetry2_0
+    HAL mock library:   $enable_tests
     Debug build:        $enable_debug
 ])
 

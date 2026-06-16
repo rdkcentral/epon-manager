@@ -96,9 +96,11 @@ static void daemonize(void) {
  * @param signum Signal number received
  */
 static void signal_handler(int signum) {
-    printf("\nReceived signal %d, initiating shutdown...\n", signum);
-    (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_SHUTDOWN);
+    /* Only async-signal-safe operations here.  Telemetry (mutexes/logging/T2
+     * APIs) is NOT async-signal-safe and must not be called from a signal
+     * handler; it is emitted in main() once the event loop exits. */
     eponMgr_controller_shutdown();
+    (void)signum;
 }
 
 /**
@@ -168,6 +170,10 @@ int main(int argc, char *argv[]) {
 
         // Run main event loop (blocks until shutdown)
     int ret = eponMgr_controller_run(controller);
+
+    // Event loop has exited — emit shutdown telemetry from this normal thread
+    // context (safe: no longer in a signal handler).
+    (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_SHUTDOWN);
 
     // Cleanup
     eponMgr_controller_destroy(controller);
