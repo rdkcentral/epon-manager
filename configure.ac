@@ -99,9 +99,9 @@ AC_ARG_ENABLE([debug],
     [enable_debug=no])
 
 if test "x$enable_debug" = "xyes"; then
-    CFLAGS="-g -O0 -DDEBUG"
+    CFLAGS="$CFLAGS -g -O0 -DDEBUG"
 else
-    CFLAGS="-O2 -DNDEBUG"
+    CFLAGS="$CFLAGS -O2 -DNDEBUG"
 fi
 
 # Add common compiler flags
