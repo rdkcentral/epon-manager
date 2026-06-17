@@ -19,7 +19,7 @@
 
 /**
  * @file eponMgr_stats_poller.h
- * @brief EPON Manager Statistics Polling Thread (Harvester)
+ * @brief EPON Manager Statistics Polling Thread
  * 
  * Optional periodic thread that polls statistics from HAL and updates:
  * - Internal cache with fresh statistics

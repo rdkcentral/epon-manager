@@ -29,6 +29,8 @@ epon_manager_LDADD = \
     $(top_builddir)/src/core/config/libeponMgr_persistence.a \
     -lpthread
 
+epon_manager_LDADD += $(top_builddir)/src/telemetry/libepon_telemetry.a $(T2_LIBS)
+
 if ENABLE_RBUS
 epon_manager_LDADD += $(top_builddir)/src/rbus/libeponMgr_rbus.a -lrbus
 endif

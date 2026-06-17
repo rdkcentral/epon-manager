@@ -33,6 +33,7 @@
 #include "eponMgr_psm.h"
 #include "eponMgr_tr181.h"
 #include "eponMgr_stats_poller.h"
+#include "eponMgr_telemetry.h"
 #include <rbus/rbus.h>
 
 #include <stdio.h>
@@ -98,6 +99,7 @@ static void hal_status_callback(epon_onu_status_t status) {
         pthread_cond_signal(&g_controller->event_cond);
     } else {
         EPONMGR_LOG_ERROR("Failed to enqueue ONU status event\n");
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_EVENT_QUEUE_FULL);
     }
 }
 
@@ -122,6 +124,7 @@ static void hal_alarm_callback(const epon_alarm_info_t *alarm_info) {
         pthread_cond_signal(&g_controller->event_cond);
     } else {
         EPONMGR_LOG_ERROR("Failed to enqueue alarm event\n");
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_EVENT_QUEUE_FULL);
     }
 }
 
@@ -146,6 +149,7 @@ static void hal_interface_status_callback(epon_onu_interface_info_t status) {
         pthread_cond_signal(&g_controller->event_cond);
     } else {
         EPONMGR_LOG_ERROR("Failed to enqueue interface status event\n");
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_EVENT_QUEUE_FULL);
     }
 }
 
@@ -166,8 +170,26 @@ static void process_onu_status_event(eponMgr_controller_t *ctrl, epon_onu_status
         eponMgr_onu_state_update_status(onu_state, status);
         EPONMGR_LOG_INFO("ONU status changed to: %d\n", status);
     }
-    
-    // TODO: Phase 7 - Report telemetry event for ONU status change
+
+    // Telemetry: one event per ONU registration state.
+    eponMgr_telemetry_event_id_t tid;
+    switch (status) {
+        case EPON_ONU_STATUS_LOS:
+            tid = EPON_TELEM_ONU_LOS;
+            break;
+        case EPON_ONU_STATUS_DOWNSTREAM_SIGNAL_DETECTED:
+            tid = EPON_TELEM_ONU_DOWNSTREAM_SIGNAL_DETECTED;
+            break;
+        case EPON_ONU_STATUS_REGISTRATION:
+            tid = EPON_TELEM_ONU_REGISTRATION;
+            break;
+        case EPON_ONU_STATUS_DEREGISTRATION:
+            tid = EPON_TELEM_ONU_DEREGISTRATION;
+            break;
+        default:
+            return;
+    }
+    (void)eponMgr_telemetry_raise_simple(tid);
 }
 
 /**
@@ -226,15 +248,29 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     if (eponMgr_rbus_update_virtual_interface(info->name, 
                                              info->status == EPON_ONU_INTF_STATUS_LINK_UP) != 0) {
         EPONMGR_LOG_WARN("Failed to update virtual interface %s in WanManager\n", info->name);
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED);
     }
-    
+
+    // Per-interface link telemetry.
+    (void)eponMgr_telemetry_raise_intf(
+        info->status == EPON_ONU_INTF_STATUS_LINK_UP
+            ? EPON_TELEM_INTF_LINK_UP
+            : EPON_TELEM_INTF_LINK_DOWN,
+        info->name);
+
     // Step 2: Check overall PHY status and notify WanManager
     // PHY UP if ANY interface is UP, PHY DOWN if ALL interfaces are DOWN
     bool phy_is_up = has_any_interface_up(iface_list);
-    
+
     if (eponMgr_rbus_notify_wanmanager_phy_status(phy_is_up) != 0) {
         EPONMGR_LOG_WARN("Failed to notify WanManager of PHY status change\n");
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED);
     }
+
+    // Aggregate PHY telemetry (fires on every interface event; T2 will
+    // dedupe at the backend if necessary).
+    (void)eponMgr_telemetry_raise_simple(
+        phy_is_up ? EPON_TELEM_PHY_STATUS_UP : EPON_TELEM_PHY_STATUS_DOWN);
     
     // Step 3: Sync VEIP Interface table only if interface count changed
     if (iface_list && iface_list->interface_count != ctrl->data->if_list_count_cache) {
@@ -242,6 +278,7 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
                         ctrl->data->if_list_count_cache, iface_list->interface_count);
         if (eponMgr_tr181_sync_veip_table() != 0) {
             EPONMGR_LOG_WARN("Failed to sync VEIP Interface table\n");
+            (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_RBUS_PUBLISH_FAILED);
         }
         // Update cache with new count
         ctrl->data->if_list_count_cache = iface_list->interface_count;
@@ -249,8 +286,8 @@ static void process_interface_status_event(eponMgr_controller_t *ctrl, epon_onu_
     
     EPONMGR_LOG_INFO("WanManager updated: interface=%s, PHY status=%s\n", 
                 info->name, phy_is_up ? "UP" : "DOWN");
-    
-    // TODO: Phase 7 - Report telemetry event for interface status change
+
+    (void)ctrl;
 }
 
 /**
@@ -345,11 +382,10 @@ static void process_alarm_event(eponMgr_controller_t *ctrl, epon_alarm_info_t *a
             EPONMGR_LOG_INFO("%s Alarm CLEARED: %s (LLID=%u)\n", type_str, alarm_str, llid);
         }
     }
-    
-    // TODO: Phase 7 - Report telemetry event for alarm
-    //   - Use T2 telemetry API to report critical/error alarms
-    //   - Format: "EPONMGR_ALARM_<TYPE>_<ACTIVE|CLEARED>"
-    
+
+    // Telemetry: one alarm marker per HAL alarm (RAISED/CLEARED in value).
+    (void)eponMgr_telemetry_raise_alarm(alarm_info);
+
     (void)ctrl; // Suppress unused warning for now
 }
 
@@ -523,6 +559,11 @@ eponMgr_controller_t* eponMgr_controller_init(void) {
     epon_hal_return_t ret = eponMgr_data_hal_init(ctrl->data);
     if (ret != EPON_HAL_SUCCESS) {
         EPONMGR_LOG_ERROR("Failed to initialize EPON HAL: %d\n", ret);
+        if (ret == EPON_HAL_ERROR_WRONG_PON_MODE) {
+            (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_HAL_WRONG_PON_MODE);
+        } else {
+            (void)eponMgr_telemetry_raise_simple(EPON_TELEM_ERROR_HAL_CALL_FAILED);
+        }
         goto error;
     }
     EPONMGR_LOG_INFO("EPON HAL initialized successfully\n");

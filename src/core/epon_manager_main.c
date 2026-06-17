@@ -23,6 +23,7 @@
  */
 
 #include "controller/eponMgr_controller.h"
+#include "eponMgr_telemetry.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,24 +55,23 @@ static void print_usage(const char *program_name) {
  * Similar to wanmanager pattern - fork, create new session, redirect I/O
  */
 static void daemonize(void) {
-    int fd;
-    
     switch (fork()) {
     case 0:
         break;
     case -1:
-        fprintf(stderr, "Error daemonizing (fork)! %d - %s\n", errno, strerror(errno));
+        fprintf(stderr, "Error in fork: %d - %s\n", errno, strerror(errno));
         exit(1);
     default:
         _exit(0);
     }
 
     if (setsid() < 0) {
-        fprintf(stderr, "Error daemonizing (setsid)! %d - %s\n", errno, strerror(errno));
+        fprintf(stderr, "Error in setsid: %d - %s\n", errno, strerror(errno));
         exit(1);
     }
 
 #ifndef _DEBUG
+    int fd;
     fd = open("/dev/null", O_RDONLY);
     if (fd != 0) {
         dup2(fd, 0);
@@ -95,8 +95,11 @@ static void daemonize(void) {
  * @param signum Signal number received
  */
 static void signal_handler(int signum) {
-    printf("\nReceived signal %d, initiating shutdown...\n", signum);
+    /* Only async-signal-safe operations here.  Telemetry (mutexes/logging/T2
+     * APIs) is NOT async-signal-safe and must not be called from a signal
+     * handler; it is emitted in main() once the event loop exits. */
     eponMgr_controller_shutdown();
+    (void)signum;
 }
 
 /**
@@ -150,17 +153,30 @@ int main(int argc, char *argv[]) {
     signal(SIGTERM, signal_handler);
     printf("Signal handlers registered (SIGINT, SIGTERM)\n");
     
+    // Initialize telemetry first so init success/failure can be reported.
+    (void)eponMgr_telemetry_init("EponManager");
+
     // Initialize controller
     eponMgr_controller_t *controller = eponMgr_controller_init();
     if (!controller) {
         fprintf(stderr, "FATAL: Failed to initialize EPON Manager controller\n");
+        (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_INIT_FAILURE);
+        (void)eponMgr_telemetry_cleanup();
         return 1;
     }
+
+    (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_INIT_SUCCESS);
+
         // Run main event loop (blocks until shutdown)
     int ret = eponMgr_controller_run(controller);
-    
+
+    // Event loop has exited — emit shutdown telemetry from this normal thread
+    // context (safe: no longer in a signal handler).
+    (void)eponMgr_telemetry_raise_simple(EPON_TELEM_SYSTEM_SHUTDOWN);
+
     // Cleanup
     eponMgr_controller_destroy(controller);
+    (void)eponMgr_telemetry_cleanup();
     
     printf("\n=== EPON Manager Stopped ===\n");
     return ret;

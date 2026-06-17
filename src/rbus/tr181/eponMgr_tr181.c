@@ -97,6 +97,8 @@ static rbusError_t cpe_table_handler(rbusHandle_t handle, rbusProperty_t propert
 static rbusError_t veip_table_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t stats_poller_get_handler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 static rbusError_t stats_poller_set_handler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts);
+static rbusError_t epon_reset_method_handler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
+static rbusError_t epon_factory_reset_method_handler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 
 /**
  * @brief TR-181 Parameter Registration Table
@@ -202,6 +204,10 @@ static rbusDataElement_t g_tr181_params[] = {
     /* Stats Poller Configuration (2 parameters) */
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.Enable", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
     {TR181_BASE_PATH ".X_RDK_EPON.StatsPoller.PollingInterval", RBUS_ELEMENT_TYPE_PROPERTY, {stats_poller_get_handler, stats_poller_set_handler, NULL, NULL, NULL, NULL}},
+
+    /* RBUS Methods (2 methods) */
+    {TR181_BASE_PATH ".X_RDK_EPON.Reset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, epon_reset_method_handler}},
+    {TR181_BASE_PATH ".X_RDK_EPON.FactoryReset()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, epon_factory_reset_method_handler}},
 };
 
 /**
@@ -421,7 +427,6 @@ static const char* get_param_capability(const rbusDataElement_t *elem) {
     int has_event = (elem->cbTable.eventSubHandler != NULL);
     int has_add_row = (elem->cbTable.tableAddRowHandler != NULL);
     int has_remove_row = (elem->cbTable.tableRemoveRowHandler != NULL);
-    int has_method = (elem->cbTable.methodHandler != NULL);
     
     if (elem->type == RBUS_ELEMENT_TYPE_PROPERTY) {
         if (has_get && has_set) {
@@ -560,7 +565,7 @@ static rbusError_t base_param_get_handler(rbusHandle_t handle, rbusProperty_t pr
     EPONMGR_LOG_DEBUG("TR-181 GET: %s\n", param_name);
 
     if (strstr(param_name, ".Enable")) {
-        // Always return enabled for now - TODO: implement PSM-based config storage
+        // Always return enabled for now 
         rbusValue_SetBoolean(value, true);
     }
     else if (strstr(param_name, ".Status")) {
@@ -830,15 +835,66 @@ static rbusError_t stats_set_handler(rbusHandle_t handle, rbusProperty_t propert
     if (strstr(param_name, ".Reset")) {
         bool reset = rbusValue_GetBoolean(value);
         if (reset) {
-            /* TODO: Implement statistics reset via HAL
-             * Currently this feature is not implemented.
-             * Need to design proper stats clearing mechanism. */
-            EPONMGR_LOG_WARN("Stats reset via TR-181 Stats.Reset is not yet implemented\n");
-            return RBUS_ERROR_BUS_ERROR;
+            epon_hal_return_t rc = eponMgr_data_clear_stats();
+            if (rc != EPON_HAL_SUCCESS) {
+                return RBUS_ERROR_BUS_ERROR;
+            }
+
+            EPONMGR_LOG_INFO("Statistics counters reset via TR-181 Stats.Reset\n");
+            return RBUS_ERROR_SUCCESS;
         }
     }
 
     return RBUS_ERROR_INVALID_INPUT;
+}
+
+/**
+ * @brief RBUS method handler for X_RDK_EPON.Reset()
+ *
+ * Triggers an ONU re-registration by calling epon_hal_reset_onu().
+ * The ONU deregisters and restarts MPCP discovery and OAM negotiation.
+ */
+static rbusError_t epon_reset_method_handler(rbusHandle_t handle, char const* methodName,
+                                             rbusObject_t inParams, rbusObject_t outParams,
+                                             rbusMethodAsyncHandle_t asyncHandle) {
+    (void)handle;
+    (void)inParams;
+    (void)outParams;
+    (void)asyncHandle;
+
+    EPONMGR_LOG_INFO("RBUS method invoked: %s\n", methodName);
+
+    epon_hal_return_t rc = eponMgr_data_reset_onu();
+    if (rc != EPON_HAL_SUCCESS) {
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+/**
+ * @brief RBUS method handler for X_RDK_EPON.FactoryReset()
+ *
+ * Resets EPON HAL configuration to factory defaults by calling
+ * epon_hal_factory_reset(). Clears all custom settings and statistics.
+ * The ONU must be reconfigured and re-initialized after this operation.
+ */
+static rbusError_t epon_factory_reset_method_handler(rbusHandle_t handle, char const* methodName,
+                                                     rbusObject_t inParams, rbusObject_t outParams,
+                                                     rbusMethodAsyncHandle_t asyncHandle) {
+    (void)handle;
+    (void)inParams;
+    (void)outParams;
+    (void)asyncHandle;
+
+    EPONMGR_LOG_INFO("RBUS method invoked: %s\n", methodName);
+
+    epon_hal_return_t rc = eponMgr_data_factory_reset();
+    if (rc != EPON_HAL_SUCCESS) {
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    return RBUS_ERROR_SUCCESS;
 }
 
 /**
@@ -869,32 +925,33 @@ static rbusError_t transceiver_get_handler(rbusHandle_t handle, rbusProperty_t p
         return RBUS_ERROR_BUS_ERROR;
     }
     
+    /* All transceiver values scaled ×1000 to int32 (BBF TR-181 has no float/double) */
     if (strstr(param_name, "Temperature")) {
-        int32_t temp = (int32_t)(trans_stats->temperature * 10.0f);  /* 0.1°C units */
+        int32_t temp = (int32_t)(trans_stats->temperature * 1000.0f);  /* m°C (millidegrees Celsius) */
         rbusValue_SetInt32(value, temp);
     }
     else if (strstr(param_name, "SupplyVoltage")) {
-        int32_t voltage = (int32_t)(trans_stats->supply_voltage * 1000.0f);  /* mV units */
+        int32_t voltage = (int32_t)(trans_stats->supply_voltage * 1000.0f);  /* mV (millivolts) */
         rbusValue_SetInt32(value, voltage);
     }
     else if (strstr(param_name, "BiasCurrent")) {
-        int32_t current = (int32_t)(trans_stats->bias_current * 10.0f);  /* 0.1 mA units */
+        int32_t current = (int32_t)(trans_stats->bias_current * 1000.0f);  /* µA (microamps) */
         rbusValue_SetInt32(value, current);
     }
     else if (strstr(param_name, "LowerOpticalThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->lower_optical_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->lower_optical_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "UpperOpticalThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->upper_optical_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->upper_optical_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "LowerTransmitPowerThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->lower_transmit_power_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->lower_transmit_power_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     else if (strstr(param_name, "UpperTransmitPowerThreshold")) {
-        int32_t threshold = (int32_t)(trans_stats->upper_transmit_power_threshold * 1000.0f);
+        int32_t threshold = (int32_t)(trans_stats->upper_transmit_power_threshold * 1000.0f);  /* Dbm1000 */
         rbusValue_SetInt32(value, threshold);
     }
     

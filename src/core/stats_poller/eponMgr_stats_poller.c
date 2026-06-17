@@ -26,6 +26,7 @@
 #include "eponMgr_logger.h"
 #include "eponMgr_controller.h"
 #include "eponMgr_persistence.h"
+#include "eponMgr_telemetry.h"
 #include "epon_hal.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,9 +62,6 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
         EPONMGR_LOG_DEBUG("Stats poller: Collected link stats (TX: %llu bytes, RX: %llu bytes)\n",
                          (unsigned long long)link_stats->bytes_sent,
                          (unsigned long long)link_stats->bytes_received);
-        
-        // TODO: Push to telemetry system when implemented
-        // eponMgr_telemetry_report_link_stats(link_stats);
     } else {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect link stats\n");
         errors++;
@@ -76,8 +74,6 @@ static int collect_all_stats(eponMgr_stats_poller_t *poller) {
                          transceiver_stats->optical_signal_level,
                          transceiver_stats->transmit_optical_level);
         
-        // TODO: Push to telemetry system when implemented
-        // eponMgr_telemetry_report_transceiver_stats(transceiver_stats);
     } else {
         EPONMGR_LOG_WARN("Stats poller: Failed to collect transceiver stats\n");
         errors++;
@@ -137,8 +133,16 @@ static void* stats_poller_thread(void *arg) {
             /* Collect statistics */
             if (collect_all_stats(poller) == 0) {
                 EPONMGR_LOG_INFO("Stats poller: Successfully collected all statistics\n");
+                /* TODO(harvester): publish collected stats to cloud analytics pipeline.
+                 * When the Harvester periodic Avro report is implemented, call
+                 * eponMgr_harvester_publish_now(poller->eponData) here so that each
+                 * successful poll cycle ships one EPONTelemetryDiagnostics Avro record
+                 * to the Kestrel pipeline via libparodus.
+                 * See design_docs/09_Harvester_Future_Direction.md for the full design. */
             } else {
                 EPONMGR_LOG_WARN("Stats poller: Some statistics collection failed\n");
+                (void)eponMgr_telemetry_raise_simple(
+                    EPON_TELEM_ERROR_STATS_COLLECTION_FAILED);
             }
         } else {
             EPONMGR_LOG_DEBUG("Stats poller: Skipping collection (disabled)\n");
