@@ -239,7 +239,7 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
                      value);
 
 #ifdef ENABLE_FEATURE_TELEMETRY2_0
-    if (t2_event_s(marker, value) != T2ERROR_SUCCESS) {
+    if (t2_event_s(marker, value[0] ? value : NULL) != T2ERROR_SUCCESS) {
         EPONMGR_LOG_WARN("telemetry: t2_event_s failed for marker %s\n", marker);
         return -1;
     }
