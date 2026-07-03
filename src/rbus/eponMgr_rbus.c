@@ -34,6 +34,7 @@
 #include "eponMgr_tr181.h"
 #include "eponMgr_logger.h"
 #include "eponMgr_controller.h"
+#include "eponMgr_telemetry_debug.h" /* TEMP: remove before merging PR */
 #include <rbus/rbus.h>
 
 /* Global RBUS handle */
@@ -99,6 +100,9 @@ void eponMgr_rbus_cleanup(void) {
     
     EPONMGR_LOG_INFO("Cleaning up RBUS\n");
     
+    /* TEMP: unregister debug telemetry trigger DML - remove before merging PR */
+    eponMgr_telemetry_debug_cleanup(g_rbus_handle);
+
     /* Unregister TR-181 parameters */
     eponMgr_tr181_cleanup(g_rbus_handle);
     
@@ -141,7 +145,12 @@ int eponMgr_rbus_register_tr181(void) {
     
     EPONMGR_LOG_INFO("TR-181 parameters registered (%d parameters)\n",
                      eponMgr_tr181_get_param_count());
-    
+
+    /* TEMP: register debug telemetry trigger DML - remove before merging PR */
+    if (eponMgr_telemetry_debug_init(g_rbus_handle) != 0) {
+        EPONMGR_LOG_WARN("Failed to register debug telemetry DML (non-fatal)\n");
+    }
+
     return 0;
 }
 
