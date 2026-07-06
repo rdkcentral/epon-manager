@@ -239,8 +239,18 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
                      value);
 
 #ifdef ENABLE_FEATURE_TELEMETRY2_0
-    if (t2_event_s(marker, value[0] ? value : NULL) != T2ERROR_SUCCESS) {
-        EPONMGR_LOG_WARN("telemetry: t2_event_s failed for marker %s\n", marker);
+    T2ERROR t2ret;
+    if (value[0] == '\0') {
+        /* FMT_NONE: no string payload — use t2_event_d(1) to fire the marker.
+         * t2_event_s with "" is silently dropped by the T2 library; t2_event_d
+         * with 0 is also dropped, so 1 is the correct sentinel for a boolean
+         * "event occurred" signal. */
+        t2ret = t2_event_d(marker, 1);
+    } else {
+        t2ret = t2_event_s(marker, value);
+    }
+    if (t2ret != T2ERROR_SUCCESS) {
+        EPONMGR_LOG_WARN("telemetry: t2 send failed for marker %s\n", marker);
         return -1;
     }
 #endif
