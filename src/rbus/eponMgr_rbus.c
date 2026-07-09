@@ -141,7 +141,7 @@ int eponMgr_rbus_register_tr181(void) {
     
     EPONMGR_LOG_INFO("TR-181 parameters registered (%d parameters)\n",
                      eponMgr_tr181_get_param_count());
-
+    
     return 0;
 }
 
