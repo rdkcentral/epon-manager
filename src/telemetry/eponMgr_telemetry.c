@@ -242,9 +242,8 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
     T2ERROR t2ret;
     if (value[0] == '\0') {
         /* FMT_NONE: no string payload — use t2_event_d(1) to fire the marker.
-         * t2_event_s with "" is silently dropped by the T2 library; t2_event_d
-         * with 0 is also dropped, so 1 is the correct sentinel for a boolean
-         * "event occurred" signal. */
+         * t2_event_s with "" is silently dropped by the T2 library; use t2_event_d
+         * with 1 to send "event occurred" signal. */
         t2ret = t2_event_d(marker, 1);
     } else {
         t2ret = t2_event_s(marker, value);
