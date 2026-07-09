@@ -249,7 +249,7 @@ static int t2_send(const char *marker, const char *value, priority_t prio)
         t2ret = t2_event_s(marker, value);
     }
     if (t2ret != T2ERROR_SUCCESS) {
-        EPONMGR_LOG_WARN("telemetry: t2 send failed for marker %s\n", marker);
+        EPONMGR_LOG_WARN("telemetry: t2 send failed for marker %s (ret=%d)\n", marker, (int)t2ret);
         return -1;
     }
 #endif
